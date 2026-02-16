@@ -1,47 +1,47 @@
 
 import React from 'react';
 import { Tabs } from 'expo-router';
-import FloatingTabBar from '@/components/FloatingTabBar';
+import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 import { colors } from '@/styles/commonStyles';
 
 export default function TabLayout() {
-  const tabs = [
+  const tabs: TabBarItem[] = [
     {
       name: 'index',
-      title: 'Home',
-      ios_icon_name: 'house.fill',
-      android_material_icon_name: 'home' as const,
+      route: '/(tabs)/',
+      icon: 'home',
+      label: 'Home',
     },
     {
       name: 'artists',
-      title: 'Artists',
-      ios_icon_name: 'person.3.fill',
-      android_material_icon_name: 'group' as const,
+      route: '/(tabs)/artists',
+      icon: 'group',
+      label: 'Artists',
     },
     {
       name: 'merch',
-      title: 'Merch',
-      ios_icon_name: 'bag.fill',
-      android_material_icon_name: 'shopping-bag' as const,
+      route: '/(tabs)/merch',
+      icon: 'shopping-bag',
+      label: 'Merch',
     },
     {
       name: 'about',
-      title: 'About',
-      ios_icon_name: 'info.circle.fill',
-      android_material_icon_name: 'info' as const,
+      route: '/(tabs)/about',
+      icon: 'info',
+      label: 'About',
     },
     {
       name: 'admin',
-      title: 'Admin',
-      ios_icon_name: 'lock.fill',
-      android_material_icon_name: 'lock' as const,
+      route: '/(tabs)/admin',
+      icon: 'lock',
+      label: 'Admin',
     },
   ];
 
   return (
     <>
       <Tabs
-        tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} />}
+        tabBar={() => <FloatingTabBar tabs={tabs} />}
         screenOptions={{
           headerShown: false,
         }}
