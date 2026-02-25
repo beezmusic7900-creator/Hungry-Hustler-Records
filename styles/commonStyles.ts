@@ -1,5 +1,5 @@
 
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 // Hungry Hustler Records Theme - Urban Modern Aesthetic
 export const colors = {
@@ -44,11 +44,18 @@ export const commonStyles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: `0px 4px 12px rgba(0, 255, 102, 0.1)`,
+      },
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 8,
+      },
+    }),
   },
   title: {
     fontSize: 28,
@@ -81,11 +88,18 @@ export const commonStyles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    ...Platform.select({
+      web: {
+        boxShadow: `0px 4px 8px rgba(0, 255, 102, 0.3)`,
+      },
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+      },
+    }),
   },
   buttonText: {
     color: colors.background,
