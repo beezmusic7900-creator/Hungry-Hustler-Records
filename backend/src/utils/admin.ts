@@ -4,7 +4,18 @@ import type { App } from '../index.js';
 import * as schema from '../db/schema.js';
 
 /**
- * Middleware to check if the current user is an admin
+ * Extract Bearer token from Authorization header
+ */
+export function getBearerToken(request: FastifyRequest): string | null {
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  return authHeader.substring(7); // Remove "Bearer " prefix
+}
+
+/**
+ * Middleware to check if the current user is an admin using Bearer token
  * Returns the admin status, session info, or null if not authenticated
  */
 export async function checkAdminStatus(
@@ -13,15 +24,22 @@ export async function checkAdminStatus(
   reply: FastifyReply
 ): Promise<{ isAdmin: boolean; userId: string } | null> {
   try {
-    // Get the current session
+    const token = getBearerToken(request);
+
+    if (!token) {
+      app.logger.debug('No Bearer token found in Authorization header');
+      return null;
+    }
+
+    // Get the current session using Bearer token
     const sessionRes = await fetch(`http://localhost:${process.env.PORT || 3000}/api/auth/get-session`, {
       headers: {
-        'Cookie': request.headers.cookie || '',
+        'Authorization': `Bearer ${token}`,
       },
     });
 
     if (!sessionRes.ok) {
-      app.logger.debug('No valid session found');
+      app.logger.debug('No valid session found for token');
       return null;
     }
 
@@ -34,11 +52,12 @@ export async function checkAdminStatus(
     const userId = session.user.id;
 
     // Check if user is an admin
-    const adminRecord = await app.db.query.adminUsers.findFirst({
-      where: eq(schema.adminUsers.userId, userId),
-    });
+    const adminRecords = await app.db
+      .select()
+      .from(schema.adminUsers)
+      .where(eq(schema.adminUsers.userId, userId));
 
-    const isAdmin = adminRecord?.isAdmin ?? false;
+    const isAdmin = adminRecords.length > 0 && adminRecords[0].isAdmin;
     app.logger.debug({ userId, isAdmin }, 'Admin status checked');
 
     return { isAdmin, userId };
