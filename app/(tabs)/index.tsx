@@ -61,7 +61,6 @@ export default function HomeScreen() {
       setContent(data);
     } catch (error) {
       console.error('[HomeScreen] Error fetching homepage content:', error);
-      // Set empty content on error
       setContent(null);
     } finally {
       setLoading(false);
@@ -87,10 +86,14 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={commonStyles.container} edges={['top']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingTop }}>
-        {/* Logo Header */}
+        {/* Logo Header with Glow Effect */}
         <View style={styles.header}>
-          <Text style={styles.logo}>HUNGRY HUSTLER</Text>
+          <View style={styles.logoContainer}>
+            <Text style={styles.logo}>HUNGRY HUSTLER</Text>
+            <View style={styles.logoGlow} />
+          </View>
           <Text style={styles.logoSubtitle}>RECORDS</Text>
+          <Text style={styles.tagline}>INDEPENDENT • AUTHENTIC • LEGENDARY</Text>
         </View>
 
         {/* Hero Banner */}
@@ -102,28 +105,56 @@ export default function HomeScreen() {
               resizeMode="cover"
             />
             <LinearGradient
-              colors={['transparent', colors.background]}
+              colors={['transparent', 'rgba(0,0,0,0.6)', colors.background]}
               style={styles.heroBannerGradient}
             />
+            <View style={styles.heroBannerOverlay}>
+              <Text style={styles.heroBannerText}>LATEST DROPS</Text>
+            </View>
           </View>
         )}
 
         {/* Featured Artist */}
         {content?.featured_artist && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>FEATURED ARTIST</Text>
-            <View style={commonStyles.card}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <View style={styles.sectionAccent} />
+                <Text style={styles.sectionTitle}>FEATURED ARTIST</Text>
+              </View>
+            </View>
+            
+            <View style={styles.featuredArtistCard}>
               {content.featured_artist.photo_url && (
-                <Image
-                  source={resolveImageSource(content.featured_artist.photo_url)}
-                  style={styles.artistImage}
-                  resizeMode="cover"
-                />
+                <View style={styles.featuredArtistImageContainer}>
+                  <Image
+                    source={resolveImageSource(content.featured_artist.photo_url)}
+                    style={styles.featuredArtistImage}
+                    resizeMode="cover"
+                  />
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.9)']}
+                    style={styles.featuredArtistGradient}
+                  />
+                </View>
               )}
-              <Text style={styles.artistName}>{content.featured_artist.name}</Text>
-              {content.featured_artist.bio && (
-                <Text style={styles.artistBio}>{content.featured_artist.bio}</Text>
-              )}
+              <View style={styles.featuredArtistInfo}>
+                <Text style={styles.featuredArtistName}>{content.featured_artist.name}</Text>
+                {content.featured_artist.bio && (
+                  <Text style={styles.featuredArtistBio} numberOfLines={3}>
+                    {content.featured_artist.bio}
+                  </Text>
+                )}
+                <TouchableOpacity style={styles.featuredArtistButton}>
+                  <Text style={styles.featuredArtistButtonText}>EXPLORE</Text>
+                  <IconSymbol
+                    ios_icon_name="arrow.right"
+                    android_material_icon_name="arrow-forward"
+                    size={16}
+                    color={colors.background}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
@@ -131,19 +162,36 @@ export default function HomeScreen() {
         {/* Latest Release */}
         {content?.latest_release_title && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>LATEST RELEASE</Text>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <View style={styles.sectionAccent} />
+                <Text style={styles.sectionTitle}>LATEST RELEASE</Text>
+              </View>
+            </View>
+            
             <TouchableOpacity
-              style={[commonStyles.card, styles.releaseCard]}
+              style={styles.releaseCard}
               onPress={() => handleOpenLink(content.latest_release_url)}
             >
+              <View style={styles.releaseIconContainer}>
+                <IconSymbol
+                  ios_icon_name="music.note"
+                  android_material_icon_name="music-note"
+                  size={40}
+                  color={colors.primary}
+                />
+                <View style={styles.releaseIconGlow} />
+              </View>
+              <View style={styles.releaseInfo}>
+                <Text style={styles.releaseTitle}>{content.latest_release_title}</Text>
+                <Text style={styles.releaseSubtitle}>TAP TO LISTEN NOW</Text>
+              </View>
               <IconSymbol
-                ios_icon_name="music.note"
-                android_material_icon_name="music-note"
+                ios_icon_name="play.circle.fill"
+                android_material_icon_name="play-arrow"
                 size={32}
                 color={colors.primary}
               />
-              <Text style={styles.releaseTitle}>{content.latest_release_title}</Text>
-              <Text style={styles.releaseSubtitle}>Tap to listen</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -151,20 +199,67 @@ export default function HomeScreen() {
         {/* Featured Merch */}
         {content?.featured_merch && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>FEATURED MERCH</Text>
-            <View style={commonStyles.card}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <View style={styles.sectionAccent} />
+                <Text style={styles.sectionTitle}>FEATURED MERCH</Text>
+              </View>
+            </View>
+            
+            <View style={styles.merchCard}>
               {content.featured_merch.image_url && (
-                <Image
-                  source={resolveImageSource(content.featured_merch.image_url)}
-                  style={styles.merchImage}
-                  resizeMode="cover"
-                />
+                <View style={styles.merchImageContainer}>
+                  <Image
+                    source={resolveImageSource(content.featured_merch.image_url)}
+                    style={styles.merchImage}
+                    resizeMode="cover"
+                  />
+                </View>
               )}
-              <Text style={styles.merchName}>{content.featured_merch.name}</Text>
-              <Text style={styles.merchPrice}>${content.featured_merch.price.toFixed(2)}</Text>
+              <View style={styles.merchInfo}>
+                <Text style={styles.merchName}>{content.featured_merch.name}</Text>
+                <View style={styles.merchPriceContainer}>
+                  <Text style={styles.merchPrice}>${content.featured_merch.price.toFixed(2)}</Text>
+                  <TouchableOpacity style={styles.merchButton}>
+                    <Text style={styles.merchButtonText}>SHOP NOW</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </View>
         )}
+
+        {/* Call to Action */}
+        <View style={styles.ctaSection}>
+          <LinearGradient
+            colors={[colors.primaryGlow, 'transparent']}
+            style={styles.ctaGradient}
+          />
+          <Text style={styles.ctaTitle}>JOIN THE MOVEMENT</Text>
+          <Text style={styles.ctaSubtitle}>
+            Follow us on social media for exclusive drops, behind-the-scenes content, and more.
+          </Text>
+          <View style={styles.ctaButtons}>
+            <TouchableOpacity style={styles.ctaButton}>
+              <IconSymbol
+                ios_icon_name="camera"
+                android_material_icon_name="camera"
+                size={20}
+                color={colors.background}
+              />
+              <Text style={styles.ctaButtonText}>Instagram</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.ctaButton}>
+              <IconSymbol
+                ios_icon_name="at"
+                android_material_icon_name="alternate-email"
+                size={20}
+                color={colors.background}
+              />
+              <Text style={styles.ctaButtonText}>Twitter</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={styles.bottomPadding} />
       </ScrollView>
@@ -182,28 +277,53 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+    position: 'relative',
+  },
+  logoContainer: {
+    position: 'relative',
   },
   logo: {
-    fontSize: 32,
+    fontSize: 38,
     fontWeight: '900',
     color: colors.primary,
     letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  logoGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.primary,
+    opacity: 0.2,
+    borderRadius: 20,
+    transform: [{ scaleX: 1.1 }, { scaleY: 1.3 }],
+    zIndex: -1,
   },
   logoSubtitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: colors.text,
-    letterSpacing: 4,
-    marginTop: 4,
+    letterSpacing: 6,
+    marginTop: 8,
+  },
+  tagline: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    letterSpacing: 2,
+    marginTop: 12,
   },
   heroBanner: {
-    height: 200,
+    height: 240,
     marginHorizontal: 16,
-    marginBottom: 24,
-    borderRadius: 12,
+    marginBottom: 32,
+    borderRadius: 16,
     overflow: 'hidden',
+    position: 'relative',
   },
   heroBannerImage: {
     width: '100%',
@@ -214,70 +334,257 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 100,
+    height: 120,
+  },
+  heroBannerOverlay: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+  },
+  heroBannerText: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: colors.text,
+    letterSpacing: 1,
   },
   section: {
     paddingHorizontal: 16,
-    marginBottom: 24,
+    marginBottom: 32,
+  },
+  sectionHeader: {
+    marginBottom: 16,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sectionAccent: {
+    width: 4,
+    height: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 2,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
     color: colors.primary,
     letterSpacing: 2,
-    marginBottom: 12,
+    textTransform: 'uppercase',
   },
-  artistImage: {
+  featuredArtistCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  featuredArtistImageContainer: {
     width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 12,
+    height: 240,
+    position: 'relative',
   },
-  artistName: {
-    fontSize: 22,
-    fontWeight: '700',
+  featuredArtistImage: {
+    width: '100%',
+    height: '100%',
+  },
+  featuredArtistGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+  },
+  featuredArtistInfo: {
+    padding: 20,
+  },
+  featuredArtistName: {
+    fontSize: 26,
+    fontWeight: '900',
     color: colors.text,
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
-  artistBio: {
+  featuredArtistBio: {
     fontSize: 14,
     color: colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  featuredArtistButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  featuredArtistButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.background,
+    letterSpacing: 1,
   },
   releaseCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 24,
+    backgroundColor: colors.card,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 16,
+  },
+  releaseIconContainer: {
+    position: 'relative',
+    width: 64,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  releaseIconGlow: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    backgroundColor: colors.primary,
+    opacity: 0.2,
+    borderRadius: 32,
+  },
+  releaseInfo: {
+    flex: 1,
   },
   releaseTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.text,
-    marginTop: 12,
-    textAlign: 'center',
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   releaseSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 1,
+  },
+  merchCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  merchImageContainer: {
+    width: '100%',
+    height: 200,
   },
   merchImage: {
     width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 12,
+    height: '100%',
+  },
+  merchInfo: {
+    padding: 20,
   },
   merchName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  merchPrice: {
     fontSize: 20,
     fontWeight: '800',
+    color: colors.text,
+    marginBottom: 16,
+    letterSpacing: 0.3,
+  },
+  merchPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  merchPrice: {
+    fontSize: 28,
+    fontWeight: '900',
     color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  merchButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  merchButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.background,
+    letterSpacing: 1,
+  },
+  ctaSection: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 32,
+    padding: 32,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  ctaGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+  },
+  ctaTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: colors.text,
+    marginBottom: 12,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  ctaSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  ctaButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    gap: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  ctaButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.background,
+    letterSpacing: 0.5,
   },
   bottomPadding: {
-    height: 100,
+    height: 120,
   },
 });
