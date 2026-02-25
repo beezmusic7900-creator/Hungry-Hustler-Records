@@ -35,7 +35,6 @@ interface Artist {
   instagramUrl?: string;
   twitter_url?: string;
   twitterUrl?: string;
-  // New fields
   specialties?: string;
   status?: string;
   label?: string;
@@ -57,7 +56,6 @@ export default function AdminScreen() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState<'artists' | 'merch' | 'homepage' | 'about'>('artists');
   
-  // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [modalConfig, setModalConfig] = useState({
     title: '',
@@ -66,16 +64,21 @@ export default function AdminScreen() {
     onConfirm: () => {},
   });
 
-  // Artists state
   const [artists, setArtists] = useState<Artist[]>([]);
   const [editingArtist, setEditingArtist] = useState<Partial<Artist> | null>(null);
 
-  // Merch state
   const [merchItems, setMerchItems] = useState<MerchItem[]>([]);
   const [editingMerch, setEditingMerch] = useState<Partial<MerchItem> | null>(null);
 
   useEffect(() => {
-    checkAdminStatus();
+    if (user) {
+      console.log('[AdminScreen] User logged in, checking admin status');
+      checkAdminStatus();
+    } else {
+      console.log('[AdminScreen] No user logged in');
+      setLoading(false);
+      setIsAdmin(false);
+    }
   }, [user]);
 
   const showModal = (title: string, message: string, type: 'info' | 'error' | 'success' | 'confirm' = 'info', onConfirm?: () => void) => {
@@ -84,28 +87,34 @@ export default function AdminScreen() {
   };
 
   const checkAdminStatus = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-      console.log('[AdminScreen] Checking admin status');
+      console.log('[AdminScreen] Checking admin status for user:', user?.email);
       
       const { authenticatedPost } = await import('@/utils/api');
-      const response = await authenticatedPost<{ isAdmin: boolean }>('/api/admin/check', {});
+      const response = await authenticatedPost<{ isAdmin: boolean; userId?: string }>('/api/admin/check', {});
       
       console.log('[AdminScreen] Admin check response:', response);
       setIsAdmin(response.isAdmin);
       
       if (response.isAdmin) {
+        console.log('[AdminScreen] User is admin, fetching data');
         fetchArtists();
         fetchMerchItems();
+      } else {
+        console.log('[AdminScreen] User is not admin');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AdminScreen] Error checking admin status:', error);
       setIsAdmin(false);
+      
+      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        showModal('Session Expired', 'Your session has expired. Please sign in again.', 'error');
+      } else if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
+        showModal('Access Denied', 'You do not have admin privileges.', 'error');
+      } else {
+        showModal('Error', 'Failed to verify admin status. Please try again.', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -122,7 +131,6 @@ export default function AdminScreen() {
     soundcloud_url: artist.soundcloud_url || artist.soundcloudUrl,
     instagram_url: artist.instagram_url || artist.instagramUrl,
     twitter_url: artist.twitter_url || artist.twitterUrl,
-    // New fields - specialties stored as JSON string in DB
     specialties: typeof artist.specialties === 'string'
       ? artist.specialties
       : Array.isArray(artist.specialties)
@@ -134,21 +142,27 @@ export default function AdminScreen() {
 
   const fetchArtists = async () => {
     try {
+      console.log('[AdminScreen] Fetching artists');
       const { apiGet } = await import('@/utils/api');
       const data = await apiGet<any[]>('/api/artists');
+      console.log('[AdminScreen] Artists fetched:', data?.length || 0);
       setArtists((data || []).map(normalizeArtistForAdmin));
     } catch (error) {
       console.error('[AdminScreen] Error fetching artists:', error);
+      showModal('Error', 'Failed to load artists', 'error');
     }
   };
 
   const fetchMerchItems = async () => {
     try {
+      console.log('[AdminScreen] Fetching merch items');
       const { apiGet } = await import('@/utils/api');
       const data = await apiGet<MerchItem[]>('/api/merch');
+      console.log('[AdminScreen] Merch items fetched:', data?.length || 0);
       setMerchItems(data || []);
     } catch (error) {
       console.error('[AdminScreen] Error fetching merch:', error);
+      showModal('Error', 'Failed to load merch items', 'error');
     }
   };
 
@@ -158,7 +172,6 @@ export default function AdminScreen() {
       return;
     }
 
-    // Validate specialties JSON if provided
     if (editingArtist.specialties && editingArtist.specialties.trim()) {
       try {
         const parsed = JSON.parse(editingArtist.specialties);
@@ -173,6 +186,7 @@ export default function AdminScreen() {
     }
 
     try {
+      console.log('[AdminScreen] Saving artist:', editingArtist.name);
       const { authenticatedPost, authenticatedPut } = await import('@/utils/api');
 
       const payload = {
@@ -190,7 +204,7 @@ export default function AdminScreen() {
         label: editingArtist.label?.trim() || 'Hungry Hustler Records',
       };
 
-      console.log('[AdminScreen] Saving artist payload:', payload);
+      console.log('[AdminScreen] Artist payload:', payload);
       
       if (editingArtist.id) {
         await authenticatedPut(`/api/admin/artists/${editingArtist.id}`, payload);
@@ -215,6 +229,7 @@ export default function AdminScreen() {
       'confirm',
       async () => {
         try {
+          console.log('[AdminScreen] Deleting artist:', id);
           const { authenticatedDelete } = await import('@/utils/api');
           await authenticatedDelete(`/api/admin/artists/${id}`);
           showModal('Success', 'Artist deleted successfully', 'success');
@@ -234,6 +249,7 @@ export default function AdminScreen() {
     }
 
     try {
+      console.log('[AdminScreen] Saving merch:', editingMerch.name);
       const { authenticatedPost, authenticatedPut } = await import('@/utils/api');
       
       if (editingMerch.id) {
@@ -259,6 +275,7 @@ export default function AdminScreen() {
       'confirm',
       async () => {
         try {
+          console.log('[AdminScreen] Deleting merch:', id);
           const { authenticatedDelete } = await import('@/utils/api');
           await authenticatedDelete(`/api/admin/merch/${id}`);
           showModal('Success', 'Merch item deleted successfully', 'success');
@@ -277,16 +294,20 @@ export default function AdminScreen() {
       'Are you sure you want to sign out?',
       'confirm',
       async () => {
+        console.log('[AdminScreen] User signing out');
         await signOut();
         router.replace('/auth');
       }
     );
   };
 
+  const paddingTop = Platform.OS === 'android' ? 48 : 0;
+
   if (authLoading || loading) {
     return (
       <View style={[commonStyles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
@@ -301,7 +322,8 @@ export default function AdminScreen() {
             size={64}
             color={colors.textSecondary}
           />
-          <Text style={styles.emptyText}>Please sign in to access admin panel</Text>
+          <Text style={styles.emptyTitle}>Admin Access Required</Text>
+          <Text style={styles.emptyText}>Please sign in to access the admin panel</Text>
           <TouchableOpacity
             style={commonStyles.button}
             onPress={() => router.push('/auth')}
@@ -323,7 +345,11 @@ export default function AdminScreen() {
             size={64}
             color={colors.error}
           />
-          <Text style={styles.emptyText}>You don't have admin access</Text>
+          <Text style={styles.emptyTitle}>Access Denied</Text>
+          <Text style={styles.emptyText}>
+            You don&apos;t have admin privileges. Please contact the administrator.
+          </Text>
+          <Text style={styles.userEmail}>Signed in as: {user.email}</Text>
           <TouchableOpacity
             style={[commonStyles.button, { backgroundColor: colors.error }]}
             onPress={handleSignOut}
@@ -335,19 +361,19 @@ export default function AdminScreen() {
     );
   }
 
-  const paddingTop = Platform.OS === 'android' ? 48 : 0;
-
   return (
     <SafeAreaView style={commonStyles.container} edges={['top']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingTop }}>
         <View style={styles.header}>
-          <Text style={styles.title}>ADMIN PANEL</Text>
+          <View>
+            <Text style={styles.title}>ADMIN PANEL</Text>
+            <Text style={styles.userEmail}>{user.email}</Text>
+          </View>
           <TouchableOpacity onPress={handleSignOut}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Tab Navigation */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'artists' && styles.tabActive]}
@@ -367,7 +393,6 @@ export default function AdminScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Artists Tab */}
         {activeTab === 'artists' && (
           <View style={styles.content}>
             <TouchableOpacity
@@ -499,6 +524,19 @@ export default function AdminScreen() {
               </View>
             )}
 
+            {artists.length === 0 && !editingArtist && (
+              <View style={styles.emptyState}>
+                <IconSymbol
+                  ios_icon_name="person.3"
+                  android_material_icon_name="group"
+                  size={48}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.emptyStateText}>No artists yet</Text>
+                <Text style={styles.emptyStateSubtext}>Add your first artist to get started</Text>
+              </View>
+            )}
+
             {artists.map((artist) => (
               <View key={artist.id} style={commonStyles.card}>
                 <Text style={styles.itemName}>{artist.name}</Text>
@@ -553,7 +591,6 @@ export default function AdminScreen() {
           </View>
         )}
 
-        {/* Merch Tab */}
         {activeTab === 'merch' && (
           <View style={styles.content}>
             <TouchableOpacity
@@ -628,6 +665,19 @@ export default function AdminScreen() {
                     <Text style={commonStyles.buttonText}>Save</Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+            )}
+
+            {merchItems.length === 0 && !editingMerch && (
+              <View style={styles.emptyState}>
+                <IconSymbol
+                  ios_icon_name="bag"
+                  android_material_icon_name="shopping-bag"
+                  size={48}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.emptyStateText}>No merch items yet</Text>
+                <Text style={styles.emptyStateSubtext}>Add your first merch item to get started</Text>
               </View>
             )}
 
@@ -709,15 +759,33 @@ const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: 2,
   },
+  userEmail: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
   signOutText: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.error,
   },
+  loadingText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginTop: 12,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    marginTop: 16,
+  },
   emptyText: {
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
+    marginTop: 8,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -782,6 +850,22 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 1,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    gap: 8,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 12,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
   itemName: {
     fontSize: 18,

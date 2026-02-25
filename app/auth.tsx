@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   View,
@@ -28,7 +29,6 @@ export default function AuthScreen() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   
-  // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [modalConfig, setModalConfig] = useState({
     title: '',
@@ -57,11 +57,14 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
+      console.log('[AuthScreen] Attempting authentication:', mode, email);
       if (mode === "signin") {
         await signInWithEmail(email, password);
+        console.log('[AuthScreen] Sign in successful');
         router.replace("/");
       } else {
         await signUpWithEmail(email, password, name);
+        console.log('[AuthScreen] Sign up successful');
         showModal(
           "Success",
           "Account created! Please check your email to verify your account.",
@@ -70,6 +73,7 @@ export default function AuthScreen() {
         router.replace("/");
       }
     } catch (error: any) {
+      console.error('[AuthScreen] Authentication error:', error);
       showModal("Error", error.message || "Authentication failed", "error");
     } finally {
       setLoading(false);
@@ -79,6 +83,7 @@ export default function AuthScreen() {
   const handleSocialAuth = async (provider: "google" | "apple" | "github") => {
     setLoading(true);
     try {
+      console.log('[AuthScreen] Attempting social auth:', provider);
       if (provider === "google") {
         await signInWithGoogle();
       } else if (provider === "apple") {
@@ -86,8 +91,10 @@ export default function AuthScreen() {
       } else if (provider === "github") {
         await signInWithGitHub();
       }
+      console.log('[AuthScreen] Social auth successful');
       router.replace("/");
     } catch (error: any) {
+      console.error('[AuthScreen] Social auth error:', error);
       showModal("Error", error.message || "Authentication failed", "error");
     } finally {
       setLoading(false);
@@ -109,6 +116,7 @@ export default function AuthScreen() {
             <TextInput
               style={styles.input}
               placeholder="Name (optional)"
+              placeholderTextColor={colors.textSecondary}
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
@@ -118,6 +126,7 @@ export default function AuthScreen() {
           <TextInput
             style={styles.input}
             placeholder="Email"
+            placeholderTextColor={colors.textSecondary}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -128,6 +137,7 @@ export default function AuthScreen() {
           <TextInput
             style={styles.input}
             placeholder="Password"
+            placeholderTextColor={colors.textSecondary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -184,6 +194,13 @@ export default function AuthScreen() {
               </Text>
             </TouchableOpacity>
           )}
+
+          <View style={styles.adminSetupContainer}>
+            <Text style={styles.adminSetupText}>First time admin setup?</Text>
+            <TouchableOpacity onPress={() => router.push('/admin-setup')}>
+              <Text style={styles.adminSetupLink}>Set up admin account</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
@@ -296,5 +313,20 @@ const styles = StyleSheet.create({
   },
   appleButtonText: {
     color: colors.text,
+  },
+  adminSetupContainer: {
+    marginTop: 32,
+    alignItems: 'center',
+    gap: 8,
+  },
+  adminSetupText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  adminSetupLink: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

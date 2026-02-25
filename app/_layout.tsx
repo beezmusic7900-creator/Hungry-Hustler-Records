@@ -66,6 +66,7 @@ export default function RootLayout() {
                 <Stack.Screen name="auth" options={{ headerShown: false }} />
                 <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
                 <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+                <Stack.Screen name="admin-setup" options={{ headerShown: false }} />
                 <Stack.Screen name="+not-found" />
               </Stack>
               <SystemBars style="light" />
