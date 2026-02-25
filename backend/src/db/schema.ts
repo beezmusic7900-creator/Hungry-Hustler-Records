@@ -13,6 +13,9 @@ export const artists = pgTable('artists', {
   soundcloudUrl: text('soundcloud_url'),
   instagramUrl: text('instagram_url'),
   twitterUrl: text('twitter_url'),
+  specialties: text('specialties'),
+  status: text('status').default('Active'),
+  label: text('label').default('Hungry Hustler Records'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
