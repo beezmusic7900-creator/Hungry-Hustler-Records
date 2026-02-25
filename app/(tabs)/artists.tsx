@@ -20,16 +20,25 @@ interface Artist {
   id: string;
   name: string;
   bio?: string;
+  // Support both camelCase (from backend mapping) and snake_case
   photo_url?: string;
+  photoUrl?: string;
   spotify_url?: string;
+  spotifyUrl?: string;
   apple_music_url?: string;
+  appleMusicUrl?: string;
   youtube_url?: string;
+  youtubeUrl?: string;
   soundcloud_url?: string;
+  soundcloudUrl?: string;
   instagram_url?: string;
+  instagramUrl?: string;
   twitter_url?: string;
-  specialties?: string[];
-  status?: string;
-  label?: string;
+  twitterUrl?: string;
+  // New fields added via migration
+  specialties?: string[] | string | null;
+  status?: string | null;
+  label?: string | null;
 }
 
 function resolveImageSource(source: string | number | undefined) {
@@ -47,16 +56,47 @@ export default function ArtistsScreen() {
     fetchArtists();
   }, []);
 
+  const parseSpecialties = (specialties: string[] | string | null | undefined): string[] => {
+    if (!specialties) return [];
+    if (Array.isArray(specialties)) return specialties;
+    try {
+      const parsed = JSON.parse(specialties);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      // If it's a plain string, treat as single specialty
+      return specialties ? [specialties] : [];
+    }
+  };
+
+  const normalizeArtist = (artist: any): Artist => ({
+    id: artist.id,
+    name: artist.name,
+    bio: artist.bio,
+    // Normalize URL fields - backend may return camelCase or snake_case
+    photo_url: artist.photo_url || artist.photoUrl,
+    spotify_url: artist.spotify_url || artist.spotifyUrl,
+    apple_music_url: artist.apple_music_url || artist.appleMusicUrl,
+    youtube_url: artist.youtube_url || artist.youtubeUrl,
+    soundcloud_url: artist.soundcloud_url || artist.soundcloudUrl,
+    instagram_url: artist.instagram_url || artist.instagramUrl,
+    twitter_url: artist.twitter_url || artist.twitterUrl,
+    // New fields
+    specialties: parseSpecialties(artist.specialties),
+    status: artist.status || 'Active',
+    label: artist.label || 'Hungry Hustler Records',
+  });
+
   const fetchArtists = async () => {
     try {
       setLoading(true);
       console.log('[ArtistsScreen] Fetching artists from /api/artists');
       
       const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<Artist[]>('/api/artists');
+      const data = await apiGet<any[]>('/api/artists');
       
       console.log('[ArtistsScreen] Artists received:', data);
-      setArtists(data || []);
+      const normalized = (data || []).map(normalizeArtist);
+      setArtists(normalized);
     } catch (error) {
       console.error('[ArtistsScreen] Error fetching artists:', error);
       setArtists([]);
@@ -112,7 +152,7 @@ export default function ArtistsScreen() {
               const artistBio = artist.bio || '';
               const artistStatus = artist.status || 'Active';
               const artistLabel = artist.label || 'Hungry Hustler Records';
-              const specialties = artist.specialties || [];
+              const specialties = Array.isArray(artist.specialties) ? artist.specialties : [];
               
               const hasSpotify = !!artist.spotify_url;
               const hasAppleMusic = !!artist.apple_music_url;

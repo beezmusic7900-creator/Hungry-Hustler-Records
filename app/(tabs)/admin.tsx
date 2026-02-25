@@ -22,12 +22,23 @@ interface Artist {
   name: string;
   bio?: string;
   photo_url?: string;
+  photoUrl?: string;
   spotify_url?: string;
+  spotifyUrl?: string;
   apple_music_url?: string;
+  appleMusicUrl?: string;
   youtube_url?: string;
+  youtubeUrl?: string;
   soundcloud_url?: string;
+  soundcloudUrl?: string;
   instagram_url?: string;
+  instagramUrl?: string;
   twitter_url?: string;
+  twitterUrl?: string;
+  // New fields
+  specialties?: string;
+  status?: string;
+  label?: string;
 }
 
 interface MerchItem {
@@ -100,11 +111,32 @@ export default function AdminScreen() {
     }
   };
 
+  const normalizeArtistForAdmin = (artist: any): Artist => ({
+    id: artist.id,
+    name: artist.name,
+    bio: artist.bio,
+    photo_url: artist.photo_url || artist.photoUrl,
+    spotify_url: artist.spotify_url || artist.spotifyUrl,
+    apple_music_url: artist.apple_music_url || artist.appleMusicUrl,
+    youtube_url: artist.youtube_url || artist.youtubeUrl,
+    soundcloud_url: artist.soundcloud_url || artist.soundcloudUrl,
+    instagram_url: artist.instagram_url || artist.instagramUrl,
+    twitter_url: artist.twitter_url || artist.twitterUrl,
+    // New fields - specialties stored as JSON string in DB
+    specialties: typeof artist.specialties === 'string'
+      ? artist.specialties
+      : Array.isArray(artist.specialties)
+        ? JSON.stringify(artist.specialties)
+        : '',
+    status: artist.status || 'Active',
+    label: artist.label || 'Hungry Hustler Records',
+  });
+
   const fetchArtists = async () => {
     try {
       const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<Artist[]>('/api/artists');
-      setArtists(data || []);
+      const data = await apiGet<any[]>('/api/artists');
+      setArtists((data || []).map(normalizeArtistForAdmin));
     } catch (error) {
       console.error('[AdminScreen] Error fetching artists:', error);
     }
@@ -126,14 +158,45 @@ export default function AdminScreen() {
       return;
     }
 
+    // Validate specialties JSON if provided
+    if (editingArtist.specialties && editingArtist.specialties.trim()) {
+      try {
+        const parsed = JSON.parse(editingArtist.specialties);
+        if (!Array.isArray(parsed)) {
+          showModal('Error', 'Specialties must be a JSON array, e.g. ["Recording Artist","Songwriter"]', 'error');
+          return;
+        }
+      } catch {
+        showModal('Error', 'Specialties must be valid JSON, e.g. ["Recording Artist","Songwriter"]', 'error');
+        return;
+      }
+    }
+
     try {
       const { authenticatedPost, authenticatedPut } = await import('@/utils/api');
+
+      const payload = {
+        name: editingArtist.name,
+        bio: editingArtist.bio || null,
+        photo_url: editingArtist.photo_url || null,
+        spotify_url: editingArtist.spotify_url || null,
+        apple_music_url: editingArtist.apple_music_url || null,
+        youtube_url: editingArtist.youtube_url || null,
+        soundcloud_url: editingArtist.soundcloud_url || null,
+        instagram_url: editingArtist.instagram_url || null,
+        twitter_url: editingArtist.twitter_url || null,
+        specialties: editingArtist.specialties?.trim() || null,
+        status: editingArtist.status?.trim() || 'Active',
+        label: editingArtist.label?.trim() || 'Hungry Hustler Records',
+      };
+
+      console.log('[AdminScreen] Saving artist payload:', payload);
       
       if (editingArtist.id) {
-        await authenticatedPut(`/api/admin/artists/${editingArtist.id}`, editingArtist);
+        await authenticatedPut(`/api/admin/artists/${editingArtist.id}`, payload);
         showModal('Success', 'Artist updated successfully', 'success');
       } else {
-        await authenticatedPost('/api/admin/artists', editingArtist);
+        await authenticatedPost('/api/admin/artists', payload);
         showModal('Success', 'Artist created successfully', 'success');
       }
       
@@ -394,6 +457,30 @@ export default function AdminScreen() {
                   onChangeText={(text) => setEditingArtist({ ...editingArtist, twitter_url: text })}
                 />
 
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder='Specialties (JSON array, e.g. ["Recording Artist","Songwriter"])'
+                  placeholderTextColor={colors.textSecondary}
+                  value={editingArtist.specialties || ''}
+                  onChangeText={(text) => setEditingArtist({ ...editingArtist, specialties: text })}
+                />
+
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Status (e.g. Active or Inactive)"
+                  placeholderTextColor={colors.textSecondary}
+                  value={editingArtist.status || ''}
+                  onChangeText={(text) => setEditingArtist({ ...editingArtist, status: text })}
+                />
+
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Label (e.g. Hungry Hustler Records)"
+                  placeholderTextColor={colors.textSecondary}
+                  value={editingArtist.label || ''}
+                  onChangeText={(text) => setEditingArtist({ ...editingArtist, label: text })}
+                />
+
                 <View style={styles.formButtons}>
                   <TouchableOpacity
                     style={[commonStyles.button, styles.cancelButton]}
@@ -415,7 +502,24 @@ export default function AdminScreen() {
             {artists.map((artist) => (
               <View key={artist.id} style={commonStyles.card}>
                 <Text style={styles.itemName}>{artist.name}</Text>
+                {artist.status && (
+                  <Text style={styles.itemDescription}>
+                    Status: {artist.status} · {artist.label || 'Hungry Hustler Records'}
+                  </Text>
+                )}
                 {artist.bio && <Text style={styles.itemDescription}>{artist.bio}</Text>}
+                {artist.specialties && (
+                  <Text style={styles.itemDescription}>
+                    Specialties: {(() => {
+                      try {
+                        const parsed = JSON.parse(artist.specialties);
+                        return Array.isArray(parsed) ? parsed.join(', ') : artist.specialties;
+                      } catch {
+                        return artist.specialties;
+                      }
+                    })()}
+                  </Text>
+                )}
                 
                 <View style={styles.itemActions}>
                   <TouchableOpacity
