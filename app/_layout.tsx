@@ -1,13 +1,12 @@
 
 import "react-native-reanimated";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, View, ActivityIndicator } from "react-native";
-import { useNetworkState } from "expo-network";
+import { useColorScheme } from "react-native";
 import {
   DarkTheme,
   DefaultTheme,
@@ -15,7 +14,6 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
-import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { colors } from "@/styles/commonStyles";
 
@@ -27,7 +25,6 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const networkState = useNetworkState();
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
@@ -59,19 +56,17 @@ export default function RootLayout() {
       <StatusBar style="light" animated />
       <ThemeProvider value={HungryHustlerTheme}>
         <AuthProvider>
-          <WidgetProvider>
-            <GestureHandlerRootView>
-              <Stack>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="auth" options={{ headerShown: false }} />
-                <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
-                <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
-                <Stack.Screen name="admin-setup" options={{ headerShown: false }} />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-              <SystemBars style="light" />
-            </GestureHandlerRootView>
-          </WidgetProvider>
+          <GestureHandlerRootView>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="auth" options={{ headerShown: false }} />
+              <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
+              <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+              <Stack.Screen name="admin-setup" options={{ headerShown: false }} />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <SystemBars style="light" />
+          </GestureHandlerRootView>
         </AuthProvider>
       </ThemeProvider>
     </>
