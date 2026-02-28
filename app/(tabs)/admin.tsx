@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TextInput,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import Modal from '@/components/ui/Modal';
+import * as ImagePicker from 'expo-image-picker';
 
 interface Artist {
   id: string;
@@ -49,6 +51,31 @@ interface MerchItem {
   stock: number;
 }
 
+interface HomepageContent {
+  hero_banner_url?: string;
+  featured_artist_id?: string;
+  featured_merch_id?: string;
+  latest_release_title?: string;
+  latest_release_url?: string;
+}
+
+interface AboutContent {
+  logo_url?: string;
+  description?: string;
+  mission?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  instagram_url?: string;
+  twitter_url?: string;
+  facebook_url?: string;
+}
+
+function resolveImageSource(source: string | number | undefined) {
+  if (!source) return { uri: '' };
+  if (typeof source === 'string') return { uri: source };
+  return source;
+}
+
 export default function AdminScreen() {
   const { user, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
@@ -69,6 +96,14 @@ export default function AdminScreen() {
 
   const [merchItems, setMerchItems] = useState<MerchItem[]>([]);
   const [editingMerch, setEditingMerch] = useState<Partial<MerchItem> | null>(null);
+
+  const [homepageContent, setHomepageContent] = useState<HomepageContent>({});
+  const [editingHomepage, setEditingHomepage] = useState(false);
+
+  const [aboutContent, setAboutContent] = useState<AboutContent>({});
+  const [editingAbout, setEditingAbout] = useState(false);
+
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -101,6 +136,8 @@ export default function AdminScreen() {
         console.log('[AdminScreen] User is admin, fetching data');
         fetchArtists();
         fetchMerchItems();
+        fetchHomepageContent();
+        fetchAboutContent();
       } else {
         console.log('[AdminScreen] User is not admin');
       }
@@ -117,6 +154,78 @@ export default function AdminScreen() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    try {
+      console.log('[AdminScreen] Requesting image picker permissions');
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        showModal('Permission Required', 'Please allow access to your photo library to upload images.', 'error');
+        return null;
+      }
+
+      console.log('[AdminScreen] Launching image picker');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled) {
+        console.log('[AdminScreen] Image picker canceled');
+        return null;
+      }
+
+      const asset = result.assets[0];
+      console.log('[AdminScreen] Image selected:', asset.uri);
+
+      setUploadingImage(true);
+
+      const formData = new FormData();
+      const filename = asset.uri.split('/').pop() || 'image.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('image', {
+        uri: asset.uri,
+        name: filename,
+        type,
+      } as any);
+
+      console.log('[AdminScreen] Uploading image to backend');
+      const { BACKEND_URL, getBearerToken } = await import('@/utils/api');
+      const token = await getBearerToken();
+
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/upload/image`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('[AdminScreen] Image uploaded successfully:', data.url);
+      
+      setUploadingImage(false);
+      return data.url;
+    } catch (error: any) {
+      console.error('[AdminScreen] Error uploading image:', error);
+      setUploadingImage(false);
+      showModal('Upload Failed', error.message || 'Failed to upload image', 'error');
+      return null;
     }
   };
 
@@ -163,6 +272,47 @@ export default function AdminScreen() {
     } catch (error) {
       console.error('[AdminScreen] Error fetching merch:', error);
       showModal('Error', 'Failed to load merch items', 'error');
+    }
+  };
+
+  const fetchHomepageContent = async () => {
+    try {
+      console.log('[AdminScreen] Fetching homepage content');
+      const { apiGet } = await import('@/utils/api');
+      const data = await apiGet<any>('/api/homepage');
+      console.log('[AdminScreen] Homepage content fetched:', data);
+      setHomepageContent({
+        hero_banner_url: data.heroBannerUrl || data.hero_banner_url,
+        featured_artist_id: data.featuredArtist?.id,
+        featured_merch_id: data.featuredMerch?.id,
+        latest_release_title: data.latestReleaseTitle || data.latest_release_title,
+        latest_release_url: data.latestReleaseUrl || data.latest_release_url,
+      });
+    } catch (error) {
+      console.error('[AdminScreen] Error fetching homepage content:', error);
+      showModal('Error', 'Failed to load homepage content', 'error');
+    }
+  };
+
+  const fetchAboutContent = async () => {
+    try {
+      console.log('[AdminScreen] Fetching about content');
+      const { apiGet } = await import('@/utils/api');
+      const data = await apiGet<any>('/api/about');
+      console.log('[AdminScreen] About content fetched:', data);
+      setAboutContent({
+        logo_url: data.logoUrl || data.logo_url,
+        description: data.description,
+        mission: data.mission,
+        contact_email: data.contactEmail || data.contact_email,
+        contact_phone: data.contactPhone || data.contact_phone,
+        instagram_url: data.instagramUrl || data.instagram_url,
+        twitter_url: data.twitterUrl || data.twitter_url,
+        facebook_url: data.facebookUrl || data.facebook_url,
+      });
+    } catch (error) {
+      console.error('[AdminScreen] Error fetching about content:', error);
+      showModal('Error', 'Failed to load about content', 'error');
     }
   };
 
@@ -288,6 +438,36 @@ export default function AdminScreen() {
     );
   };
 
+  const handleSaveHomepage = async () => {
+    try {
+      console.log('[AdminScreen] Saving homepage content');
+      const { authenticatedPut } = await import('@/utils/api');
+      
+      await authenticatedPut('/api/admin/homepage', homepageContent);
+      showModal('Success', 'Homepage content updated successfully', 'success');
+      setEditingHomepage(false);
+      fetchHomepageContent();
+    } catch (error: any) {
+      console.error('[AdminScreen] Error saving homepage content:', error);
+      showModal('Error', error.message || 'Failed to save homepage content', 'error');
+    }
+  };
+
+  const handleSaveAbout = async () => {
+    try {
+      console.log('[AdminScreen] Saving about content');
+      const { authenticatedPut } = await import('@/utils/api');
+      
+      await authenticatedPut('/api/admin/about', aboutContent);
+      showModal('Success', 'About content updated successfully', 'success');
+      setEditingAbout(false);
+      fetchAboutContent();
+    } catch (error: any) {
+      console.error('[AdminScreen] Error saving about content:', error);
+      showModal('Error', error.message || 'Failed to save about content', 'error');
+    }
+  };
+
   const handleSignOut = async () => {
     showModal(
       'Confirm Sign Out',
@@ -391,6 +571,22 @@ export default function AdminScreen() {
               Merch
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'homepage' && styles.tabActive]}
+            onPress={() => setActiveTab('homepage')}
+          >
+            <Text style={[styles.tabText, activeTab === 'homepage' && styles.tabTextActive]}>
+              Home
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'about' && styles.tabActive]}
+            onPress={() => setActiveTab('about')}
+          >
+            <Text style={[styles.tabText, activeTab === 'about' && styles.tabTextActive]}>
+              About
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {activeTab === 'artists' && (
@@ -441,13 +637,43 @@ export default function AdminScreen() {
                   numberOfLines={4}
                 />
                 
-                <TextInput
-                  style={commonStyles.input}
-                  placeholder="Photo URL"
-                  placeholderTextColor={colors.textSecondary}
-                  value={editingArtist.photo_url || ''}
-                  onChangeText={(text) => setEditingArtist({ ...editingArtist, photo_url: text })}
-                />
+                <View style={styles.imageUploadContainer}>
+                  <TextInput
+                    style={[commonStyles.input, { flex: 1 }]}
+                    placeholder="Photo URL"
+                    placeholderTextColor={colors.textSecondary}
+                    value={editingArtist.photo_url || ''}
+                    onChangeText={(text) => setEditingArtist({ ...editingArtist, photo_url: text })}
+                  />
+                  <TouchableOpacity
+                    style={styles.uploadButton}
+                    onPress={async () => {
+                      const url = await uploadImage();
+                      if (url) {
+                        setEditingArtist({ ...editingArtist, photo_url: url });
+                      }
+                    }}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <ActivityIndicator size="small" color={colors.background} />
+                    ) : (
+                      <IconSymbol
+                        ios_icon_name="photo"
+                        android_material_icon_name="image"
+                        size={20}
+                        color={colors.background}
+                      />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {editingArtist.photo_url && (
+                  <Image
+                    source={resolveImageSource(editingArtist.photo_url)}
+                    style={styles.previewImage}
+                  />
+                )}
                 
                 <TextInput
                   style={commonStyles.input}
@@ -552,8 +778,8 @@ export default function AdminScreen() {
               </View>
             )}
 
-            {artists.map((artist) => (
-              <View key={artist.id} style={commonStyles.card}>
+            {artists.map((artist, index) => (
+              <View key={artist.id || index} style={commonStyles.card}>
                 <Text style={styles.itemName}>{artist.name}</Text>
                 {artist.status && (
                   <Text style={styles.itemDescription}>
@@ -648,13 +874,43 @@ export default function AdminScreen() {
                   keyboardType="decimal-pad"
                 />
                 
-                <TextInput
-                  style={commonStyles.input}
-                  placeholder="Image URL"
-                  placeholderTextColor={colors.textSecondary}
-                  value={editingMerch.image_url || ''}
-                  onChangeText={(text) => setEditingMerch({ ...editingMerch, image_url: text })}
-                />
+                <View style={styles.imageUploadContainer}>
+                  <TextInput
+                    style={[commonStyles.input, { flex: 1 }]}
+                    placeholder="Image URL"
+                    placeholderTextColor={colors.textSecondary}
+                    value={editingMerch.image_url || ''}
+                    onChangeText={(text) => setEditingMerch({ ...editingMerch, image_url: text })}
+                  />
+                  <TouchableOpacity
+                    style={styles.uploadButton}
+                    onPress={async () => {
+                      const url = await uploadImage();
+                      if (url) {
+                        setEditingMerch({ ...editingMerch, image_url: url });
+                      }
+                    }}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <ActivityIndicator size="small" color={colors.background} />
+                    ) : (
+                      <IconSymbol
+                        ios_icon_name="photo"
+                        android_material_icon_name="image"
+                        size={20}
+                        color={colors.background}
+                      />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {editingMerch.image_url && (
+                  <Image
+                    source={resolveImageSource(editingMerch.image_url)}
+                    style={styles.previewImage}
+                  />
+                )}
                 
                 <TextInput
                   style={commonStyles.input}
@@ -696,8 +952,8 @@ export default function AdminScreen() {
               </View>
             )}
 
-            {merchItems.map((item) => (
-              <View key={item.id} style={commonStyles.card}>
+            {merchItems.map((item, index) => (
+              <View key={item.id || index} style={commonStyles.card}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
                 {item.description && <Text style={styles.itemDescription}>{item.description}</Text>}
@@ -732,6 +988,327 @@ export default function AdminScreen() {
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {activeTab === 'homepage' && (
+          <View style={styles.content}>
+            <TouchableOpacity
+              style={commonStyles.button}
+              onPress={() => setEditingHomepage(true)}
+            >
+              <Text style={commonStyles.buttonText}>Edit Homepage Content</Text>
+            </TouchableOpacity>
+
+            {editingHomepage ? (
+              <View style={[commonStyles.card, styles.editForm]}>
+                <Text style={styles.formTitle}>Edit Homepage</Text>
+                
+                <View style={styles.imageUploadContainer}>
+                  <TextInput
+                    style={[commonStyles.input, { flex: 1 }]}
+                    placeholder="Hero Banner URL"
+                    placeholderTextColor={colors.textSecondary}
+                    value={homepageContent.hero_banner_url || ''}
+                    onChangeText={(text) => setHomepageContent({ ...homepageContent, hero_banner_url: text })}
+                  />
+                  <TouchableOpacity
+                    style={styles.uploadButton}
+                    onPress={async () => {
+                      const url = await uploadImage();
+                      if (url) {
+                        setHomepageContent({ ...homepageContent, hero_banner_url: url });
+                      }
+                    }}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <ActivityIndicator size="small" color={colors.background} />
+                    ) : (
+                      <IconSymbol
+                        ios_icon_name="photo"
+                        android_material_icon_name="image"
+                        size={20}
+                        color={colors.background}
+                      />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {homepageContent.hero_banner_url && (
+                  <Image
+                    source={resolveImageSource(homepageContent.hero_banner_url)}
+                    style={styles.previewImage}
+                  />
+                )}
+
+                <Text style={styles.fieldLabel}>Featured Artist ID (optional)</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Artist ID"
+                  placeholderTextColor={colors.textSecondary}
+                  value={homepageContent.featured_artist_id || ''}
+                  onChangeText={(text) => setHomepageContent({ ...homepageContent, featured_artist_id: text })}
+                />
+
+                <Text style={styles.fieldLabel}>Featured Merch ID (optional)</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Merch ID"
+                  placeholderTextColor={colors.textSecondary}
+                  value={homepageContent.featured_merch_id || ''}
+                  onChangeText={(text) => setHomepageContent({ ...homepageContent, featured_merch_id: text })}
+                />
+
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Latest Release Title"
+                  placeholderTextColor={colors.textSecondary}
+                  value={homepageContent.latest_release_title || ''}
+                  onChangeText={(text) => setHomepageContent({ ...homepageContent, latest_release_title: text })}
+                />
+
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Latest Release URL"
+                  placeholderTextColor={colors.textSecondary}
+                  value={homepageContent.latest_release_url || ''}
+                  onChangeText={(text) => setHomepageContent({ ...homepageContent, latest_release_url: text })}
+                />
+
+                <View style={styles.formButtons}>
+                  <TouchableOpacity
+                    style={[commonStyles.button, styles.cancelButton]}
+                    onPress={() => {
+                      setEditingHomepage(false);
+                      fetchHomepageContent();
+                    }}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[commonStyles.button, styles.saveButton]}
+                    onPress={handleSaveHomepage}
+                  >
+                    <Text style={commonStyles.buttonText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={commonStyles.card}>
+                <Text style={styles.sectionTitle}>Current Homepage Content</Text>
+                
+                {homepageContent.hero_banner_url && (
+                  <View style={styles.contentItem}>
+                    <Text style={styles.contentLabel}>Hero Banner:</Text>
+                    <Image
+                      source={resolveImageSource(homepageContent.hero_banner_url)}
+                      style={styles.thumbnailImage}
+                    />
+                  </View>
+                )}
+
+                {homepageContent.featured_artist_id && (
+                  <View style={styles.contentItem}>
+                    <Text style={styles.contentLabel}>Featured Artist ID:</Text>
+                    <Text style={styles.contentValue}>{homepageContent.featured_artist_id}</Text>
+                  </View>
+                )}
+
+                {homepageContent.featured_merch_id && (
+                  <View style={styles.contentItem}>
+                    <Text style={styles.contentLabel}>Featured Merch ID:</Text>
+                    <Text style={styles.contentValue}>{homepageContent.featured_merch_id}</Text>
+                  </View>
+                )}
+
+                {homepageContent.latest_release_title && (
+                  <View style={styles.contentItem}>
+                    <Text style={styles.contentLabel}>Latest Release:</Text>
+                    <Text style={styles.contentValue}>{homepageContent.latest_release_title}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'about' && (
+          <View style={styles.content}>
+            <TouchableOpacity
+              style={commonStyles.button}
+              onPress={() => setEditingAbout(true)}
+            >
+              <Text style={commonStyles.buttonText}>Edit About Content</Text>
+            </TouchableOpacity>
+
+            {editingAbout ? (
+              <View style={[commonStyles.card, styles.editForm]}>
+                <Text style={styles.formTitle}>Edit About Page</Text>
+                
+                <View style={styles.imageUploadContainer}>
+                  <TextInput
+                    style={[commonStyles.input, { flex: 1 }]}
+                    placeholder="Logo URL"
+                    placeholderTextColor={colors.textSecondary}
+                    value={aboutContent.logo_url || ''}
+                    onChangeText={(text) => setAboutContent({ ...aboutContent, logo_url: text })}
+                  />
+                  <TouchableOpacity
+                    style={styles.uploadButton}
+                    onPress={async () => {
+                      const url = await uploadImage();
+                      if (url) {
+                        setAboutContent({ ...aboutContent, logo_url: url });
+                      }
+                    }}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <ActivityIndicator size="small" color={colors.background} />
+                    ) : (
+                      <IconSymbol
+                        ios_icon_name="photo"
+                        android_material_icon_name="image"
+                        size={20}
+                        color={colors.background}
+                      />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {aboutContent.logo_url && (
+                  <Image
+                    source={resolveImageSource(aboutContent.logo_url)}
+                    style={styles.previewImage}
+                  />
+                )}
+
+                <TextInput
+                  style={[commonStyles.input, styles.textArea]}
+                  placeholder="Description"
+                  placeholderTextColor={colors.textSecondary}
+                  value={aboutContent.description || ''}
+                  onChangeText={(text) => setAboutContent({ ...aboutContent, description: text })}
+                  multiline
+                  numberOfLines={4}
+                />
+
+                <TextInput
+                  style={[commonStyles.input, styles.textArea]}
+                  placeholder="Mission"
+                  placeholderTextColor={colors.textSecondary}
+                  value={aboutContent.mission || ''}
+                  onChangeText={(text) => setAboutContent({ ...aboutContent, mission: text })}
+                  multiline
+                  numberOfLines={4}
+                />
+
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Contact Email"
+                  placeholderTextColor={colors.textSecondary}
+                  value={aboutContent.contact_email || ''}
+                  onChangeText={(text) => setAboutContent({ ...aboutContent, contact_email: text })}
+                  keyboardType="email-address"
+                />
+
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Contact Phone"
+                  placeholderTextColor={colors.textSecondary}
+                  value={aboutContent.contact_phone || ''}
+                  onChangeText={(text) => setAboutContent({ ...aboutContent, contact_phone: text })}
+                  keyboardType="phone-pad"
+                />
+
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Instagram URL"
+                  placeholderTextColor={colors.textSecondary}
+                  value={aboutContent.instagram_url || ''}
+                  onChangeText={(text) => setAboutContent({ ...aboutContent, instagram_url: text })}
+                />
+
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Twitter URL"
+                  placeholderTextColor={colors.textSecondary}
+                  value={aboutContent.twitter_url || ''}
+                  onChangeText={(text) => setAboutContent({ ...aboutContent, twitter_url: text })}
+                />
+
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Facebook URL"
+                  placeholderTextColor={colors.textSecondary}
+                  value={aboutContent.facebook_url || ''}
+                  onChangeText={(text) => setAboutContent({ ...aboutContent, facebook_url: text })}
+                />
+
+                <View style={styles.formButtons}>
+                  <TouchableOpacity
+                    style={[commonStyles.button, styles.cancelButton]}
+                    onPress={() => {
+                      setEditingAbout(false);
+                      fetchAboutContent();
+                    }}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[commonStyles.button, styles.saveButton]}
+                    onPress={handleSaveAbout}
+                  >
+                    <Text style={commonStyles.buttonText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={commonStyles.card}>
+                <Text style={styles.sectionTitle}>Current About Content</Text>
+                
+                {aboutContent.logo_url && (
+                  <View style={styles.contentItem}>
+                    <Text style={styles.contentLabel}>Logo:</Text>
+                    <Image
+                      source={resolveImageSource(aboutContent.logo_url)}
+                      style={styles.thumbnailImage}
+                    />
+                  </View>
+                )}
+
+                {aboutContent.description && (
+                  <View style={styles.contentItem}>
+                    <Text style={styles.contentLabel}>Description:</Text>
+                    <Text style={styles.contentValue}>{aboutContent.description}</Text>
+                  </View>
+                )}
+
+                {aboutContent.mission && (
+                  <View style={styles.contentItem}>
+                    <Text style={styles.contentLabel}>Mission:</Text>
+                    <Text style={styles.contentValue}>{aboutContent.mission}</Text>
+                  </View>
+                )}
+
+                {aboutContent.contact_email && (
+                  <View style={styles.contentItem}>
+                    <Text style={styles.contentLabel}>Email:</Text>
+                    <Text style={styles.contentValue}>{aboutContent.contact_email}</Text>
+                  </View>
+                )}
+
+                {aboutContent.contact_phone && (
+                  <View style={styles.contentItem}>
+                    <Text style={styles.contentLabel}>Phone:</Text>
+                    <Text style={styles.contentValue}>{aboutContent.contact_phone}</Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -811,7 +1388,7 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     borderRadius: 8,
     backgroundColor: colors.secondary,
     borderWidth: 1,
@@ -823,7 +1400,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.textSecondary,
   },
@@ -949,5 +1526,59 @@ const styles = StyleSheet.create({
         elevation: 6,
       },
     }),
+  },
+  imageUploadContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  uploadButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 50,
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 12,
+    backgroundColor: colors.secondary,
+  },
+  thumbnailImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: colors.secondary,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  contentItem: {
+    marginBottom: 16,
+  },
+  contentLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  contentValue: {
+    fontSize: 14,
+    color: colors.text,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+    marginTop: 8,
   },
 });
