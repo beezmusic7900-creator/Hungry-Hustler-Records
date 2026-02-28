@@ -395,12 +395,27 @@ export default function AdminScreen() {
 
         {activeTab === 'artists' && (
           <View style={styles.content}>
-            <TouchableOpacity
-              style={commonStyles.button}
-              onPress={() => setEditingArtist({})}
-            >
-              <Text style={commonStyles.buttonText}>Add New Artist</Text>
-            </TouchableOpacity>
+            <View style={styles.quickActionsContainer}>
+              <TouchableOpacity
+                style={[commonStyles.button, styles.quickActionButton]}
+                onPress={() => router.push('/add-artists-helper')}
+              >
+                <IconSymbol
+                  ios_icon_name="sparkles"
+                  android_material_icon_name="auto-awesome"
+                  size={20}
+                  color={colors.background}
+                />
+                <Text style={commonStyles.buttonText}>Quick Add: Afroman & OG Daddy V</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={commonStyles.button}
+                onPress={() => setEditingArtist({})}
+              >
+                <Text style={commonStyles.buttonText}>Add New Artist</Text>
+              </TouchableOpacity>
+            </View>
 
             {editingArtist && (
               <View style={[commonStyles.card, styles.editForm]}>
@@ -911,5 +926,28 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 100,
+  },
+  quickActionsContainer: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  quickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 4px 8px rgba(0, 255, 102, 0.3)',
+      },
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+      },
+    }),
   },
 });
