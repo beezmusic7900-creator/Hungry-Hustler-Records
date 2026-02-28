@@ -25,6 +25,11 @@ export function registerArtistRoutes(app: App) {
         soundcloudUrl: artist.soundcloudUrl,
         instagramUrl: artist.instagramUrl,
         twitterUrl: artist.twitterUrl,
+        specialties: artist.specialties,
+        status: artist.status,
+        label: artist.label,
+        createdAt: artist.createdAt,
+        updatedAt: artist.updatedAt,
       }));
     } catch (error) {
       app.logger.error({ err: error }, 'Failed to fetch artists');
@@ -37,17 +42,18 @@ export function registerArtistRoutes(app: App) {
     const { id } = request.params as { id: string };
     app.logger.info({ id }, 'Fetching artist');
     try {
-      const artist = await app.db.query.artists.findFirst({
-        where: eq(schema.artists.id, id),
-      });
+      const artists = await app.db
+        .select()
+        .from(schema.artists)
+        .where(eq(schema.artists.id, id));
 
-      if (!artist) {
+      if (artists.length === 0) {
         app.logger.warn({ id }, 'Artist not found');
         return reply.status(404).send({ error: 'Artist not found' });
       }
 
       app.logger.info({ id }, 'Artist fetched successfully');
-      return artist;
+      return artists[0];
     } catch (error) {
       app.logger.error({ err: error, id }, 'Failed to fetch artist');
       throw error;
@@ -61,7 +67,7 @@ export function registerArtistRoutes(app: App) {
     const admin = await requireAdmin(app, request, reply);
     if (!admin) return;
 
-    const { name, bio, photo_url, spotify_url, apple_music_url, youtube_url, soundcloud_url, instagram_url, twitter_url } = request.body as any;
+    const { name, bio, photo_url, spotify_url, apple_music_url, youtube_url, soundcloud_url, instagram_url, twitter_url, specialties, status, label } = request.body as any;
 
     if (!name) {
       app.logger.warn({ body: request.body }, 'Artist creation failed: missing name');
@@ -82,6 +88,9 @@ export function registerArtistRoutes(app: App) {
           soundcloudUrl: soundcloud_url || null,
           instagramUrl: instagram_url || null,
           twitterUrl: twitter_url || null,
+          specialties: specialties ? (typeof specialties === 'string' ? specialties : JSON.stringify(specialties)) : null,
+          status: status || 'Active',
+          label: label || 'Hungry Hustler Records',
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -103,7 +112,7 @@ export function registerArtistRoutes(app: App) {
     const admin = await requireAdmin(app, request, reply);
     if (!admin) return;
 
-    const { name, bio, photo_url, spotify_url, apple_music_url, youtube_url, soundcloud_url, instagram_url, twitter_url } = request.body as any;
+    const { name, bio, photo_url, spotify_url, apple_music_url, youtube_url, soundcloud_url, instagram_url, twitter_url, specialties, status, label } = request.body as any;
 
     if (!name) {
       app.logger.warn({ id, body: request.body }, 'Artist update failed: missing name');
@@ -123,6 +132,9 @@ export function registerArtistRoutes(app: App) {
           soundcloudUrl: soundcloud_url || null,
           instagramUrl: instagram_url || null,
           twitterUrl: twitter_url || null,
+          specialties: specialties ? (typeof specialties === 'string' ? specialties : JSON.stringify(specialties)) : null,
+          status: status || 'Active',
+          label: label || 'Hungry Hustler Records',
           updatedAt: new Date(),
         })
         .where(eq(schema.artists.id, id))
