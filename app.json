@@ -5,11 +5,11 @@
     "slug": "Hungry-Hustler-Records",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg",
+    "icon": "./assets/images/9b0d68b6-aabc-4c32-904b-7517b29a9c31.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg",
+      "image": "./assets/images/9b0d68b6-aabc-4c32-904b-7517b29a9c31.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -22,14 +22,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg",
+        "foregroundImage": "./assets/images/9b0d68b6-aabc-4c32-904b-7517b29a9c31.png",
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.hungryhustler.records"
     },
     "web": {
-      "favicon": "./assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg",
+      "favicon": "./assets/images/9b0d68b6-aabc-4c32-904b-7517b29a9c31.png",
       "bundler": "metro"
     },
     "plugins": [

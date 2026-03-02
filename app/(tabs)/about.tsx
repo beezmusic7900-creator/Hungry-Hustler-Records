@@ -95,7 +95,7 @@ export default function AboutScreen() {
         {/* Official Logo - Use the new logo if no custom logo is set */}
         <View style={styles.logoContainer}>
           <Image
-            source={content?.logo_url ? resolveImageSource(content.logo_url) : require('@/assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg')}
+            source={content?.logo_url ? resolveImageSource(content.logo_url) : require('@/assets/images/9b0d68b6-aabc-4c32-904b-7517b29a9c31.png')}
             style={styles.logo}
             resizeMode="contain"
           />

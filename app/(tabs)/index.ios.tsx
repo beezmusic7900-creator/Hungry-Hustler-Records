@@ -86,7 +86,7 @@ export default function HomeScreen() {
         {/* Official Logo Header */}
         <View style={styles.header}>
           <Image
-            source={require('@/assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg')}
+            source={require('@/assets/images/9b0d68b6-aabc-4c32-904b-7517b29a9c31.png')}
             style={styles.officialLogo}
             resizeMode="contain"
           />
