@@ -85,6 +85,15 @@ export default function AboutScreen() {
 
   const paddingTop = Platform.OS === 'android' ? 48 : 0;
 
+  // Core brand story text
+  const brandStoryParagraph1 = "Hungry Hustler Records is an independent record label built on vision, ownership, and the relentless pursuit of success. Founded with the mission to empower artists and create opportunities without limitations, Hungry Hustler Records stands as a platform for authentic voices and real stories. The label represents the spirit of independence—where talent, hard work, and dedication come before everything else.";
+  
+  const brandStoryParagraph2 = "Created by the great mind of Afroman. Hungry Hustler Records is more than a label—it is a movement and a brand dedicated to building legacy. With a focus on artist development, music production, branding, and distribution, the label provides artists with the tools and support needed to grow creatively and professionally while maintaining ownership of their identity and sound.";
+  
+  const brandStoryParagraph3 = "Hungry Hustler Records represents both established legends and rising talent, bridging generations of hip-hop and bringing authentic music to global audiences. Every artist under the label represents the core values of hunger, hustle, loyalty, and independence.";
+  
+  const brandMission = "The mission is simple: build powerful artists, create timeless music, and establish a legacy that lasts forever.";
+
   return (
     <SafeAreaView style={commonStyles.container} edges={['top']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingTop }}>
@@ -101,7 +110,18 @@ export default function AboutScreen() {
           />
         </View>
 
-        {/* Description */}
+        {/* Core Brand Story - Always Displayed */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>OUR STORY</Text>
+          <View style={commonStyles.card}>
+            <Text style={styles.bodyText}>{brandStoryParagraph1}</Text>
+            <Text style={[styles.bodyText, styles.paragraphSpacing]}>{brandStoryParagraph2}</Text>
+            <Text style={[styles.bodyText, styles.paragraphSpacing]}>{brandStoryParagraph3}</Text>
+            <Text style={[styles.bodyText, styles.paragraphSpacing, styles.missionText]}>{brandMission}</Text>
+          </View>
+        </View>
+
+        {/* Admin-managed Description (if set) */}
         {content?.description && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>WHO WE ARE</Text>
@@ -111,7 +131,7 @@ export default function AboutScreen() {
           </View>
         )}
 
-        {/* Mission */}
+        {/* Admin-managed Mission (if set) */}
         {content?.mission && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>OUR MISSION</Text>
@@ -260,6 +280,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     lineHeight: 24,
+  },
+  paragraphSpacing: {
+    marginTop: 16,
+  },
+  missionText: {
+    fontWeight: '600',
+    color: colors.primary,
   },
   contactItem: {
     flexDirection: 'row',
