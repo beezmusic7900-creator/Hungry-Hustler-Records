@@ -96,6 +96,155 @@ export default function HomeScreen() {
           <Text style={styles.tagline}>INDEPENDENT • AUTHENTIC • LEGENDARY</Text>
         </View>
 
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <Text style={styles.welcomeTitle}>Welcome to Hungry Hustler Records</Text>
+          <Text style={styles.welcomeText}>
+            Welcome to the official Hungry Hustler Records app — the home of independent excellence, authentic music, and powerful artists. This is your direct connection to the music, artists, and movement behind Hungry Hustler Records.
+          </Text>
+          <Text style={styles.welcomeText}>
+            Discover new releases, watch exclusive videos, explore artist profiles, and stay connected with everything happening inside the label. This platform gives fans exclusive access to music, merch, announcements, and behind-the-scenes content you won&apos;t find anywhere else.
+          </Text>
+          <Text style={styles.welcomeHighlight}>
+            Hungry Hustler Records represents the hustle, the vision, and the future of independent music.
+          </Text>
+        </View>
+
+        {/* Featured Artists Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <View style={styles.sectionAccent} />
+              <Text style={styles.sectionTitle}>FEATURED ARTISTS</Text>
+            </View>
+          </View>
+
+          {/* Afroman */}
+          <View style={styles.artistCard}>
+            <View style={styles.artistHeader}>
+              <IconSymbol
+                ios_icon_name="star.fill"
+                android_material_icon_name="star"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={styles.artistName}>Afroman</Text>
+            </View>
+            <Text style={styles.artistDescription}>
+              Grammy-nominated artist and hip-hop legend.
+            </Text>
+          </View>
+
+          {/* OG Daddy V */}
+          <View style={styles.artistCard}>
+            <View style={styles.artistHeader}>
+              <IconSymbol
+                ios_icon_name="star.fill"
+                android_material_icon_name="star"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={styles.artistName}>OG Daddy V</Text>
+            </View>
+            <Text style={styles.artistDescription}>
+              Experience authentic music and follow the journey.
+            </Text>
+          </View>
+        </View>
+
+        {/* Latest Releases Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <View style={styles.sectionAccent} />
+              <Text style={styles.sectionTitle}>LATEST RELEASES</Text>
+            </View>
+          </View>
+
+          <View style={styles.listCard}>
+            <View style={styles.listItem}>
+              <IconSymbol
+                ios_icon_name="music.note"
+                android_material_icon_name="music-note"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={styles.listItemText}>New Singles</Text>
+            </View>
+            <View style={styles.listItem}>
+              <IconSymbol
+                ios_icon_name="music.note"
+                android_material_icon_name="music-note"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={styles.listItemText}>Albums</Text>
+            </View>
+            <View style={styles.listItem}>
+              <IconSymbol
+                ios_icon_name="music.note"
+                android_material_icon_name="music-note"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={styles.listItemText}>Exclusive Releases</Text>
+            </View>
+            <View style={styles.listItem}>
+              <IconSymbol
+                ios_icon_name="music.note"
+                android_material_icon_name="music-note"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={styles.listItemText}>Featured Tracks</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Exclusive Videos Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <View style={styles.sectionAccent} />
+              <Text style={styles.sectionTitle}>EXCLUSIVE VIDEOS</Text>
+            </View>
+          </View>
+
+          <View style={styles.infoCard}>
+            <IconSymbol
+              ios_icon_name="play.rectangle.fill"
+              android_material_icon_name="videocam"
+              size={40}
+              color={colors.primary}
+            />
+            <Text style={styles.infoCardText}>
+              Watch official music videos, behind-the-scenes footage, interviews, and exclusive content from Hungry Hustler Records artists.
+            </Text>
+          </View>
+        </View>
+
+        {/* Merch Store Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <View style={styles.sectionAccent} />
+              <Text style={styles.sectionTitle}>MERCH STORE</Text>
+            </View>
+          </View>
+
+          <View style={styles.infoCard}>
+            <IconSymbol
+              ios_icon_name="bag.fill"
+              android_material_icon_name="shopping-bag"
+              size={40}
+              color={colors.primary}
+            />
+            <Text style={styles.infoCardText}>
+              Shop official Hungry Hustler Records merchandise, including apparel, accessories, and exclusive artist merch.
+            </Text>
+          </View>
+        </View>
+
         {/* Hero Banner */}
         {content?.hero_banner_url && (
           <View style={styles.heroBanner}>
@@ -114,13 +263,13 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Featured Artist */}
+        {/* Featured Artist from API */}
         {content?.featured_artist && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
                 <View style={styles.sectionAccent} />
-                <Text style={styles.sectionTitle}>FEATURED ARTIST</Text>
+                <Text style={styles.sectionTitle}>SPOTLIGHT</Text>
               </View>
             </View>
             
@@ -159,13 +308,13 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Latest Release */}
+        {/* Latest Release from API */}
         {content?.latest_release_title && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
                 <View style={styles.sectionAccent} />
-                <Text style={styles.sectionTitle}>LATEST RELEASE</Text>
+                <Text style={styles.sectionTitle}>NOW PLAYING</Text>
               </View>
             </View>
             
@@ -196,7 +345,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Featured Merch */}
+        {/* Featured Merch from API */}
         {content?.featured_merch && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -292,6 +441,99 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     letterSpacing: 2,
     marginTop: 8,
+  },
+  welcomeSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  welcomeTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.primary,
+    marginBottom: 16,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 22,
+    marginBottom: 12,
+    textAlign: 'left',
+  },
+  welcomeHighlight: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    lineHeight: 24,
+    marginTop: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  artistCard: {
+    backgroundColor: colors.card,
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  artistHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  artistName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: 0.3,
+  },
+  artistDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginLeft: 36,
+  },
+  listCard: {
+    backgroundColor: colors.card,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  listItemText: {
+    fontSize: 15,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  infoCard: {
+    backgroundColor: colors.card,
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  infoCardText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginTop: 16,
   },
   heroBanner: {
     height: 240,
