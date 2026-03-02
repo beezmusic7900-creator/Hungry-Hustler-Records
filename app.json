@@ -1,34 +1,35 @@
+
 {
   "expo": {
     "name": "Hungry Hustler Records",
-    "slug": "Hungry Hustler Records",
+    "slug": "Hungry-Hustler-Records",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon-fhb.png",
+    "icon": "./assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/app-icon-fhb.png",
+      "image": "./assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.Natively",
+      "bundleIdentifier": "com.hungryhustler.records",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app-icon-fhb.png",
+        "foregroundImage": "./assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg",
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively"
+      "package": "com.hungryhustler.records"
     },
     "web": {
-      "favicon": "./assets/images/final_quest_240x240.png",
+      "favicon": "./assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg",
       "bundler": "metro"
     },
     "plugins": [
@@ -36,7 +37,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "Hungry Hustler Records",
+    "scheme": "hungry-hustler-records",
     "experiments": {
       "typedRoutes": true
     },

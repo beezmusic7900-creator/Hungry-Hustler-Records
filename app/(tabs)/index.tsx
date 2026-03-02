@@ -86,13 +86,13 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={commonStyles.container} edges={['top']}>
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingTop }}>
-        {/* Logo Header with Glow Effect */}
+        {/* Official Logo Header */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logo}>HUNGRY HUSTLER</Text>
-            <View style={styles.logoGlow} />
-          </View>
-          <Text style={styles.logoSubtitle}>RECORDS</Text>
+          <Image
+            source={require('@/assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg')}
+            style={styles.officialLogo}
+            resizeMode="contain"
+          />
           <Text style={styles.tagline}>INDEPENDENT • AUTHENTIC • LEGENDARY</Text>
         </View>
 
@@ -277,45 +277,21 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 24,
     paddingHorizontal: 20,
     position: 'relative',
   },
-  logoContainer: {
-    position: 'relative',
-  },
-  logo: {
-    fontSize: 38,
-    fontWeight: '900',
-    color: colors.primary,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  logoGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.primary,
-    opacity: 0.2,
-    borderRadius: 20,
-    transform: [{ scaleX: 1.1 }, { scaleY: 1.3 }],
-    zIndex: -1,
-  },
-  logoSubtitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: 6,
-    marginTop: 8,
+  officialLogo: {
+    width: 280,
+    height: 180,
+    marginBottom: 16,
   },
   tagline: {
     fontSize: 11,
     fontWeight: '700',
     color: colors.textSecondary,
     letterSpacing: 2,
-    marginTop: 12,
+    marginTop: 8,
   },
   heroBanner: {
     height: 240,

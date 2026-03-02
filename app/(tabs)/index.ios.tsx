@@ -44,22 +44,22 @@ export default function HomeScreen() {
   const [content, setContent] = useState<HomepageContent | null>(null);
 
   useEffect(() => {
-    console.log('HomeScreen: Fetching homepage content');
+    console.log('HomeScreen (iOS): Fetching homepage content');
     fetchHomepageContent();
   }, []);
 
   const fetchHomepageContent = async () => {
     try {
       setLoading(true);
-      console.log('[HomeScreen] Fetching homepage content from /api/homepage');
+      console.log('[HomeScreen iOS] Fetching homepage content from /api/homepage');
       
       const { apiGet } = await import('@/utils/api');
       const data = await apiGet<HomepageContent>('/api/homepage');
       
-      console.log('[HomeScreen] Homepage content received:', data);
+      console.log('[HomeScreen iOS] Homepage content received:', data);
       setContent(data);
     } catch (error) {
-      console.error('[HomeScreen] Error fetching homepage content:', error);
+      console.error('[HomeScreen iOS] Error fetching homepage content:', error);
       setContent(null);
     } finally {
       setLoading(false);
@@ -68,7 +68,7 @@ export default function HomeScreen() {
 
   const handleOpenLink = (url: string | undefined) => {
     if (!url) return;
-    console.log('HomeScreen: Opening link:', url);
+    console.log('HomeScreen (iOS): Opening link:', url);
     Linking.openURL(url);
   };
 
@@ -83,13 +83,13 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={commonStyles.container} edges={['top']}>
       <ScrollView style={styles.scrollView}>
-        {/* Logo Header with Glow Effect */}
+        {/* Official Logo Header */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logo}>HUNGRY HUSTLER</Text>
-            <View style={styles.logoGlow} />
-          </View>
-          <Text style={styles.logoSubtitle}>RECORDS</Text>
+          <Image
+            source={require('@/assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg')}
+            style={styles.officialLogo}
+            resizeMode="contain"
+          />
           <Text style={styles.tagline}>INDEPENDENT • AUTHENTIC • LEGENDARY</Text>
         </View>
 
@@ -274,45 +274,21 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 24,
     paddingHorizontal: 20,
     position: 'relative',
   },
-  logoContainer: {
-    position: 'relative',
-  },
-  logo: {
-    fontSize: 38,
-    fontWeight: '900',
-    color: colors.primary,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  logoGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.primary,
-    opacity: 0.2,
-    borderRadius: 20,
-    transform: [{ scaleX: 1.1 }, { scaleY: 1.3 }],
-    zIndex: -1,
-  },
-  logoSubtitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: 6,
-    marginTop: 8,
+  officialLogo: {
+    width: 280,
+    height: 180,
+    marginBottom: 16,
   },
   tagline: {
     fontSize: 11,
     fontWeight: '700',
     color: colors.textSecondary,
     letterSpacing: 2,
-    marginTop: 12,
+    marginTop: 8,
   },
   heroBanner: {
     height: 240,
@@ -420,7 +396,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
   },
   featuredArtistButtonText: {
     fontSize: 15,
@@ -514,7 +489,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
   },
   merchButtonText: {
     fontSize: 14,
@@ -573,7 +547,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
   },
   ctaButtonText: {
     fontSize: 14,

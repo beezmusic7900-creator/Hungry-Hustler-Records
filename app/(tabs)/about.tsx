@@ -92,16 +92,14 @@ export default function AboutScreen() {
           <Text style={styles.title}>ABOUT US</Text>
         </View>
 
-        {/* Logo */}
-        {content?.logo_url && (
-          <View style={styles.logoContainer}>
-            <Image
-              source={resolveImageSource(content.logo_url)}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
-        )}
+        {/* Official Logo - Use the new logo if no custom logo is set */}
+        <View style={styles.logoContainer}>
+          <Image
+            source={content?.logo_url ? resolveImageSource(content.logo_url) : require('@/assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
 
         {/* Description */}
         {content?.description && (
@@ -244,8 +242,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   logo: {
-    width: 200,
-    height: 200,
+    width: 280,
+    height: 180,
   },
   section: {
     paddingHorizontal: 16,
