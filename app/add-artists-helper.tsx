@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
@@ -17,11 +18,11 @@ import Modal from '@/components/ui/Modal';
 
 const AFROMAN_DATA = {
   name: 'Afroman',
-  bio: 'Grammy-nominated recording artist Afroman is a legendary voice in hip-hop whose influence spans generations. Best known for his worldwide smash hit "Because I Got High," & "Crazy Rap". Afroman earned global recognition and a Grammy nomination, cementing his place as one of the most recognizable and authentic artists in the culture. His music blends humor, truth, and real-life storytelling, creating timeless records that continue to resonate with fans across the world. Born Joseph Edgar Foreman in Hattiesburg, Mississippi, by the way of Los Angeles, California, Afroman built his career independently, proving that authenticity and consistency can break barriers in the music industry. His laid-back delivery, signature sound, and unapologetic honesty helped define an era of hip-hop while inspiring countless independent artists to follow their own path. Today, Afroman continues to perform internationally, release new music, and expand his legacy as a pioneer, entrepreneur, and cultural icon. His dedication to his craft and his fans has solidified his status as a respected legend whose impact on hip-hop remains undeniable.',
-  specialties: JSON.stringify(['Recording Artist', 'Songwriter', 'Performer', 'Cultural Icon']),
+  bio: 'Afroman is a legendary voice in hip-hop whose influence spans generations. Best known for his worldwide smash hit "Because I Got High," & "Crazy Rap". Afroman earned global recognition and a Grammy nomination, cementing his place as one of the most recognizable and authentic artists in the culture. His music blends humor, truth, and real-life storytelling, creating timeless records that continue to resonate with fans across the world. Born Joseph Edgar Foreman in Hattiesburg, Mississippi, by the way of Los Angeles, California, Afroman built his career independently, proving that authenticity and consistency can break barriers in the music industry. His laid-back delivery, signature sound, and unapologetic honesty helped define an era of hip-hop while inspiring countless independent artists to follow their own path. Today, Afroman continues to perform internationally, release new music, and expand his legacy as a pioneer, entrepreneur, and cultural icon. His dedication to his craft and his fans has solidified his status as a respected legend whose impact on hip-hop remains undeniable.',
+  specialties: JSON.stringify(['Recording Artist', 'Songwriter', 'Performer', 'Cultural Icon', 'Grammy Nominee']),
   status: 'Active',
   label: 'Hungry Hustler Records',
-  photo_url: '',
+  photo_url: 'https://prod-finalquest-user-projects-storage-bucket-aws.s3.amazonaws.com/user-projects/e6f7a075-2ed0-4f03-bcbc-37c67737a41d/assets/images/3b5745fe-e173-4118-9832-7f94f05f0173.jpeg',
   spotify_url: '',
   apple_music_url: '',
   youtube_url: '',
@@ -32,11 +33,11 @@ const AFROMAN_DATA = {
 
 const OG_DADDY_V_DATA = {
   name: 'OG Daddy V',
-  bio: 'Recording Artist OG Daddy V is an emerging hip-hop artist representing authenticity, resilience, and the true spirit of independent hustle. Known for his raw lyricism and commanding presence, OG Daddy V delivers music rooted life experiences, street wisdom, and personal growth. His sound reflects both struggle and success, connecting with listeners who value truth, loyalty, and perseverance. With a growing fanbase and a strong independent foundation, OG Daddy V continues to build his brand through consistent releases, live performances, and community engagement. His dedication to his craft and his message has positioned him as a respected voice and rising force in modern hip-hop. As he continues to evolve as an artist, OG Daddy V represents more than music, he represents vision, leadership, and the relentless drive to succeed. His journey reflects the core values of Hungry Hustler Records: independence, authenticity, and legacy.',
-  specialties: JSON.stringify(['Recording Artist', 'Songwriter', 'Performer']),
+  bio: 'OG Daddy V is an hip-hop artist representing authenticity, resilience, and the true spirit of independent hustle. Known for his raw lyricism and commanding presence, OG Daddy V delivers music rooted life experiences, street wisdom, and personal growth. His sound reflects both struggle and success, connecting with listeners who value truth, loyalty, and perseverance. With a growing fanbase and a strong independent foundation, OG Daddy V continues to build his brand through consistent releases, live performances, and community engagement. His dedication to his craft and his message has positioned him as a respected voice and rising force in modern hip-hop. As he continues to evolve as an artist, OG Daddy V represents more than music, he represents vision, leadership, and the relentless drive to succeed. His journey reflects the core values of Hungry Hustler Records: independence, authenticity, and legacy.',
+  specialties: JSON.stringify(['Recording Artist', 'Songwriter', 'Performer', 'Rising Force']),
   status: 'Active',
   label: 'Hungry Hustler Records',
-  photo_url: '',
+  photo_url: 'https://prod-finalquest-user-projects-storage-bucket-aws.s3.amazonaws.com/user-projects/e6f7a075-2ed0-4f03-bcbc-37c67737a41d/assets/images/55346a7f-3dfa-4292-b409-7e9e44590154.png',
   spotify_url: '',
   apple_music_url: '',
   youtube_url: '',
@@ -44,6 +45,12 @@ const OG_DADDY_V_DATA = {
   instagram_url: '',
   twitter_url: '',
 };
+
+function resolveImageSource(source: string | number | undefined) {
+  if (!source) return { uri: '' };
+  if (typeof source === 'string') return { uri: source };
+  return source;
+}
 
 export default function AddArtistsHelper() {
   const router = useRouter();
@@ -85,7 +92,7 @@ export default function AddArtistsHelper() {
       
       showModal(
         'Success!',
-        'Both Afroman and OG Daddy V have been added to the Artists tab. You can now view them in the Artists section or edit them in the Admin panel.',
+        'Both Afroman and OG Daddy V have been added to the Artists tab with their profile pictures and bios. You can now view them in the Artists section or edit them in the Admin panel.',
         'success'
       );
     } catch (error: any) {
@@ -104,7 +111,7 @@ export default function AddArtistsHelper() {
     setLoading(true);
     try {
       await addArtist(AFROMAN_DATA, 'Afroman');
-      showModal('Success!', 'Afroman has been added to the Artists tab.', 'success');
+      showModal('Success!', 'Afroman has been added to the Artists tab with his profile picture and bio.', 'success');
     } catch (error: any) {
       showModal('Error', error.message || 'Failed to add Afroman.', 'error');
     } finally {
@@ -116,7 +123,7 @@ export default function AddArtistsHelper() {
     setLoading(true);
     try {
       await addArtist(OG_DADDY_V_DATA, 'OG Daddy V');
-      showModal('Success!', 'OG Daddy V has been added to the Artists tab.', 'success');
+      showModal('Success!', 'OG Daddy V has been added to the Artists tab with his profile picture and bio.', 'success');
     } catch (error: any) {
       showModal('Error', error.message || 'Failed to add OG Daddy V.', 'error');
     } finally {
@@ -151,7 +158,7 @@ export default function AddArtistsHelper() {
             />
             <Text style={styles.infoTitle}>Quick Artist Setup</Text>
             <Text style={styles.infoText}>
-              This helper will add Afroman and OG Daddy V to your Artists tab with their complete bios, specialties, and status information.
+              This helper will add Afroman and OG Daddy V to your Artists tab with their complete bios, profile pictures, specialties, and status information.
             </Text>
             <Text style={styles.infoNote}>
               Note: You must be logged in as an admin to add artists.
@@ -159,13 +166,22 @@ export default function AddArtistsHelper() {
           </View>
 
           <View style={styles.artistPreview}>
-            <Text style={styles.previewTitle}>AFROMAN</Text>
-            <Text style={styles.previewLabel}>Status: Active</Text>
-            <Text style={styles.previewLabel}>Label: Hungry Hustler Records</Text>
-            <Text style={styles.previewLabel}>
-              Specialties: Recording Artist, Songwriter, Performer, Cultural Icon
+            <View style={styles.artistPreviewHeader}>
+              <Image
+                source={resolveImageSource(AFROMAN_DATA.photo_url)}
+                style={styles.artistPreviewImage}
+                resizeMode="cover"
+              />
+              <View style={styles.artistPreviewInfo}>
+                <Text style={styles.previewTitle}>AFROMAN</Text>
+                <Text style={styles.previewLabel}>Status: Active</Text>
+                <Text style={styles.previewLabel}>Label: Hungry Hustler Records</Text>
+              </View>
+            </View>
+            <Text style={styles.previewSpecialties}>
+              Recording Artist • Songwriter • Performer • Cultural Icon • Grammy Nominee
             </Text>
-            <Text style={styles.previewBio} numberOfLines={3}>
+            <Text style={styles.previewBio} numberOfLines={4}>
               {AFROMAN_DATA.bio}
             </Text>
             
@@ -191,13 +207,22 @@ export default function AddArtistsHelper() {
           </View>
 
           <View style={styles.artistPreview}>
-            <Text style={styles.previewTitle}>OG DADDY V</Text>
-            <Text style={styles.previewLabel}>Status: Active</Text>
-            <Text style={styles.previewLabel}>Label: Hungry Hustler Records</Text>
-            <Text style={styles.previewLabel}>
-              Specialties: Recording Artist, Songwriter, Performer
+            <View style={styles.artistPreviewHeader}>
+              <Image
+                source={resolveImageSource(OG_DADDY_V_DATA.photo_url)}
+                style={styles.artistPreviewImage}
+                resizeMode="cover"
+              />
+              <View style={styles.artistPreviewInfo}>
+                <Text style={styles.previewTitle}>OG DADDY V</Text>
+                <Text style={styles.previewLabel}>Status: Active</Text>
+                <Text style={styles.previewLabel}>Label: Hungry Hustler Records</Text>
+              </View>
+            </View>
+            <Text style={styles.previewSpecialties}>
+              Recording Artist • Songwriter • Performer • Rising Force
             </Text>
-            <Text style={styles.previewBio} numberOfLines={3}>
+            <Text style={styles.previewBio} numberOfLines={4}>
               {OG_DADDY_V_DATA.bio}
             </Text>
             
@@ -249,7 +274,7 @@ export default function AddArtistsHelper() {
           <View style={styles.helpCard}>
             <Text style={styles.helpTitle}>Need to edit artist details?</Text>
             <Text style={styles.helpText}>
-              After adding the artists, you can edit their information (add photos, social media links, etc.) in the Admin panel.
+              After adding the artists, you can edit their information (add social media links, music platform links, etc.) in the Admin panel.
             </Text>
             <TouchableOpacity
               style={styles.helpButton}
@@ -346,24 +371,45 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  artistPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 16,
+  },
+  artistPreviewImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: colors.secondary,
+  },
+  artistPreviewInfo: {
+    flex: 1,
+  },
   previewTitle: {
     fontSize: 22,
     fontWeight: '900',
     color: colors.text,
-    marginBottom: 12,
+    marginBottom: 8,
     letterSpacing: 0.5,
   },
   previewLabel: {
     fontSize: 13,
     color: colors.textSecondary,
-    marginBottom: 6,
+    marginBottom: 4,
     fontWeight: '600',
+  },
+  previewSpecialties: {
+    fontSize: 12,
+    color: colors.primary,
+    marginBottom: 12,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   previewBio: {
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
-    marginTop: 12,
     marginBottom: 16,
   },
   addButton: {
