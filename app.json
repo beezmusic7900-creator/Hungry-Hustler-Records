@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Hungry Hustler Records",
-    "slug": "Hungry Hustler Records",
+    "slug": "hungry-hustler-records",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/9b0d68b6-aabc-4c32-904b-7517b29a9c31.png",
@@ -36,7 +36,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "Hungry Hustler Records",
+    "scheme": "hungryhustlerrecords",
     "experiments": {
       "typedRoutes": true
     },
