@@ -249,7 +249,8 @@ export default function AdminScreen() {
         const mimeType = asset.mimeType || 'image/jpeg';
 
         showModal('Uploading', 'Uploading image to server...', 'info');
-        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/admin/upload/image');
+        // Use /api/upload/image (the correct backend endpoint)
+        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/upload/image');
         if (url) {
           showModal('Success', 'Image uploaded successfully', 'success');
           return url;
@@ -277,7 +278,8 @@ export default function AdminScreen() {
         const filename = asset.name || `audio_${Date.now()}.mp3`;
         const mimeType = asset.mimeType || 'audio/mpeg';
 
-        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/admin/upload/audio');
+        // Use /api/upload/image endpoint for all file uploads (backend only has image upload)
+        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/upload/image');
         if (url) {
           showModal('Success', 'Audio file uploaded successfully', 'success');
           return url;
@@ -307,7 +309,8 @@ export default function AdminScreen() {
         const filename = asset.name || `video_${Date.now()}.mp4`;
         const mimeType = asset.mimeType || 'video/mp4';
 
-        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/admin/upload/video');
+        // Use /api/upload/image endpoint for all file uploads (backend only has image upload)
+        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/upload/image');
         if (url) {
           showModal('Success', 'Video file uploaded successfully', 'success');
           return url;
@@ -360,9 +363,16 @@ export default function AdminScreen() {
       setLoading(true);
       console.log('[AdminScreen] Fetching merch items');
       const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<MerchItem[]>('/api/merch');
+      const data = await apiGet<any[]>('/api/merch');
       console.log('[AdminScreen] Merch items received:', data);
-      setMerchItems(data || []);
+      setMerchItems((data || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        price: parseFloat(item.price) || 0,
+        image_url: item.image_url || item.imageUrl,
+        stock: parseInt(item.stock) || 0,
+      })));
     } catch (error: any) {
       console.error('[AdminScreen] Error fetching merch items:', error);
       showModal('Error', 'Failed to fetch merch items', 'error');
@@ -376,9 +386,16 @@ export default function AdminScreen() {
       setLoading(true);
       console.log('[AdminScreen] Fetching homepage content');
       const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<HomepageContent>('/api/homepage');
-      console.log('[AdminScreen] Homepage content received:', data);
-      setHomepageContent(data || {});
+      const rawData = await apiGet<any>('/api/homepage');
+      console.log('[AdminScreen] Homepage content received:', rawData);
+      // Normalize camelCase fields from API to snake_case for admin form
+      setHomepageContent({
+        hero_banner_url: rawData?.heroBannerUrl || rawData?.hero_banner_url || '',
+        featured_artist_id: rawData?.featuredArtist?.id || rawData?.featuredArtistId || rawData?.featured_artist_id || '',
+        featured_merch_id: rawData?.featuredMerch?.id || rawData?.featuredMerchId || rawData?.featured_merch_id || '',
+        latest_release_title: rawData?.latestReleaseTitle || rawData?.latest_release_title || '',
+        latest_release_url: rawData?.latestReleaseUrl || rawData?.latest_release_url || '',
+      });
     } catch (error: any) {
       console.error('[AdminScreen] Error fetching homepage content:', error);
       showModal('Error', 'Failed to fetch homepage content', 'error');
@@ -392,9 +409,19 @@ export default function AdminScreen() {
       setLoading(true);
       console.log('[AdminScreen] Fetching about content');
       const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<AboutContent>('/api/about');
-      console.log('[AdminScreen] About content received:', data);
-      setAboutContent(data || {});
+      const rawData = await apiGet<any>('/api/about');
+      console.log('[AdminScreen] About content received:', rawData);
+      // Normalize camelCase fields from API to snake_case for admin form
+      setAboutContent({
+        logo_url: rawData?.logoUrl || rawData?.logo_url || '',
+        description: rawData?.description || '',
+        mission: rawData?.mission || '',
+        contact_email: rawData?.contactEmail || rawData?.contact_email || '',
+        contact_phone: rawData?.contactPhone || rawData?.contact_phone || '',
+        instagram_url: rawData?.instagramUrl || rawData?.instagram_url || '',
+        twitter_url: rawData?.twitterUrl || rawData?.twitter_url || '',
+        facebook_url: rawData?.facebookUrl || rawData?.facebook_url || '',
+      });
     } catch (error: any) {
       console.error('[AdminScreen] Error fetching about content:', error);
       showModal('Error', 'Failed to fetch about content', 'error');

@@ -17,10 +17,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 interface HomepageContent {
   hero_banner_url?: string;
+  heroBannerUrl?: string;
   featured_artist?: {
     id: string;
     name: string;
     photo_url?: string;
+    photoUrl?: string;
     bio?: string;
   };
   featured_merch?: {
@@ -28,9 +30,24 @@ interface HomepageContent {
     name: string;
     price: number;
     image_url?: string;
+    imageUrl?: string;
   };
   latest_release_title?: string;
+  latestReleaseTitle?: string;
   latest_release_url?: string;
+  latestReleaseUrl?: string;
+}
+
+interface ExclusiveVideo {
+  id: string;
+  title: string;
+  artistId?: string;
+  videoUrl?: string;
+  video_url?: string;
+  thumbnailUrl?: string;
+  thumbnail_url?: string;
+  isExclusive?: boolean;
+  releaseDate?: string;
 }
 
 function resolveImageSource(source: string | number | undefined) {
@@ -42,22 +59,68 @@ function resolveImageSource(source: string | number | undefined) {
 export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState<HomepageContent | null>(null);
+  const [exclusiveVideos, setExclusiveVideos] = useState<ExclusiveVideo[]>([]);
 
   useEffect(() => {
-    console.log('HomeScreen (iOS): Fetching homepage content');
-    fetchHomepageContent();
+    console.log('HomeScreen (iOS): Fetching homepage content and exclusive videos');
+    fetchData();
   }, []);
 
-  const fetchHomepageContent = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      console.log('[HomeScreen iOS] Fetching homepage content from /api/homepage');
-      
       const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<HomepageContent>('/api/homepage');
+
+      // Fetch homepage content
+      console.log('[HomeScreen iOS] Fetching homepage content from /api/homepage');
+      const rawData = await apiGet<any>('/api/homepage');
+      console.log('[HomeScreen iOS] Homepage content received:', rawData);
       
-      console.log('[HomeScreen iOS] Homepage content received:', data);
+      // Normalize camelCase/snake_case fields from API
+      const data: HomepageContent = {
+        hero_banner_url: rawData?.heroBannerUrl || rawData?.hero_banner_url,
+        heroBannerUrl: rawData?.heroBannerUrl || rawData?.hero_banner_url,
+        featured_artist: rawData?.featuredArtist || rawData?.featured_artist
+          ? {
+              id: (rawData?.featuredArtist || rawData?.featured_artist)?.id,
+              name: (rawData?.featuredArtist || rawData?.featured_artist)?.name,
+              photo_url: (rawData?.featuredArtist || rawData?.featured_artist)?.photoUrl ||
+                         (rawData?.featuredArtist || rawData?.featured_artist)?.photo_url,
+              bio: (rawData?.featuredArtist || rawData?.featured_artist)?.bio,
+            }
+          : undefined,
+        featured_merch: rawData?.featuredMerch || rawData?.featured_merch
+          ? {
+              id: (rawData?.featuredMerch || rawData?.featured_merch)?.id,
+              name: (rawData?.featuredMerch || rawData?.featured_merch)?.name,
+              price: parseFloat((rawData?.featuredMerch || rawData?.featured_merch)?.price) || 0,
+              image_url: (rawData?.featuredMerch || rawData?.featured_merch)?.imageUrl ||
+                         (rawData?.featuredMerch || rawData?.featured_merch)?.image_url,
+            }
+          : undefined,
+        latest_release_title: rawData?.latestReleaseTitle || rawData?.latest_release_title,
+        latest_release_url: rawData?.latestReleaseUrl || rawData?.latest_release_url,
+      };
       setContent(data);
+
+      // Fetch exclusive videos for Home tab
+      try {
+        console.log('[HomeScreen iOS] Fetching exclusive videos from /api/videos/exclusive');
+        const videosData = await apiGet<ExclusiveVideo[]>('/api/videos/exclusive');
+        console.log('[HomeScreen iOS] Exclusive videos received:', videosData);
+        setExclusiveVideos((videosData || []).map((v: any) => ({
+          id: v.id,
+          title: v.title,
+          artistId: v.artistId || v.artist_id,
+          videoUrl: v.videoUrl || v.video_url,
+          thumbnailUrl: v.thumbnailUrl || v.thumbnail_url,
+          isExclusive: v.isExclusive ?? v.is_exclusive ?? true,
+          releaseDate: v.releaseDate || v.release_date,
+        })));
+      } catch (videoError) {
+        console.log('[HomeScreen iOS] Could not fetch exclusive videos:', videoError);
+        setExclusiveVideos([]);
+      }
     } catch (error) {
       console.error('[HomeScreen iOS] Error fetching homepage content:', error);
       setContent(null);
@@ -207,17 +270,72 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.infoCard}>
-            <IconSymbol
-              ios_icon_name="play.rectangle.fill"
-              android_material_icon_name="videocam"
-              size={40}
-              color={colors.primary}
-            />
-            <Text style={styles.infoCardText}>
-              Watch official music videos, behind-the-scenes footage, interviews, and exclusive content from Hungry Hustler Records artists.
-            </Text>
-          </View>
+          {exclusiveVideos.length === 0 ? (
+            <View style={styles.infoCard}>
+              <IconSymbol
+                ios_icon_name="play.rectangle.fill"
+                android_material_icon_name="videocam"
+                size={40}
+                color={colors.primary}
+              />
+              <Text style={styles.infoCardText}>
+                Watch official music videos, behind-the-scenes footage, interviews, and exclusive content from Hungry Hustler Records artists.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.videosGrid}>
+              {exclusiveVideos.map((video) => (
+                <View key={video.id} style={styles.videoCard}>
+                  {video.thumbnailUrl ? (
+                    <Image
+                      source={resolveImageSource(video.thumbnailUrl)}
+                      style={styles.videoThumbnail}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.videoThumbnailPlaceholder}>
+                      <IconSymbol
+                        ios_icon_name="play.rectangle.fill"
+                        android_material_icon_name="videocam"
+                        size={48}
+                        color={colors.primary}
+                      />
+                    </View>
+                  )}
+                  <View style={styles.videoExclusiveBadge}>
+                    <IconSymbol
+                      ios_icon_name="star.fill"
+                      android_material_icon_name="star"
+                      size={10}
+                      color={colors.background}
+                    />
+                    <Text style={styles.videoExclusiveBadgeText}>EXCLUSIVE</Text>
+                  </View>
+                  <View style={styles.videoInfo}>
+                    <Text style={styles.videoTitle}>{video.title}</Text>
+                    <TouchableOpacity
+                      style={styles.watchButton}
+                      onPress={() => {
+                        const url = video.videoUrl;
+                        if (url) {
+                          console.log('[HomeScreen iOS] Opening video:', url);
+                          Linking.openURL(url);
+                        }
+                      }}
+                    >
+                      <IconSymbol
+                        ios_icon_name="play.circle.fill"
+                        android_material_icon_name="play-arrow"
+                        size={20}
+                        color={colors.background}
+                      />
+                      <Text style={styles.watchButtonText}>Watch Now</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Merch Store Section */}
@@ -798,5 +916,79 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 120,
+  },
+  videosGrid: {
+    gap: 16,
+  },
+  videoCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+    position: 'relative',
+  },
+  videoThumbnail: {
+    width: '100%',
+    height: 200,
+    backgroundColor: colors.secondary,
+  },
+  videoThumbnailPlaceholder: {
+    width: '100%',
+    height: 200,
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoExclusiveBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  videoExclusiveBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.background,
+    letterSpacing: 0.5,
+  },
+  videoInfo: {
+    padding: 16,
+  },
+  videoTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 12,
+    letterSpacing: 0.3,
+  },
+  watchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  watchButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.background,
+    letterSpacing: 0.5,
   },
 });

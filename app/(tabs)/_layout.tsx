@@ -1,8 +1,11 @@
 
 import React from 'react';
 import { Tabs } from 'expo-router';
+import { Dimensions } from 'react-native';
 import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 import { colors } from '@/styles/commonStyles';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function TabLayout() {
   const tabs: TabBarItem[] = [
@@ -38,10 +41,13 @@ export default function TabLayout() {
     },
   ];
 
+  // Use most of the screen width for 5 tabs to ensure they all fit properly
+  const tabBarWidth = Math.min(screenWidth - 32, 500);
+
   return (
     <>
       <Tabs
-        tabBar={() => <FloatingTabBar tabs={tabs} />}
+        tabBar={() => <FloatingTabBar tabs={tabs} containerWidth={tabBarWidth} />}
         screenOptions={{
           headerShown: false,
         }}

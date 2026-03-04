@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hungryhustler.records",
+      "icon": "./assets/images/9b0d68b6-aabc-4c32-904b-7517b29a9c31.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -24,6 +25,7 @@
         "foregroundImage": "./assets/images/9b0d68b6-aabc-4c32-904b-7517b29a9c31.png",
         "backgroundColor": "#000000"
       },
+      "icon": "./assets/images/9b0d68b6-aabc-4c32-904b-7517b29a9c31.png",
       "edgeToEdgeEnabled": true,
       "package": "com.hungryhustler.records"
     },

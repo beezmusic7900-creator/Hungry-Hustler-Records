@@ -43,7 +43,7 @@ export default function AdminSetupScreen() {
       
       if (response.success) {
         setSetupComplete(true);
-        showModal('Success', response.message, 'success');
+        showModal('Success', 'Admin account has been created successfully. You can now sign in.', 'success');
       } else {
         showModal('Error', 'Failed to set up admin user', 'error');
       }
@@ -78,12 +78,18 @@ export default function AdminSetupScreen() {
               
               <View style={styles.infoCard}>
                 <Text style={styles.infoTitle}>Admin Credentials:</Text>
-                <Text style={styles.infoText}>Email: hungry.hustler@yahoo.com</Text>
-                <Text style={styles.infoText}>Password: Afroman420!</Text>
+                <View style={styles.credentialRow}>
+                  <Text style={styles.credentialLabel}>Email:</Text>
+                  <Text style={styles.credentialValue}>hungry.hustler@yahoo.com</Text>
+                </View>
+                <View style={styles.credentialRow}>
+                  <Text style={styles.credentialLabel}>Password:</Text>
+                  <Text style={styles.credentialValue}>Afroman420!</Text>
+                </View>
               </View>
               
               <Text style={styles.note}>
-                After setup, you can sign in with these credentials to access the admin panel.
+                After setup, use the credentials above to sign in and access the admin panel.
               </Text>
               
               <TouchableOpacity
@@ -109,8 +115,16 @@ export default function AdminSetupScreen() {
                 />
                 <Text style={styles.successTitle}>Setup Complete!</Text>
                 <Text style={styles.successText}>
-                  The admin user has been created. You can now sign in with the admin credentials.
+                  The admin user has been created. Sign in with:
                 </Text>
+                <View style={styles.credentialRow}>
+                  <Text style={styles.credentialLabel}>Email:</Text>
+                  <Text style={styles.credentialValue}>hungry.hustler@yahoo.com</Text>
+                </View>
+                <View style={styles.credentialRow}>
+                  <Text style={styles.credentialLabel}>Password:</Text>
+                  <Text style={styles.credentialValue}>Afroman420!</Text>
+                </View>
               </View>
               
               <TouchableOpacity
@@ -184,8 +198,25 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginBottom: 8,
+  },
+  credentialRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  credentialLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    width: 80,
+  },
+  credentialValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    flex: 1,
   },
   note: {
     fontSize: 14,

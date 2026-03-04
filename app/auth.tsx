@@ -254,6 +254,14 @@ export default function AuthScreen() {
               <Text style={styles.adminSetupLink}>Set up admin account</Text>
             </TouchableOpacity>
           </View>
+
+          {mode === 'signin' && (
+            <View style={styles.credentialsHint}>
+              <Text style={styles.credentialsHintTitle}>Admin Login:</Text>
+              <Text style={styles.credentialsHintText}>hungry.hustler@yahoo.com</Text>
+              <Text style={styles.credentialsHintText}>Afroman420!</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -381,5 +389,27 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+  credentialsHint: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    gap: 4,
+  },
+  credentialsHintTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  credentialsHintText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
   },
 });
