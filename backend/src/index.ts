@@ -5,6 +5,8 @@ import { registerArtistRoutes } from './routes/artists.js';
 import { registerMerchRoutes } from './routes/merch.js';
 import { registerContentRoutes } from './routes/content.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerSongRoutes } from './routes/songs.js';
+import { registerVideoRoutes } from './routes/videos.js';
 
 // Combine app and auth schemas
 const schema = { ...appSchema, ...authSchema };
@@ -24,6 +26,8 @@ registerArtistRoutes(app);
 registerMerchRoutes(app);
 registerContentRoutes(app);
 registerAdminRoutes(app);
+registerSongRoutes(app);
+registerVideoRoutes(app);
 
 await app.run();
 app.logger.info('Application running');

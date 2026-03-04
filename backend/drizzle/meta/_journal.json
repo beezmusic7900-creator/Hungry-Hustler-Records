@@ -15,6 +15,13 @@
       "when": 1772040962426,
       "tag": "20260225173602_purple_bloodstorm",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772664482003,
+      "tag": "20260304224802_parallel_gauntlet",
+      "breakpoints": true
     }
   ]
 }

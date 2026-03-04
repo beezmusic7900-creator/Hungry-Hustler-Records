@@ -68,6 +68,60 @@ export async function checkAdminStatus(
 }
 
 /**
+ * Check if user can upload files (admin OR has canUpload permission)
+ */
+export async function checkUploadPermission(
+  app: App,
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<{ isAdmin: boolean; canUpload: boolean; userId: string } | null> {
+  try {
+    const token = getBearerToken(request);
+
+    if (!token) {
+      app.logger.debug('No Bearer token found in Authorization header');
+      return null;
+    }
+
+    // Get the current session using Bearer token
+    const sessionRes = await fetch(`http://localhost:${process.env.PORT || 3000}/api/auth/get-session`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!sessionRes.ok) {
+      app.logger.debug('No valid session found for token');
+      return null;
+    }
+
+    const session = (await sessionRes.json()) as { user?: { id: string } };
+    if (!session.user?.id) {
+      app.logger.debug('Session user not found');
+      return null;
+    }
+
+    const userId = session.user.id;
+
+    // Check user permissions
+    const adminRecords = await app.db
+      .select()
+      .from(schema.adminUsers)
+      .where(eq(schema.adminUsers.userId, userId));
+
+    const isAdmin = adminRecords.length > 0 && adminRecords[0].isAdmin;
+    const canUpload = isAdmin || (adminRecords.length > 0 && adminRecords[0].canUpload);
+
+    app.logger.debug({ userId, isAdmin, canUpload }, 'Upload permission checked');
+
+    return { isAdmin, canUpload, userId };
+  } catch (error) {
+    app.logger.error({ err: error }, 'Error checking upload permission');
+    return null;
+  }
+}
+
+/**
  * Middleware wrapper for admin-only routes
  * Automatically returns 401 if not authenticated or 403 if not admin
  */
@@ -89,4 +143,28 @@ export async function requireAdmin(
   }
 
   return adminStatus;
+}
+
+/**
+ * Middleware wrapper for routes requiring admin or upload permission
+ * Automatically returns 401 if not authenticated or 403 if no upload permission
+ */
+export async function requireUploadPermission(
+  app: App,
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<{ isAdmin: boolean; canUpload: boolean; userId: string } | void> {
+  const uploadPerm = await checkUploadPermission(app, request, reply);
+
+  if (!uploadPerm) {
+    app.logger.warn({ path: request.url }, 'Upload access denied: no session');
+    return reply.status(401).send({ error: 'Unauthorized' });
+  }
+
+  if (!uploadPerm.canUpload) {
+    app.logger.warn({ userId: uploadPerm.userId, path: request.url }, 'Upload access denied: no permission');
+    return reply.status(403).send({ error: 'Forbidden - upload permission required' });
+  }
+
+  return uploadPerm;
 }

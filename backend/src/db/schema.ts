@@ -57,7 +57,33 @@ export const aboutContent = pgTable('about_content', {
 export const adminUsers = pgTable('admin_users', {
   userId: text('user_id').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
   isAdmin: boolean('is_admin').default(false),
+  canUpload: boolean('can_upload').default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const songs = pgTable('songs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: text('title').notNull(),
+  artistId: uuid('artist_id').references(() => artists.id, { onDelete: 'set null' }),
+  mp3Url: text('mp3_url').notNull(),
+  coverPhotoUrl: text('cover_photo_url').notNull(),
+  price: decimal('price', { precision: 10, scale: 2 }).default('0').notNull(),
+  isExclusive: boolean('is_exclusive').default(true),
+  releaseDate: timestamp('release_date', { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const videos = pgTable('videos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: text('title').notNull(),
+  artistId: uuid('artist_id').references(() => artists.id, { onDelete: 'set null' }),
+  videoUrl: text('video_url').notNull(),
+  thumbnailUrl: text('thumbnail_url'),
+  isExclusive: boolean('is_exclusive').default(true),
+  releaseDate: timestamp('release_date', { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Relations
@@ -76,5 +102,19 @@ export const adminUsersRelations = relations(adminUsers, ({ one }) => ({
   user: one(user, {
     fields: [adminUsers.userId],
     references: [user.id],
+  }),
+}));
+
+export const songsRelations = relations(songs, ({ one }) => ({
+  artist: one(artists, {
+    fields: [songs.artistId],
+    references: [artists.id],
+  }),
+}));
+
+export const videosRelations = relations(videos, ({ one }) => ({
+  artist: one(artists, {
+    fields: [videos.artistId],
+    references: [artists.id],
   }),
 }));
