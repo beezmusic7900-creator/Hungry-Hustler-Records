@@ -49,6 +49,27 @@ export default function AuthScreen() {
     );
   }
 
+  const checkAdminAndRedirect = async () => {
+    try {
+      console.log('[AuthScreen] Checking admin status after login');
+      const { authenticatedPost } = await import('@/utils/api');
+      const response = await authenticatedPost<{ isAdmin: boolean }>('/api/admin/check', {});
+      console.log('[AuthScreen] Admin check response:', response);
+      
+      if (response.isAdmin) {
+        console.log('[AuthScreen] User is admin, redirecting to /admin');
+        router.replace('/(tabs)/admin');
+      } else {
+        console.log('[AuthScreen] User is not admin, redirecting to home');
+        router.replace('/');
+      }
+    } catch (error) {
+      console.error('[AuthScreen] Error checking admin status:', error);
+      // If check fails, just go to home
+      router.replace('/');
+    }
+  };
+
   const handleEmailAuth = async () => {
     if (!email || !password) {
       showModal("Error", "Please enter email and password", "error");
@@ -60,8 +81,8 @@ export default function AuthScreen() {
       console.log('[AuthScreen] Attempting authentication:', mode, email);
       if (mode === "signin") {
         await signInWithEmail(email, password);
-        console.log('[AuthScreen] Sign in successful');
-        router.replace("/");
+        console.log('[AuthScreen] Sign in successful, checking admin status');
+        await checkAdminAndRedirect();
       } else {
         await signUpWithEmail(email, password, name);
         console.log('[AuthScreen] Sign up successful');
@@ -91,8 +112,8 @@ export default function AuthScreen() {
       } else if (provider === "github") {
         await signInWithGitHub();
       }
-      console.log('[AuthScreen] Social auth successful');
-      router.replace("/");
+      console.log('[AuthScreen] Social auth successful, checking admin status');
+      await checkAdminAndRedirect();
     } catch (error: any) {
       console.error('[AuthScreen] Social auth error:', error);
       showModal("Error", error.message || "Authentication failed", "error");

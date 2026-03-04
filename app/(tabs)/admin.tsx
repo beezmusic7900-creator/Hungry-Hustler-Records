@@ -950,6 +950,33 @@ export default function AdminScreen() {
                 </TouchableOpacity>
               </View>
 
+              {artists.length === 0 && !loading && (
+                <View style={styles.emptyStateCard}>
+                  <IconSymbol
+                    ios_icon_name="person.3"
+                    android_material_icon_name="group"
+                    size={48}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.emptyStateTitle}>No Artists Yet</Text>
+                  <Text style={styles.emptyStateText}>
+                    Get started by adding Afroman and OG Daddy V with their complete profiles, bios, and photos.
+                  </Text>
+                  <TouchableOpacity
+                    style={[commonStyles.button, styles.emptyStateButton]}
+                    onPress={() => router.push('/add-artists-helper')}
+                  >
+                    <IconSymbol
+                      ios_icon_name="plus.circle"
+                      android_material_icon_name="add-circle"
+                      size={20}
+                      color={colors.background}
+                    />
+                    <Text style={commonStyles.buttonText}>Add Artists Now</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {loading ? (
                 <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
               ) : (
@@ -2020,6 +2047,34 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 24,
     textAlign: 'center',
+  },
+  emptyStateCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 24,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  emptyStateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   tabBar: {
     borderBottomWidth: 1,
