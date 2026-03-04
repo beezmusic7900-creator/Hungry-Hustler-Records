@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import Modal from "@/components/ui/Modal";
 import { colors } from "@/styles/commonStyles";
+import { getBearerToken, BACKEND_URL } from "@/utils/api";
 
 type Mode = "signin" | "signup";
 
@@ -52,11 +53,42 @@ export default function AuthScreen() {
   const checkAdminAndRedirect = async () => {
     try {
       console.log('[AuthScreen] Checking admin status after login');
-      const { authenticatedPost } = await import('@/utils/api');
-      const response = await authenticatedPost<{ isAdmin: boolean }>('/api/admin/check', {});
-      console.log('[AuthScreen] Admin check response:', response);
       
-      if (response.isAdmin) {
+      // Wait a bit for token to be persisted
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Get the token directly
+      const token = await getBearerToken();
+      
+      if (!token) {
+        console.error('[AuthScreen] No authentication token found after login');
+        // Still redirect to home if no token
+        router.replace('/');
+        return;
+      }
+      
+      console.log('[AuthScreen] Token found, checking admin status');
+      
+      // Make the admin check request with the token
+      const response = await fetch(`${BACKEND_URL}/api/admin/check`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+      
+      if (!response.ok) {
+        console.error('[AuthScreen] Admin check failed:', response.status);
+        router.replace('/');
+        return;
+      }
+      
+      const data = await response.json();
+      console.log('[AuthScreen] Admin check response:', data);
+      
+      if (data.isAdmin) {
         console.log('[AuthScreen] User is admin, redirecting to /admin');
         router.replace('/(tabs)/admin');
       } else {
