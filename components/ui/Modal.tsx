@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal as RNModal,
-  TouchableWithoutFeedback,
 } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 
@@ -56,38 +55,34 @@ export default function Modal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.modal}>
-              <View style={[styles.iconContainer, { backgroundColor: getIconColor() + '20' }]}>
-                <View style={[styles.icon, { borderColor: getIconColor() }]} />
-              </View>
-              
-              <Text style={styles.title}>{title}</Text>
-              <Text style={styles.message}>{message}</Text>
-
-              <View style={styles.buttonContainer}>
-                {type === 'confirm' && (
-                  <TouchableOpacity
-                    style={[styles.button, styles.cancelButton]}
-                    onPress={onClose}
-                  >
-                    <Text style={styles.cancelButtonText}>{cancelText}</Text>
-                  </TouchableOpacity>
-                )}
-                
-                <TouchableOpacity
-                  style={[styles.button, styles.confirmButton]}
-                  onPress={handleConfirm}
-                >
-                  <Text style={styles.confirmButtonText}>{confirmText}</Text>
-                </TouchableOpacity>
-              </View>
+          <View style={styles.modal}>
+            <View style={[styles.iconContainer, { backgroundColor: getIconColor() + '20' }]}>
+              <View style={[styles.icon, { borderColor: getIconColor() }]} />
             </View>
-          </TouchableWithoutFeedback>
+            
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.message}>{message}</Text>
+
+            <View style={styles.buttonContainer}>
+              {type === 'confirm' && (
+                <TouchableOpacity
+                  style={[styles.button, styles.cancelButton]}
+                  onPress={onClose}
+                >
+                  <Text style={styles.cancelButtonText}>{cancelText}</Text>
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity
+                style={[styles.button, styles.confirmButton]}
+                onPress={handleConfirm}
+              >
+                <Text style={styles.confirmButtonText}>{confirmText}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </TouchableWithoutFeedback>
     </RNModal>
   );
 }

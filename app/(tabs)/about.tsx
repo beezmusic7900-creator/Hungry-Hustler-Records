@@ -47,9 +47,20 @@ export default function AboutScreen() {
       console.log('[AboutScreen] Fetching about content from /api/about');
       
       const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<AboutContent>('/api/about');
+      const rawData = await apiGet<any>('/api/about');
       
-      console.log('[AboutScreen] About content received:', data);
+      console.log('[AboutScreen] About content received:', rawData);
+      // Normalize camelCase/snake_case fields from API
+      const data: AboutContent = {
+        logo_url: rawData?.logoUrl || rawData?.logo_url,
+        description: rawData?.description,
+        mission: rawData?.mission,
+        contact_email: rawData?.contactEmail || rawData?.contact_email,
+        contact_phone: rawData?.contactPhone || rawData?.contact_phone,
+        instagram_url: rawData?.instagramUrl || rawData?.instagram_url,
+        twitter_url: rawData?.twitterUrl || rawData?.twitter_url,
+        facebook_url: rawData?.facebookUrl || rawData?.facebook_url,
+      };
       setContent(data);
     } catch (error) {
       console.error('[AboutScreen] Error fetching about content:', error);

@@ -234,3 +234,58 @@ export const authenticatedDelete = async <T = any>(endpoint: string, data: any =
     body: JSON.stringify(data),
   });
 };
+
+/**
+ * Authenticated multipart file upload
+ * Sends FormData with a file field to the given endpoint
+ *
+ * @param endpoint - API endpoint path (e.g., '/api/admin/upload/image')
+ * @param uri - Local file URI
+ * @param filename - File name
+ * @param mimeType - MIME type of the file
+ * @returns Parsed JSON response (e.g., { url: string, filename: string })
+ */
+export const authenticatedUpload = async <T = any>(
+  endpoint: string,
+  uri: string,
+  filename: string,
+  mimeType: string
+): Promise<T> => {
+  if (!isBackendConfigured()) {
+    throw new Error("Backend URL not configured. Please rebuild the app.");
+  }
+
+  const token = await getBearerToken();
+  if (!token) {
+    throw new Error("Authentication token not found. Please sign in.");
+  }
+
+  const url = `${BACKEND_URL}${endpoint}`;
+  console.log("[API] Uploading file to:", url, filename, mimeType);
+
+  const formData = new FormData();
+  formData.append("file", {
+    uri,
+    name: filename,
+    type: mimeType,
+  } as any);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Do NOT set Content-Type - let fetch set it with the multipart boundary
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("[API] Upload error response:", response.status, text);
+    throw new Error(`Upload failed: ${response.status} - ${text}`);
+  }
+
+  const data = await response.json();
+  console.log("[API] Upload success:", data);
+  return data;
+};
