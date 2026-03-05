@@ -13,7 +13,8 @@ interface ModalProps {
   visible: boolean;
   onClose: () => void;
   title: string;
-  message: string;
+  message?: string;
+  children?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   onConfirm?: () => void;
@@ -25,6 +26,7 @@ export default function Modal({
   onClose,
   title,
   message,
+  children,
   confirmText = 'OK',
   cancelText = 'Cancel',
   onConfirm,
@@ -48,6 +50,8 @@ export default function Modal({
     }
   };
 
+  const iconColorValue = getIconColor();
+
   return (
     <RNModal
       visible={visible}
@@ -57,12 +61,17 @@ export default function Modal({
     >
         <View style={styles.overlay}>
           <View style={styles.modal}>
-            <View style={[styles.iconContainer, { backgroundColor: getIconColor() + '20' }]}>
-              <View style={[styles.icon, { borderColor: getIconColor() }]} />
+            <View style={[styles.iconContainer, { backgroundColor: iconColorValue + '20' }]}>
+              <View style={[styles.icon, { borderColor: iconColorValue }]} />
             </View>
             
             <Text style={styles.title}>{title}</Text>
-            <Text style={styles.message}>{message}</Text>
+            
+            {children ? (
+              <View style={styles.childrenContainer}>{children}</View>
+            ) : message ? (
+              <Text style={styles.message}>{message}</Text>
+            ) : null}
 
             <View style={styles.buttonContainer}>
               {type === 'confirm' && (
@@ -131,6 +140,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 24,
+  },
+  childrenContainer: {
     marginBottom: 24,
   },
   buttonContainer: {

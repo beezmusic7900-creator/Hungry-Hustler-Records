@@ -21,7 +21,7 @@ type Mode = "signin" | "signup";
 
 export default function AuthScreen() {
   const router = useRouter();
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple, signInWithGitHub, loading: authLoading } =
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple, signInWithGitHub, loading: authLoading, user } =
     useAuth();
 
   const [mode, setMode] = useState<Mode>("signin");
@@ -52,22 +52,21 @@ export default function AuthScreen() {
 
   const checkAdminAndRedirect = async () => {
     try {
-      console.log('[AuthScreen] Checking admin status after login');
+      console.log('[AuthScreen] Starting admin check after login');
       
-      // Wait a bit for token to be persisted
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait for token to be persisted
+      await new Promise(resolve => setTimeout(resolve, 800));
       
       // Get the token directly
       const token = await getBearerToken();
       
       if (!token) {
         console.error('[AuthScreen] No authentication token found after login');
-        // Still redirect to home if no token
-        router.replace('/');
+        router.replace('/(tabs)');
         return;
       }
       
-      console.log('[AuthScreen] Token found, checking admin status');
+      console.log('[AuthScreen] Token found, making admin check request');
       
       // Make the admin check request with the token
       const response = await fetch(`${BACKEND_URL}/api/admin/check`, {
@@ -79,26 +78,33 @@ export default function AuthScreen() {
         body: JSON.stringify({}),
       });
       
+      console.log('[AuthScreen] Admin check response status:', response.status);
+      
       if (!response.ok) {
-        console.error('[AuthScreen] Admin check failed:', response.status);
-        router.replace('/');
+        console.error('[AuthScreen] Admin check failed with status:', response.status);
+        const errorText = await response.text();
+        console.error('[AuthScreen] Error response:', errorText);
+        router.replace('/(tabs)');
         return;
       }
       
       const data = await response.json();
-      console.log('[AuthScreen] Admin check response:', data);
+      console.log('[AuthScreen] Admin check response data:', data);
       
-      if (data.isAdmin) {
-        console.log('[AuthScreen] User is admin, redirecting to /admin');
-        router.replace('/(tabs)/admin');
+      if (data.isAdmin === true) {
+        console.log('[AuthScreen] User IS admin, redirecting to admin panel');
+        // Use a slight delay to ensure navigation is ready
+        setTimeout(() => {
+          router.replace('/(tabs)/admin');
+        }, 100);
       } else {
-        console.log('[AuthScreen] User is not admin, redirecting to home');
-        router.replace('/');
+        console.log('[AuthScreen] User is NOT admin, redirecting to home');
+        router.replace('/(tabs)');
       }
     } catch (error) {
       console.error('[AuthScreen] Error checking admin status:', error);
       // If check fails, just go to home
-      router.replace('/');
+      router.replace('/(tabs)');
     }
   };
 
@@ -123,7 +129,7 @@ export default function AuthScreen() {
           "Account created! Please check your email to verify your account.",
           "success"
         );
-        router.replace("/");
+        router.replace("/(tabs)");
       }
     } catch (error: any) {
       console.error('[AuthScreen] Authentication error:', error);
@@ -269,9 +275,10 @@ export default function AuthScreen() {
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         title={modalConfig.title}
-        message={modalConfig.message}
         type={modalConfig.type}
-      />
+      >
+        <Text style={styles.modalMessage}>{modalConfig.message}</Text>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -411,5 +418,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.primary,
     fontWeight: '600',
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 22,
   },
 });
