@@ -93,10 +93,10 @@ export default function AuthScreen() {
       
       if (data.isAdmin === true) {
         console.log('[AuthScreen] User IS admin, redirecting to admin panel');
-        // Use a slight delay to ensure navigation is ready
+        // Delay to allow _layout.tsx admin check to complete and show the tab
         setTimeout(() => {
           router.replace('/(tabs)/admin');
-        }, 100);
+        }, 1200);
       } else {
         console.log('[AuthScreen] User is NOT admin, redirecting to home');
         router.replace('/(tabs)');
