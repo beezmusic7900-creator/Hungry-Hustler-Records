@@ -1,6 +1,6 @@
 import type { App } from '../index.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { eq, asc } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 import { requireAdmin } from '../utils/admin.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,7 +12,10 @@ export function registerArtistRoutes(app: App) {
   fastify.get('/api/artists', async (request, reply) => {
     app.logger.info('Fetching all artists');
     try {
-      const artists = await app.db.select().from(schema.artists);
+      const artists = await app.db
+        .select()
+        .from(schema.artists)
+        .orderBy(asc(schema.artists.createdAt));
       app.logger.info({ count: artists.length }, 'Artists fetched successfully');
       return artists.map((artist) => ({
         id: artist.id,
