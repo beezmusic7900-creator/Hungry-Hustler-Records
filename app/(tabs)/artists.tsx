@@ -188,6 +188,12 @@ export default function ArtistsScreen() {
 
               const isActive = artistStatus.toLowerCase() === 'active';
 
+              const listenNowUrl = artist.id === 'afroman-local'
+                ? 'https://music.apple.com/us/artist/afroman/88434'
+                : artist.id === 'og-daddy-v-local'
+                ? 'https://music.apple.com/us/artist/og-daddy-v/382358555'
+                : undefined;
+
               return (
                 <View key={artist.id} style={styles.artistCard}>
                   {/* Artist Photo with Gradient Overlay */}
@@ -264,17 +270,13 @@ export default function ArtistsScreen() {
 
                     {/* Action Buttons */}
                     <View style={styles.actionButtons}>
-                      <TouchableOpacity style={styles.primaryButton}>
-                        <IconSymbol
-                          ios_icon_name="person.circle"
-                          android_material_icon_name="account-circle"
-                          size={18}
-                          color={colors.background}
-                        />
-                        <Text style={styles.primaryButtonText}>View Profile</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity style={styles.secondaryButton}>
+                      <TouchableOpacity
+                        style={styles.secondaryButton}
+                        onPress={() => {
+                          console.log('ArtistsScreen: Listen Now pressed for', artistName, '- URL:', listenNowUrl);
+                          handleOpenLink(listenNowUrl);
+                        }}
+                      >
                         <IconSymbol
                           ios_icon_name="music.note"
                           android_material_icon_name="music-note"
@@ -282,16 +284,6 @@ export default function ArtistsScreen() {
                           color={colors.primary}
                         />
                         <Text style={styles.secondaryButtonText}>Listen Now</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity style={styles.secondaryButton}>
-                        <IconSymbol
-                          ios_icon_name="play.circle"
-                          android_material_icon_name="play-arrow"
-                          size={18}
-                          color={colors.primary}
-                        />
-                        <Text style={styles.secondaryButtonText}>Videos</Text>
                       </TouchableOpacity>
                     </View>
 
