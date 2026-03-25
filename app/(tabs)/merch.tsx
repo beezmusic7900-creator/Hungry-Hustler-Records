@@ -17,6 +17,7 @@ import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
 const STRIPE_URL = 'https://buy.stripe.com/3cIfZjajP3pu35z8hL6Na08';
+const HOODIE_STRIPE_URL = 'https://buy.stripe.com/cNiaEZ9fLf8c9tXapT6Na0b';
 const SHIRT_SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
 
 const LOCAL_MERCH_ITEMS = [
@@ -25,12 +26,28 @@ const LOCAL_MERCH_ITEMS = [
     name: 'Official Afroman T-Shirt',
     color: 'White',
     image: require('@/assets/images/eeb1ec34-93d3-4cd5-929e-357a7b1e2578.jpeg'),
+    stripeUrl: STRIPE_URL,
   },
   {
     id: 'afroman-tshirt-black',
     name: 'Official Afroman T-Shirt',
     color: 'Black',
     image: require('@/assets/images/29bf2a31-d9fb-4a8b-9527-1a9535714d67.jpeg'),
+    stripeUrl: STRIPE_URL,
+  },
+  {
+    id: 'afroman-hoody-white',
+    name: 'Official Afroman Hoody',
+    color: 'White',
+    image: require('@/assets/images/f70f1547-d85a-49a9-bdc1-8e4ae78f7693.jpeg'),
+    stripeUrl: HOODIE_STRIPE_URL,
+  },
+  {
+    id: 'afroman-hoody-black',
+    name: 'Official Afroman Hoody',
+    color: 'Black',
+    image: require('@/assets/images/69cdc091-c353-4334-8f52-c2af80a59029.jpeg'),
+    stripeUrl: HOODIE_STRIPE_URL,
   },
 ];
 
@@ -50,7 +67,7 @@ function LocalMerchCard({ item }: { item: typeof LOCAL_MERCH_ITEMS[0] }) {
 
   const handleBuyNow = () => {
     console.log(`[MerchScreen] Buy Now pressed for ${item.name} (${item.color}), size: ${selectedSize}`);
-    Linking.openURL(STRIPE_URL);
+    Linking.openURL(item.stripeUrl);
   };
 
   return (
