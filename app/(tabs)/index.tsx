@@ -508,7 +508,13 @@ export default function HomeScreen() {
             Follow us on social media for exclusive drops, behind-the-scenes content, and more.
           </Text>
           <View style={styles.ctaButtons}>
-            <TouchableOpacity style={styles.ctaButton}>
+            <TouchableOpacity
+              style={styles.ctaButton}
+              onPress={() => {
+                console.log('[HomeScreen] Opening Instagram');
+                Linking.openURL('https://www.instagram.com/hungryhustlerrecords');
+              }}
+            >
               <IconSymbol
                 ios_icon_name="camera"
                 android_material_icon_name="camera"
@@ -517,7 +523,13 @@ export default function HomeScreen() {
               />
               <Text style={styles.ctaButtonText}>Instagram</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.ctaButton}>
+            <TouchableOpacity
+              style={styles.ctaButton}
+              onPress={() => {
+                console.log('[HomeScreen] Opening Twitter/X');
+                Linking.openURL('https://www.twitter.com/hungryhustlerrecords');
+              }}
+            >
               <IconSymbol
                 ios_icon_name="at"
                 android_material_icon_name="alternate-email"

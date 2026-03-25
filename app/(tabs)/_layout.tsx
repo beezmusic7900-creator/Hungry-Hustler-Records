@@ -1,10 +1,10 @@
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Tabs } from 'expo-router';
 import { Dimensions } from 'react-native';
 import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 import { useAuth } from '@/contexts/AuthContext';
-import { authenticatedPost } from '@/utils/api';
+import { useAdmin } from '@/contexts/AdminContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -33,30 +33,17 @@ const BASE_TABS: TabBarItem[] = [
     icon: 'info',
     label: 'About',
   },
+  {
+    name: 'profile',
+    route: '/(tabs)/profile',
+    icon: 'person',
+    label: 'Profile',
+  },
 ];
 
 export default function TabLayout() {
   const { user, loading: authLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    if (!user) {
-      setIsAdmin(false);
-      return;
-    }
-    const checkAdmin = async () => {
-      try {
-        console.log('[TabLayout] Checking admin status for user:', user.email);
-        const data = await authenticatedPost<{ isAdmin: boolean }>('/api/admin/check', {});
-        console.log('[TabLayout] Admin check result:', data);
-        setIsAdmin(data.isAdmin === true);
-      } catch (error) {
-        console.log('[TabLayout] Admin check failed (non-admin user):', error);
-        setIsAdmin(false);
-      }
-    };
-    checkAdmin();
-  }, [user]);
+  const { isAdmin } = useAdmin();
 
   // Build visible tabs: base tabs + either Admin (logged-in admin) or Login (logged out)
   const loginTab: TabBarItem = {
@@ -98,6 +85,7 @@ export default function TabLayout() {
         <Tabs.Screen name="artists" options={{ title: 'Artists' }} />
         <Tabs.Screen name="merch" options={{ title: 'Merch' }} />
         <Tabs.Screen name="about" options={{ title: 'About' }} />
+        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
         <Tabs.Screen
           name="admin"
           options={{

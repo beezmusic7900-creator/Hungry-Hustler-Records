@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdmin } from '@/contexts/AdminContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import Modal from '@/components/ui/Modal';
@@ -112,10 +113,9 @@ function resolveImageSource(source: string | number | undefined) {
 export default function AdminScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { isAdmin, checkingAdmin } = useAdmin();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('artists');
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [checkingAdmin, setCheckingAdmin] = useState(true);
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -163,15 +163,6 @@ export default function AdminScreen() {
   });
 
   useEffect(() => {
-    console.log('[AdminScreen] User:', user);
-    if (user) {
-      checkAdminStatus();
-    } else {
-      setCheckingAdmin(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
     if (isAdmin) {
       if (activeTab === 'artists') fetchArtists();
       else if (activeTab === 'merch') fetchMerchItems();
@@ -191,23 +182,6 @@ export default function AdminScreen() {
   ) => {
     setModalConfig({ title, message, type, onConfirm });
     setModalVisible(true);
-  };
-
-  const checkAdminStatus = async () => {
-    try {
-      setCheckingAdmin(true);
-      console.log('[AdminScreen] Checking admin status via POST /api/admin/check');
-      const { authenticatedPost } = await import('@/utils/api');
-      const response = await authenticatedPost<{ isAdmin: boolean }>('/api/admin/check', {});
-      console.log('[AdminScreen] Admin check response:', response);
-      setIsAdmin(response.isAdmin);
-    } catch (error: any) {
-      console.error('[AdminScreen] Error checking admin status:', error);
-      setIsAdmin(false);
-      showModal('Access Denied', 'You do not have admin privileges.', 'error');
-    } finally {
-      setCheckingAdmin(false);
-    }
   };
 
   const uploadFileToBackend = async (
@@ -278,8 +252,7 @@ export default function AdminScreen() {
         const filename = asset.name || `audio_${Date.now()}.mp3`;
         const mimeType = asset.mimeType || 'audio/mpeg';
 
-        // Use /api/upload/image endpoint for all file uploads (backend only has image upload)
-        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/upload/image');
+        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/upload/audio');
         if (url) {
           showModal('Success', 'Audio file uploaded successfully', 'success');
           return url;
@@ -309,8 +282,7 @@ export default function AdminScreen() {
         const filename = asset.name || `video_${Date.now()}.mp4`;
         const mimeType = asset.mimeType || 'video/mp4';
 
-        // Use /api/upload/image endpoint for all file uploads (backend only has image upload)
-        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/upload/image');
+        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/upload/video');
         if (url) {
           showModal('Success', 'Video file uploaded successfully', 'success');
           return url;

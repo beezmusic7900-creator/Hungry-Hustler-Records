@@ -12,10 +12,10 @@ import {
   ScrollView,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/AdminContext";
 import { useRouter } from "expo-router";
 import Modal from "@/components/ui/Modal";
 import { colors } from "@/styles/commonStyles";
-import { getBearerToken, BACKEND_URL } from "@/utils/api";
 
 type Mode = "signin" | "signup";
 
@@ -23,6 +23,7 @@ export default function AuthScreen() {
   const router = useRouter();
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple, signInWithGitHub, loading: authLoading, user } =
     useAuth();
+  const { recheckAdmin } = useAdmin();
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -53,63 +54,8 @@ export default function AuthScreen() {
   const checkAdminAndRedirect = async () => {
     try {
       console.log('[AuthScreen] Starting admin check after login');
-
-      // Retry getting the token up to 5 times with 400ms gaps.
-      // fetchUser() in AuthContext stores it asynchronously, so we may need
-      // to wait a moment for SecureStore / localStorage to be written.
-      let token: string | null = null;
-      for (let attempt = 1; attempt <= 5; attempt++) {
-        token = await getBearerToken();
-        if (token) {
-          console.log(`[AuthScreen] Token found on attempt ${attempt}`);
-          break;
-        }
-        console.log(`[AuthScreen] Token not yet available (attempt ${attempt}/5), retrying...`);
-        await new Promise(resolve => setTimeout(resolve, 400));
-      }
-
-      if (!token) {
-        // Last resort: pull the token directly from the auth client session
-        console.log('[AuthScreen] Falling back to authClient.getSession() for token');
-        const { authClient, setBearerToken } = await import('@/lib/auth');
-        const session = await authClient.getSession();
-        if (session?.data?.session?.token) {
-          token = session.data.session.token;
-          await setBearerToken(token);
-          console.log('[AuthScreen] Token obtained from session fallback');
-        }
-      }
-
-      if (!token) {
-        console.error('[AuthScreen] No authentication token found after login — redirecting home');
-        router.replace('/(tabs)');
-        return;
-      }
-
-      console.log('[AuthScreen] Token ready, making admin check request');
-
-      const response = await fetch(`${BACKEND_URL}/api/admin/check`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({}),
-      });
-
-      console.log('[AuthScreen] Admin check response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[AuthScreen] Admin check failed:', response.status, errorText);
-        router.replace('/(tabs)');
-        return;
-      }
-
-      const data = await response.json();
-      console.log('[AuthScreen] Admin check response data:', data);
-
-      if (data.isAdmin === true) {
+      const isAdmin = await recheckAdmin();
+      if (isAdmin) {
         console.log('[AuthScreen] User IS admin, redirecting to admin panel');
         router.replace('/(tabs)/admin');
       } else {
