@@ -1,166 +1,163 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  Animated,
-  Dimensions,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
   Platform,
+  ImageSourcePropType,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { Play, Video as VideoIcon } from 'lucide-react-native';
 import { colors } from '@/styles/commonStyles';
+import { apiGet } from '@/utils/api';
 
-const { width: screenWidth } = Dimensions.get('window');
-const VIDEO_WIDTH = screenWidth - 32;
-const VIDEO_HEIGHT = VIDEO_WIDTH * (9 / 16);
-
-interface VideoItem {
+type Video = {
   id: string;
-  videoId: string;
   title: string;
+  description?: string;
+  video_url: string;
+  thumbnail_url?: string;
+  duration?: number;
+  is_published: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
+  if (!source) return { uri: '' };
+  if (typeof source === 'string') return { uri: source };
+  return source as ImageSourcePropType;
 }
 
-const VIDEOS: VideoItem[] = [
-  { id: '1', videoId: 'WeYsTmIzjkw', title: 'Video 1' },
-  { id: '2', videoId: 'SIMcktul77c', title: 'Video 2' },
-  { id: '3', videoId: '9xxK5yyecRo', title: 'Video 3' },
-  { id: '4', videoId: '9ubDXueOU4c', title: 'Video 4' },
-  { id: '5', videoId: 'HlO6GGcBePw', title: 'Video 5' },
-  { id: '6', videoId: 'VA8_XpZE4Sw', title: 'Video 6' },
-];
-
-function buildEmbedHtml(videoId: string): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-          iframe { width: 100%; height: 100%; border: none; display: block; }
-        </style>
-      </head>
-      <body>
-        <iframe
-          src="https://www.youtube.com/embed/${videoId}?playsinline=1&rel=0"
-          frameborder="0"
-          allowfullscreen
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        ></iframe>
-      </body>
-    </html>
-  `;
+function formatDuration(seconds?: number): string {
+  if (!seconds || seconds <= 0) return '';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  const sStr = s < 10 ? `0${s}` : `${s}`;
+  return `${m}:${sStr}`;
 }
 
-function AnimatedVideoCard({ item, index }: { item: VideoItem; index: number }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(16)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 400,
-        delay: index * 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 400,
-        delay: index * 80,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  const embedHtml = buildEmbedHtml(item.videoId);
-  const embedUrl = `https://www.youtube.com/embed/${item.videoId}`;
-
-  const handleLoadStart = () => {
-    console.log(`[VideosScreen] WebView loading video: ${item.videoId} (index ${index})`);
-  };
-
-  const handleLoadEnd = () => {
-    console.log(`[VideosScreen] WebView loaded video: ${item.videoId}`);
-  };
-
-  const handleError = (e: any) => {
-    console.error(`[VideosScreen] WebView error for video ${item.videoId}:`, e.nativeEvent);
-  };
+function VideoCard({ video, onPress }: { video: Video; onPress: () => void }) {
+  const thumbSource = resolveImageSource(video.thumbnail_url);
+  const durationText = formatDuration(video.duration);
+  const hasThumb = !!video.thumbnail_url;
 
   return (
-    <Animated.View
-      style={[
-        styles.card,
-        { opacity, transform: [{ translateY }] },
-      ]}
-    >
-      <View style={styles.videoWrapper}>
-        <WebView
-          source={{ html: embedHtml, baseUrl: 'https://www.youtube.com' }}
-          style={styles.webview}
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          javaScriptEnabled
-          domStorageEnabled
-          onLoadStart={handleLoadStart}
-          onLoad={handleLoadEnd}
-          onError={handleError}
-          scrollEnabled={false}
-          bounces={false}
-          originWhitelist={['*']}
-        />
-      </View>
-      <View style={styles.cardFooter}>
-        <View style={styles.youtubeTag}>
-          <Text style={styles.youtubeTagText}>▶ YouTube</Text>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+      <View style={styles.thumbnailContainer}>
+        {hasThumb ? (
+          <Image source={thumbSource} style={styles.thumbnail} resizeMode="cover" />
+        ) : (
+          <View style={styles.thumbnailPlaceholder}>
+            <VideoIcon size={40} color={colors.textSecondary} />
+          </View>
+        )}
+        <View style={styles.playButton}>
+          <Play size={22} color="#fff" fill="#fff" />
         </View>
-        <Text style={styles.videoUrl} numberOfLines={1} ellipsizeMode="tail">
-          {embedUrl}
-        </Text>
+        {durationText !== '' && (
+          <View style={styles.durationBadge}>
+            <Text style={styles.durationText}>{durationText}</Text>
+          </View>
+        )}
       </View>
-    </Animated.View>
+      <View style={styles.cardBody}>
+        <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
+        {video.description ? (
+          <Text style={styles.videoDescription} numberOfLines={2}>{video.description}</Text>
+        ) : null}
+      </View>
+    </TouchableOpacity>
   );
 }
 
 export default function VideosScreen() {
-  useEffect(() => {
-    console.log('[VideosScreen] Screen mounted, displaying', VIDEOS.length, 'videos');
+  const router = useRouter();
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchVideos = useCallback(async () => {
+    console.log('[VideosScreen] Fetching videos from /api/videos');
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiGet<{ videos: Video[] }>('/api/videos');
+      console.log('[VideosScreen] Videos received:', data?.videos?.length ?? 0);
+      setVideos(data?.videos ?? []);
+    } catch (err: any) {
+      console.error('[VideosScreen] Error fetching videos:', err);
+      setError('Failed to load videos. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const paddingTop = Platform.OS === 'android' ? 48 : 0;
+  useFocusEffect(
+    useCallback(() => {
+      fetchVideos();
+    }, [fetchVideos])
+  );
+
+  const handleVideoPress = (video: Video) => {
+    console.log(`[VideosScreen] Video pressed: ${video.title}`);
+    router.push({
+      pathname: '/video-player',
+      params: {
+        video_url: video.video_url,
+        title: video.title,
+        description: video.description ?? '',
+      },
+    });
+  };
+
+  const renderVideo = ({ item }: { item: Video }) => (
+    <VideoCard video={item} onPress={() => handleVideoPress(item)} />
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingTop }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>VIDEOS</Text>
-          <Text style={styles.headerSubtitle}>
-            Watch the latest music videos and exclusive content
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            from Hungry Hustler Records artists.
-          </Text>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>VIDEOS</Text>
+        <Text style={styles.headerSubtitle}>Watch the latest music videos and exclusive content</Text>
+      </View>
 
-        {/* Video Cards */}
-        <View style={styles.videoList}>
-          {VIDEOS.map((item, index) => (
-            <AnimatedVideoCard key={item.id} item={item} index={index} />
-          ))}
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
-
-        <View style={styles.bottomPadding} />
-      </ScrollView>
+      ) : error ? (
+        <View style={styles.centered}>
+          <VideoIcon size={48} color={colors.textSecondary} />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={fetchVideos}>
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : videos.length === 0 ? (
+        <View style={styles.centered}>
+          <VideoIcon size={56} color={colors.textSecondary} />
+          <Text style={styles.emptyTitle}>No Videos Yet</Text>
+          <Text style={styles.emptySubtitle}>Check back soon for new content.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={videos}
+          keyExtractor={(item) => item.id}
+          renderItem={renderVideo}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListFooterComponent={<View style={{ height: 120 }} />}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -170,93 +167,141 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 32,
+    paddingTop: 20,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   headerTitle: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '900',
     color: colors.primary,
-    letterSpacing: 1,
-    marginBottom: 16,
-    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginBottom: 4,
   },
   headerSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  errorText: {
     fontSize: 15,
     color: colors.textSecondary,
+    textAlign: 'center',
     lineHeight: 22,
   },
-  videoList: {
+  retryBtn: {
+    marginTop: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  retryBtnText: {
+    color: colors.background,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    marginTop: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  listContent: {
     paddingHorizontal: 16,
-    paddingTop: 24,
-    gap: 24,
+    paddingTop: 16,
+    gap: 16,
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
     ...Platform.select({
-      web: {
-        boxShadow: '0px 4px 16px rgba(0, 255, 102, 0.08)',
-      },
+      web: { boxShadow: '0 2px 8px rgba(0,0,0,0.12)' },
       default: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 4,
       },
     }),
   },
-  videoWrapper: {
-    width: VIDEO_WIDTH - 2, // account for border
-    height: VIDEO_HEIGHT,
-    backgroundColor: '#000',
+  thumbnailContainer: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: colors.secondary,
+    position: 'relative',
   },
-  webview: {
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbnailPlaceholder: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-  cardFooter: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    justifyContent: 'center',
+    backgroundColor: colors.secondary,
   },
-  youtubeTag: {
-    backgroundColor: colors.primaryGlow,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+  playButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -22,
+    marginLeft: -22,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.8)',
   },
-  youtubeTagText: {
+  durationBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  durationText: {
     fontSize: 11,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  cardBody: {
+    padding: 14,
+  },
+  videoTitle: {
+    fontSize: 16,
     fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.5,
+    color: colors.text,
+    marginBottom: 4,
+    lineHeight: 22,
   },
-  videoUrl: {
-    flex: 1,
-    fontSize: 12,
-    color: colors.textTertiary,
-    fontWeight: '500',
-  },
-  bottomPadding: {
-    height: 120,
+  videoDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 });

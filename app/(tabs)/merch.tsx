@@ -1,20 +1,23 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  Image,
+  FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
   Platform,
   Linking,
   ImageSourcePropType,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, commonStyles } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
+import { useFocusEffect } from '@react-navigation/native';
+import { ShoppingBag } from 'lucide-react-native';
+import { colors } from '@/styles/commonStyles';
+import { apiGet } from '@/utils/api';
 
 const STRIPE_URL = 'https://buy.stripe.com/3cIfZjajP3pu35z8hL6Na08';
 const HOODIE_STRIPE_URL = 'https://buy.stripe.com/cNiaEZ9fLf8c9tXapT6Na0b';
@@ -51,7 +54,18 @@ const LOCAL_MERCH_ITEMS = [
   },
 ];
 
-function resolveLocalImageSource(source: ImageSourcePropType | string | undefined): ImageSourcePropType {
+type MerchItem = {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  image_url?: string;
+  stock: number;
+  is_published: boolean;
+  sort_order: number;
+};
+
+function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
   if (!source) return { uri: '' };
   if (typeof source === 'string') return { uri: source };
   return source as ImageSourcePropType;
@@ -73,14 +87,13 @@ function LocalMerchCard({ item }: { item: typeof LOCAL_MERCH_ITEMS[0] }) {
   return (
     <View style={localStyles.card}>
       <Image
-        source={resolveLocalImageSource(item.image)}
+        source={resolveImageSource(item.image)}
         style={localStyles.cardImage}
         resizeMode="cover"
       />
       <View style={localStyles.cardBody}>
         <Text style={localStyles.cardName}>{item.name}</Text>
         <Text style={localStyles.cardColor}>{item.color}</Text>
-
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -101,12 +114,140 @@ function LocalMerchCard({ item }: { item: typeof LOCAL_MERCH_ITEMS[0] }) {
             );
           })}
         </ScrollView>
-
         <TouchableOpacity style={localStyles.buyButton} onPress={handleBuyNow}>
           <Text style={localStyles.buyButtonText}>Buy Now</Text>
         </TouchableOpacity>
       </View>
     </View>
+  );
+}
+
+function ApiMerchCard({ item }: { item: MerchItem }) {
+  const priceText = `$${Number(item.price).toFixed(2)}`;
+  const stockText = item.stock > 0 ? `${item.stock} in stock` : 'Out of stock';
+  const isOutOfStock = item.stock === 0;
+  const imageSource = resolveImageSource(item.image_url);
+
+  const handleAddToCart = () => {
+    console.log(`[MerchScreen] Add to cart pressed for: ${item.name}`);
+  };
+
+  return (
+    <View style={styles.apiCard}>
+      {item.image_url ? (
+        <Image source={imageSource} style={styles.apiCardImage} resizeMode="cover" />
+      ) : (
+        <View style={styles.apiCardImagePlaceholder}>
+          <ShoppingBag size={32} color={colors.textSecondary} />
+        </View>
+      )}
+      <View style={styles.apiCardBody}>
+        <Text style={styles.apiCardName} numberOfLines={2}>{item.name}</Text>
+        {item.description ? (
+          <Text style={styles.apiCardDescription} numberOfLines={2}>{item.description}</Text>
+        ) : null}
+        <Text style={styles.apiCardPrice}>{priceText}</Text>
+        <Text style={[styles.apiCardStock, isOutOfStock && styles.apiCardStockOut]}>
+          {stockText}
+        </Text>
+        <TouchableOpacity
+          style={[styles.apiCardBtn, isOutOfStock && styles.apiCardBtnDisabled]}
+          disabled={isOutOfStock}
+          onPress={handleAddToCart}
+        >
+          <Text style={[styles.apiCardBtnText, isOutOfStock && styles.apiCardBtnTextDisabled]}>
+            {isOutOfStock ? 'Sold Out' : 'Add to Cart'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+export default function MerchScreen() {
+  const [apiMerch, setApiMerch] = useState<MerchItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMerch = useCallback(async () => {
+    console.log('[MerchScreen] Fetching merch from /api/merch');
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiGet<{ merch: MerchItem[] }>('/api/merch');
+      console.log('[MerchScreen] Merch received:', data?.merch?.length ?? 0);
+      setApiMerch(data?.merch ?? []);
+    } catch (err: any) {
+      console.error('[MerchScreen] Error fetching merch:', err);
+      setError('Failed to load merch. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchMerch();
+    }, [fetchMerch])
+  );
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <FlatList
+        data={[]}
+        keyExtractor={() => 'dummy'}
+        renderItem={null}
+        ListHeaderComponent={
+          <>
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>MERCH STORE</Text>
+              <Text style={styles.headerSubtitle}>Official Hungry Hustler Records Merchandise</Text>
+            </View>
+
+            {/* Local Afroman merch — always shown */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionAccent} />
+                <Text style={styles.sectionTitle}>MERCHANDISE</Text>
+              </View>
+              {LOCAL_MERCH_ITEMS.map((item) => (
+                <LocalMerchCard key={item.id} item={item} />
+              ))}
+            </View>
+
+            {/* API merch */}
+            {loading ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.loadingText}>Loading more items...</Text>
+              </View>
+            ) : error ? (
+              <View style={styles.errorRow}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity onPress={fetchMerch}>
+                  <Text style={styles.retryText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : apiMerch.length > 0 ? (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionAccent} />
+                  <Text style={styles.sectionTitle}>MORE ITEMS</Text>
+                </View>
+                <View style={styles.apiGrid}>
+                  {apiMerch.map((item) => (
+                    <ApiMerchCard key={item.id} item={item} />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            <View style={{ height: 120 }} />
+          </>
+        }
+        showsVerticalScrollIndicator={false}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -183,532 +324,147 @@ const localStyles = StyleSheet.create({
   },
 });
 
-interface MerchItem {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  image_url?: string;
-  stock: number;
-}
-
-interface Song {
-  id: string;
-  title: string;
-  artistId?: string;
-  mp3Url: string;
-  coverPhotoUrl: string;
-  price: number;
-  isExclusive: boolean;
-  releaseDate: string;
-}
-
-function resolveImageSource(source: string | number | undefined) {
-  if (!source) return { uri: '' };
-  if (typeof source === 'string') return { uri: source };
-  return source;
-}
-
-export default function MerchScreen() {
-  const [loading, setLoading] = useState(true);
-  const [merchItems, setMerchItems] = useState<MerchItem[]>([]);
-  const [exclusiveSongs, setExclusiveSongs] = useState<Song[]>([]);
-
-  useEffect(() => {
-    console.log('[MerchScreen] Fetching merch items and exclusive songs');
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const { apiGet } = await import('@/utils/api');
-
-      // Fetch merch items
-      console.log('[MerchScreen] Fetching merch items from /api/merch');
-      const merchData = await apiGet<any[]>('/api/merch');
-      console.log('[MerchScreen] Merch items received:', merchData);
-      setMerchItems((merchData || []).map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        price: parseFloat(item.price) || 0,
-        image_url: item.image_url || item.imageUrl,
-        stock: parseInt(item.stock) || 0,
-      })));
-
-      // Fetch exclusive songs for Merch tab
-      try {
-        console.log('[MerchScreen] Fetching exclusive songs from /api/songs/exclusive');
-        const songsData = await apiGet<any[]>('/api/songs/exclusive');
-        console.log('[MerchScreen] Exclusive songs received:', songsData);
-        setExclusiveSongs((songsData || []).map((s: any) => ({
-          id: s.id,
-          title: s.title,
-          artistId: s.artistId || s.artist_id,
-          mp3Url: s.mp3Url || s.mp3_url,
-          coverPhotoUrl: s.coverPhotoUrl || s.cover_photo_url,
-          price: parseFloat(s.price) || 0,
-          isExclusive: s.isExclusive ?? s.is_exclusive ?? true,
-          releaseDate: s.releaseDate || s.release_date,
-        })));
-      } catch (error) {
-        console.log('[MerchScreen] Could not fetch exclusive songs:', error);
-        setExclusiveSongs([]);
-      }
-    } catch (error) {
-      console.error('[MerchScreen] Error fetching data:', error);
-      setMerchItems([]);
-      setExclusiveSongs([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <View style={[commonStyles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  const paddingTop = Platform.OS === 'android' ? 48 : 0;
-  const hasExclusiveSongs = exclusiveSongs.length > 0;
-  const hasMerchItems = merchItems.length > 0;
-  const hasAnyContent = hasExclusiveSongs || hasMerchItems;
-
-  return (
-    <SafeAreaView style={commonStyles.container} edges={['top']}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingTop }}>
-        <View style={styles.header}>
-          <Text style={styles.title}>MERCH STORE</Text>
-          <Text style={styles.subtitle}>Official Hungry Hustler Records Merchandise & Exclusive Releases</Text>
-        </View>
-
-        {/* Local Afroman T-Shirts — always shown at top */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <View style={styles.sectionAccent} />
-              <Text style={styles.sectionTitle}>MERCHANDISE</Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="bag"
-              android_material_icon_name="shopping-bag"
-              size={24}
-              color={colors.primary}
-            />
-          </View>
-          {LOCAL_MERCH_ITEMS.map((item) => (
-            <LocalMerchCard key={item.id} item={item} />
-          ))}
-        </View>
-
-        {!hasAnyContent ? (
-          <View style={styles.emptyState}>
-          </View>
-        ) : (
-          <>
-            {/* Exclusive Music Releases */}
-            {hasExclusiveSongs && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionTitleContainer}>
-                    <View style={styles.sectionAccent} />
-                    <Text style={styles.sectionTitle}>EXCLUSIVE MUSIC RELEASES</Text>
-                  </View>
-                  <IconSymbol
-                    ios_icon_name="music.note"
-                    android_material_icon_name="music-note"
-                    size={24}
-                    color={colors.primary}
-                  />
-                </View>
-
-                <View style={styles.songsGrid}>
-                  {exclusiveSongs.map((song) => {
-                    const songTitle = song.title;
-                    const songPrice = `$${song.price.toFixed(2)}`;
-                    
-                    return (
-                      <View key={song.id} style={styles.songCard}>
-                        <Image
-                          source={resolveImageSource(song.coverPhotoUrl)}
-                          style={styles.songCover}
-                          resizeMode="cover"
-                        />
-                        
-                        <View style={styles.exclusiveBadge}>
-                          <IconSymbol
-                            ios_icon_name="star.fill"
-                            android_material_icon_name="star"
-                            size={12}
-                            color={colors.background}
-                          />
-                          <Text style={styles.exclusiveBadgeText}>EXCLUSIVE</Text>
-                        </View>
-
-                        <View style={styles.songInfo}>
-                          <Text style={styles.songTitle}>{songTitle}</Text>
-                          <Text style={styles.songPrice}>{songPrice}</Text>
-                          
-                          <View style={styles.songActions}>
-                            <TouchableOpacity style={styles.previewButton}>
-                              <IconSymbol
-                                ios_icon_name="play.circle"
-                                android_material_icon_name="play-arrow"
-                                size={20}
-                                color={colors.primary}
-                              />
-                              <Text style={styles.previewButtonText}>Preview</Text>
-                            </TouchableOpacity>
-                            
-                            <TouchableOpacity style={styles.buyButton}>
-                              <IconSymbol
-                                ios_icon_name="cart"
-                                android_material_icon_name="shopping-cart"
-                                size={18}
-                                color={colors.background}
-                              />
-                              <Text style={styles.buyButtonText}>Buy</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            {/* Merchandise */}
-            {hasMerchItems && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionTitleContainer}>
-                    <View style={styles.sectionAccent} />
-                    <Text style={styles.sectionTitle}>MERCHANDISE</Text>
-                  </View>
-                  <IconSymbol
-                    ios_icon_name="bag"
-                    android_material_icon_name="shopping-bag"
-                    size={24}
-                    color={colors.primary}
-                  />
-                </View>
-
-                <View style={styles.merchGrid}>
-                  {merchItems.map((item) => {
-                    const itemName = item.name;
-                    const itemDescription = item.description || '';
-                    const itemPrice = `$${item.price.toFixed(2)}`;
-                    const itemStock = item.stock;
-                    const stockText = itemStock > 0 ? `${itemStock} in stock` : 'Out of stock';
-                    const isOutOfStock = itemStock === 0;
-                    
-                    return (
-                      <View key={item.id} style={styles.merchCard}>
-                        {item.image_url && (
-                          <Image
-                            source={resolveImageSource(item.image_url)}
-                            style={styles.merchImage}
-                            resizeMode="cover"
-                          />
-                        )}
-                        
-                        <View style={styles.merchInfo}>
-                          <Text style={styles.merchName}>{itemName}</Text>
-                          
-                          {itemDescription && (
-                            <Text style={styles.merchDescription} numberOfLines={2}>
-                              {itemDescription}
-                            </Text>
-                          )}
-
-                          <View style={styles.merchFooter}>
-                            <View>
-                              <Text style={styles.merchPrice}>{itemPrice}</Text>
-                              <Text style={[
-                                styles.merchStock,
-                                isOutOfStock && styles.merchStockOut
-                              ]}>
-                                {stockText}
-                              </Text>
-                            </View>
-                          </View>
-
-                          <TouchableOpacity
-                            style={[
-                              styles.addToCartButton,
-                              isOutOfStock && styles.addToCartButtonDisabled,
-                            ]}
-                            disabled={isOutOfStock}
-                          >
-                            <IconSymbol
-                              ios_icon_name="cart"
-                              android_material_icon_name="shopping-cart"
-                              size={18}
-                              color={isOutOfStock ? colors.textTertiary : colors.background}
-                            />
-                            <Text style={[
-                              styles.addToCartButtonText,
-                              isOutOfStock && styles.addToCartButtonTextDisabled
-                            ]}>
-                              {isOutOfStock ? 'Sold Out' : 'Add to Cart'}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-          </>
-        )}
-
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
 const styles = StyleSheet.create({
-  scrollView: {
+  container: {
     flex: 1,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  title: {
+  headerTitle: {
     fontSize: 32,
     fontWeight: '900',
     color: colors.primary,
     letterSpacing: 2,
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 14,
+  headerSubtitle: {
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginTop: 16,
-    textAlign: 'center',
+    fontWeight: '500',
   },
   section: {
     paddingHorizontal: 16,
-    marginTop: 32,
+    marginTop: 28,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    marginBottom: 16,
   },
   sectionAccent: {
     width: 4,
-    height: 20,
+    height: 18,
     backgroundColor: colors.primary,
     borderRadius: 2,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '900',
     color: colors.primary,
     letterSpacing: 2,
   },
-  songsGrid: {
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 24,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  errorRow: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  retryText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  apiGrid: {
     gap: 16,
   },
-  songCard: {
+  apiCard: {
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
-    position: 'relative',
-  },
-  songCover: {
-    width: '100%',
-    height: 200,
-    backgroundColor: colors.secondary,
-  },
-  exclusiveBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    gap: 4,
     ...Platform.select({
-      web: {
-        boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.3)',
-      },
+      web: { boxShadow: '0 2px 8px rgba(0,0,0,0.12)' },
       default: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
         elevation: 4,
       },
     }),
   },
-  exclusiveBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.background,
-    letterSpacing: 0.5,
-  },
-  songInfo: {
-    padding: 16,
-  },
-  songTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 8,
-    letterSpacing: 0.3,
-  },
-  songPrice: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: colors.primary,
-    marginBottom: 16,
-  },
-  songActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  previewButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.secondary,
-    paddingVertical: 12,
-    borderRadius: 10,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  previewButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  buyButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: 10,
-    gap: 6,
-    ...Platform.select({
-      web: {
-        boxShadow: '0px 4px 8px rgba(0, 255, 102, 0.3)',
-      },
-      default: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 6,
-      },
-    }),
-  },
-  buyButtonText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.background,
-  },
-  merchGrid: {
-    gap: 16,
-  },
-  merchCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  merchImage: {
+  apiCardImage: {
     width: '100%',
-    height: 220,
+    height: 200,
     backgroundColor: colors.secondary,
   },
-  merchInfo: {
-    padding: 16,
+  apiCardImagePlaceholder: {
+    width: '100%',
+    height: 160,
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  merchName: {
-    fontSize: 20,
+  apiCardBody: {
+    padding: 14,
+  },
+  apiCardName: {
+    fontSize: 17,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: 8,
-    letterSpacing: 0.3,
+    marginBottom: 6,
   },
-  merchDescription: {
-    fontSize: 14,
+  apiCardDescription: {
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 10,
   },
-  merchFooter: {
-    marginBottom: 16,
-  },
-  merchPrice: {
-    fontSize: 28,
+  apiCardPrice: {
+    fontSize: 24,
     fontWeight: '900',
     color: colors.primary,
     marginBottom: 4,
   },
-  merchStock: {
-    fontSize: 13,
+  apiCardStock: {
+    fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '600',
+    marginBottom: 12,
   },
-  merchStockOut: {
+  apiCardStockOut: {
     color: colors.error,
   },
-  addToCartButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  apiCardBtn: {
     backgroundColor: colors.primary,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 10,
-    gap: 8,
+    alignItems: 'center',
     ...Platform.select({
-      web: {
-        boxShadow: '0px 4px 8px rgba(0, 255, 102, 0.3)',
-      },
+      web: { boxShadow: '0 4px 8px rgba(0,255,102,0.3)' },
       default: {
         shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 4 },
@@ -718,28 +474,20 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  addToCartButtonDisabled: {
+  apiCardBtnDisabled: {
     backgroundColor: colors.secondary,
     ...Platform.select({
-      web: {
-        boxShadow: 'none',
-      },
-      default: {
-        shadowOpacity: 0,
-        elevation: 0,
-      },
+      web: { boxShadow: 'none' },
+      default: { shadowOpacity: 0, elevation: 0 },
     }),
   },
-  addToCartButtonText: {
-    fontSize: 15,
+  apiCardBtnText: {
+    fontSize: 14,
     fontWeight: '800',
     color: colors.background,
     letterSpacing: 0.5,
   },
-  addToCartButtonTextDisabled: {
+  apiCardBtnTextDisabled: {
     color: colors.textTertiary,
-  },
-  bottomPadding: {
-    height: 120,
   },
 });

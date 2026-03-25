@@ -36,7 +36,9 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-audio",
+      "expo-video"
     ],
     "scheme": "hungryhustlerrecords",
     "experiments": {

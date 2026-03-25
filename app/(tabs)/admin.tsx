@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,806 +10,876 @@ import {
   TextInput,
   Platform,
   Image,
+  Alert,
+  Switch,
+  Modal,
+  ImageSourcePropType,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdmin } from '@/contexts/AdminContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { IconSymbol } from '@/components/IconSymbol';
-import Modal from '@/components/ui/Modal';
 import { colors, commonStyles } from '@/styles/commonStyles';
+import {
+  authenticatedGet,
+  authenticatedPost,
+  authenticatedPut,
+  authenticatedDelete,
+  authenticatedUpload,
+} from '@/utils/api';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  Music,
+  ShoppingBag,
+  Video,
+  LogOut,
+  X,
+  Upload,
+} from 'lucide-react-native';
 
-interface Artist {
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type Song = {
   id: string;
-  name: string;
-  bio?: string;
-  photo_url?: string;
-  photoUrl?: string;
-  spotify_url?: string;
-  spotifyUrl?: string;
-  apple_music_url?: string;
-  appleMusicUrl?: string;
-  youtube_url?: string;
-  youtubeUrl?: string;
-  soundcloud_url?: string;
-  soundcloudUrl?: string;
-  instagram_url?: string;
-  instagramUrl?: string;
-  twitter_url?: string;
-  twitterUrl?: string;
-  specialties?: string;
-  status?: string;
-  label?: string;
-}
+  title: string;
+  artist: string;
+  album?: string;
+  duration?: number;
+  audio_url: string;
+  cover_url?: string;
+  is_published: boolean;
+  sort_order: number;
+};
 
-interface MerchItem {
+type MerchItem = {
   id: string;
   name: string;
   description?: string;
   price: number;
   image_url?: string;
   stock: number;
-}
+  is_published: boolean;
+  sort_order: number;
+};
 
-interface HomepageContent {
-  hero_banner_url?: string;
-  featured_artist_id?: string;
-  featured_merch_id?: string;
-  latest_release_title?: string;
-  latest_release_url?: string;
-}
-
-interface AboutContent {
-  logo_url?: string;
+type VideoItem = {
+  id: string;
+  title: string;
   description?: string;
-  mission?: string;
-  contact_email?: string;
-  contact_phone?: string;
-  instagram_url?: string;
-  twitter_url?: string;
-  facebook_url?: string;
-}
+  video_url: string;
+  thumbnail_url?: string;
+  duration?: number;
+  is_published: boolean;
+  sort_order: number;
+};
 
-interface Song {
-  id: string;
-  title: string;
-  artistId?: string;
-  mp3Url: string;
-  coverPhotoUrl: string;
-  price: number;
-  isExclusive: boolean;
-  releaseDate: string;
-}
+type AdminSection = 'songs' | 'merch' | 'videos';
 
-interface Video {
-  id: string;
-  title: string;
-  artistId?: string;
-  videoUrl: string;
-  thumbnailUrl?: string;
-  isExclusive: boolean;
-  releaseDate: string;
-}
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  isAdmin: boolean;
-  canUpload: boolean;
-  createdAt: string;
-}
-
-type TabType = 'artists' | 'merch' | 'homepage' | 'about' | 'music' | 'videos' | 'users';
-
-function resolveImageSource(source: string | number | undefined) {
+function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
   if (!source) return { uri: '' };
   if (typeof source === 'string') return { uri: source };
-  return source;
+  return source as ImageSourcePropType;
 }
+
+async function uploadFile(
+  uri: string,
+  type: 'audio' | 'video' | 'image',
+  mimeType: string,
+  filename: string
+): Promise<string> {
+  console.log(`[AdminScreen] Uploading ${type} file: ${filename}`);
+  const result = await authenticatedUpload<{ url: string }>(
+    `/api/upload/${type}`,
+    uri,
+    filename,
+    mimeType
+  );
+  console.log(`[AdminScreen] Upload success, url: ${result.url}`);
+  return result.url;
+}
+
+// ─── Badge ────────────────────────────────────────────────────────────────────
+
+function PublishedBadge({ published }: { published: boolean }) {
+  const badgeStyle = published ? styles.badgeLive : styles.badgeDraft;
+  const textStyle = published ? styles.badgeLiveText : styles.badgeDraftText;
+  const label = published ? 'Live' : 'Draft';
+  return (
+    <View style={[styles.badge, badgeStyle]}>
+      <Text style={[styles.badgeText, textStyle]}>{label}</Text>
+    </View>
+  );
+}
+
+// ─── Song Form ────────────────────────────────────────────────────────────────
+
+function SongForm({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial: Partial<Song>;
+  onSave: (data: Partial<Song>) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState<Partial<Song>>(initial);
+  const [saving, setSaving] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [audioFilename, setAudioFilename] = useState('');
+
+  const pickAudio = async () => {
+    console.log('[AdminScreen] Picking audio file');
+    try {
+      setUploadingAudio(true);
+      const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*', copyToCacheDirectory: true });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const url = await uploadFile(asset.uri, 'audio', asset.mimeType || 'audio/mpeg', asset.name || 'audio.mp3');
+        setForm((f) => ({ ...f, audio_url: url }));
+        setAudioFilename(asset.name || 'audio.mp3');
+      }
+    } catch (e: any) {
+      Alert.alert('Upload Error', e.message || 'Failed to upload audio');
+    } finally {
+      setUploadingAudio(false);
+    }
+  };
+
+  const pickCover = async () => {
+    console.log('[AdminScreen] Picking cover image');
+    try {
+      setUploadingCover(true);
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images' as any, quality: 0.8 });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const url = await uploadFile(asset.uri, 'image', asset.mimeType || 'image/jpeg', asset.fileName || 'cover.jpg');
+        setForm((f) => ({ ...f, cover_url: url }));
+      }
+    } catch (e: any) {
+      Alert.alert('Upload Error', e.message || 'Failed to upload image');
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!form.title?.trim()) { Alert.alert('Validation', 'Title is required'); return; }
+    if (!form.artist?.trim()) { Alert.alert('Validation', 'Artist is required'); return; }
+    if (!form.audio_url && !initial.id) { Alert.alert('Validation', 'Audio file is required'); return; }
+    console.log('[AdminScreen] Saving song:', form.title);
+    setSaving(true);
+    try {
+      await onSave(form);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const audioLabel = form.audio_url ? (audioFilename || 'Audio uploaded') : 'Upload Audio File *';
+  const coverLabel = form.cover_url ? 'Change Cover Image' : 'Upload Cover Image';
+
+  return (
+    <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.container}>
+      <Text style={formStyles.title}>{initial.id ? 'Edit Song' : 'New Song'}</Text>
+
+      <Text style={formStyles.label}>Title *</Text>
+      <TextInput
+        style={formStyles.input}
+        placeholder="Song title"
+        placeholderTextColor={colors.textTertiary}
+        value={form.title || ''}
+        onChangeText={(t) => setForm((f) => ({ ...f, title: t }))}
+      />
+
+      <Text style={formStyles.label}>Artist *</Text>
+      <TextInput
+        style={formStyles.input}
+        placeholder="Artist name"
+        placeholderTextColor={colors.textTertiary}
+        value={form.artist || ''}
+        onChangeText={(t) => setForm((f) => ({ ...f, artist: t }))}
+      />
+
+      <Text style={formStyles.label}>Album</Text>
+      <TextInput
+        style={formStyles.input}
+        placeholder="Album name (optional)"
+        placeholderTextColor={colors.textTertiary}
+        value={form.album || ''}
+        onChangeText={(t) => setForm((f) => ({ ...f, album: t }))}
+      />
+
+      <TouchableOpacity style={formStyles.uploadBtn} onPress={pickAudio} disabled={uploadingAudio}>
+        {uploadingAudio ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Upload size={18} color={colors.primary} />
+        )}
+        <Text style={formStyles.uploadBtnText}>{audioLabel}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={formStyles.uploadBtn} onPress={pickCover} disabled={uploadingCover}>
+        {uploadingCover ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Upload size={18} color={colors.primary} />
+        )}
+        <Text style={formStyles.uploadBtnText}>{coverLabel}</Text>
+      </TouchableOpacity>
+
+      {form.cover_url ? (
+        <Image source={resolveImageSource(form.cover_url)} style={formStyles.preview} resizeMode="cover" />
+      ) : null}
+
+      <View style={formStyles.switchRow}>
+        <Text style={formStyles.switchLabel}>Published</Text>
+        <Switch
+          value={!!form.is_published}
+          onValueChange={(v) => setForm((f) => ({ ...f, is_published: v }))}
+          trackColor={{ false: colors.inactive, true: colors.primary }}
+          thumbColor="#fff"
+        />
+      </View>
+
+      <View style={formStyles.actions}>
+        <TouchableOpacity style={formStyles.saveBtn} onPress={handleSave} disabled={saving}>
+          {saving ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel}>
+          <Text style={formStyles.cancelBtnText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+// ─── Merch Form ───────────────────────────────────────────────────────────────
+
+function MerchForm({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial: Partial<MerchItem>;
+  onSave: (data: Partial<MerchItem>) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState<Partial<MerchItem>>(initial);
+  const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const pickImage = async () => {
+    console.log('[AdminScreen] Picking merch image');
+    try {
+      setUploadingImage(true);
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images' as any, quality: 0.8 });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const url = await uploadFile(asset.uri, 'image', asset.mimeType || 'image/jpeg', asset.fileName || 'merch.jpg');
+        setForm((f) => ({ ...f, image_url: url }));
+      }
+    } catch (e: any) {
+      Alert.alert('Upload Error', e.message || 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!form.name?.trim()) { Alert.alert('Validation', 'Name is required'); return; }
+    if (form.price === undefined || form.price === null) { Alert.alert('Validation', 'Price is required'); return; }
+    console.log('[AdminScreen] Saving merch:', form.name);
+    setSaving(true);
+    try {
+      await onSave(form);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const priceStr = form.price !== undefined ? String(form.price) : '';
+
+  return (
+    <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.container}>
+      <Text style={formStyles.title}>{initial.id ? 'Edit Merch' : 'New Merch Item'}</Text>
+
+      <Text style={formStyles.label}>Name *</Text>
+      <TextInput
+        style={formStyles.input}
+        placeholder="Item name"
+        placeholderTextColor={colors.textTertiary}
+        value={form.name || ''}
+        onChangeText={(t) => setForm((f) => ({ ...f, name: t }))}
+      />
+
+      <Text style={formStyles.label}>Description</Text>
+      <TextInput
+        style={[formStyles.input, formStyles.textArea]}
+        placeholder="Description (optional)"
+        placeholderTextColor={colors.textTertiary}
+        value={form.description || ''}
+        onChangeText={(t) => setForm((f) => ({ ...f, description: t }))}
+        multiline
+        numberOfLines={3}
+      />
+
+      <Text style={formStyles.label}>Price *</Text>
+      <TextInput
+        style={formStyles.input}
+        placeholder="0.00"
+        placeholderTextColor={colors.textTertiary}
+        value={priceStr}
+        onChangeText={(t) => setForm((f) => ({ ...f, price: parseFloat(t) || 0 }))}
+        keyboardType="decimal-pad"
+      />
+
+      <Text style={formStyles.label}>Stock *</Text>
+      <TextInput
+        style={formStyles.input}
+        placeholder="0"
+        placeholderTextColor={colors.textTertiary}
+        value={form.stock !== undefined ? String(form.stock) : ''}
+        onChangeText={(t) => setForm((f) => ({ ...f, stock: parseInt(t) || 0 }))}
+        keyboardType="number-pad"
+      />
+
+      <TouchableOpacity style={formStyles.uploadBtn} onPress={pickImage} disabled={uploadingImage}>
+        {uploadingImage ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Upload size={18} color={colors.primary} />
+        )}
+        <Text style={formStyles.uploadBtnText}>{form.image_url ? 'Change Image' : 'Upload Image'}</Text>
+      </TouchableOpacity>
+
+      {form.image_url ? (
+        <Image source={resolveImageSource(form.image_url)} style={formStyles.preview} resizeMode="cover" />
+      ) : null}
+
+      <View style={formStyles.switchRow}>
+        <Text style={formStyles.switchLabel}>Published</Text>
+        <Switch
+          value={!!form.is_published}
+          onValueChange={(v) => setForm((f) => ({ ...f, is_published: v }))}
+          trackColor={{ false: colors.inactive, true: colors.primary }}
+          thumbColor="#fff"
+        />
+      </View>
+
+      <View style={formStyles.actions}>
+        <TouchableOpacity style={formStyles.saveBtn} onPress={handleSave} disabled={saving}>
+          {saving ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel}>
+          <Text style={formStyles.cancelBtnText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+// ─── Video Form ───────────────────────────────────────────────────────────────
+
+function VideoForm({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial: Partial<VideoItem>;
+  onSave: (data: Partial<VideoItem>) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState<Partial<VideoItem>>(initial);
+  const [saving, setSaving] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingThumb, setUploadingThumb] = useState(false);
+  const [videoFilename, setVideoFilename] = useState('');
+
+  const pickVideo = async () => {
+    console.log('[AdminScreen] Picking video file');
+    try {
+      setUploadingVideo(true);
+      const result = await DocumentPicker.getDocumentAsync({ type: 'video/*', copyToCacheDirectory: true });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const url = await uploadFile(asset.uri, 'video', asset.mimeType || 'video/mp4', asset.name || 'video.mp4');
+        setForm((f) => ({ ...f, video_url: url }));
+        setVideoFilename(asset.name || 'video.mp4');
+      }
+    } catch (e: any) {
+      Alert.alert('Upload Error', e.message || 'Failed to upload video');
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
+  const pickThumb = async () => {
+    console.log('[AdminScreen] Picking thumbnail image');
+    try {
+      setUploadingThumb(true);
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images' as any, quality: 0.8 });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const url = await uploadFile(asset.uri, 'image', asset.mimeType || 'image/jpeg', asset.fileName || 'thumb.jpg');
+        setForm((f) => ({ ...f, thumbnail_url: url }));
+      }
+    } catch (e: any) {
+      Alert.alert('Upload Error', e.message || 'Failed to upload thumbnail');
+    } finally {
+      setUploadingThumb(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!form.title?.trim()) { Alert.alert('Validation', 'Title is required'); return; }
+    if (!form.video_url && !initial.id) { Alert.alert('Validation', 'Video file is required'); return; }
+    console.log('[AdminScreen] Saving video:', form.title);
+    setSaving(true);
+    try {
+      await onSave(form);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const videoLabel = form.video_url ? (videoFilename || 'Video uploaded') : 'Upload Video File *';
+
+  return (
+    <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.container}>
+      <Text style={formStyles.title}>{initial.id ? 'Edit Video' : 'New Video'}</Text>
+
+      <Text style={formStyles.label}>Title *</Text>
+      <TextInput
+        style={formStyles.input}
+        placeholder="Video title"
+        placeholderTextColor={colors.textTertiary}
+        value={form.title || ''}
+        onChangeText={(t) => setForm((f) => ({ ...f, title: t }))}
+      />
+
+      <Text style={formStyles.label}>Description</Text>
+      <TextInput
+        style={[formStyles.input, formStyles.textArea]}
+        placeholder="Description (optional)"
+        placeholderTextColor={colors.textTertiary}
+        value={form.description || ''}
+        onChangeText={(t) => setForm((f) => ({ ...f, description: t }))}
+        multiline
+        numberOfLines={3}
+      />
+
+      <TouchableOpacity style={formStyles.uploadBtn} onPress={pickVideo} disabled={uploadingVideo}>
+        {uploadingVideo ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Upload size={18} color={colors.primary} />
+        )}
+        <Text style={formStyles.uploadBtnText}>{videoLabel}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={formStyles.uploadBtn} onPress={pickThumb} disabled={uploadingThumb}>
+        {uploadingThumb ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Upload size={18} color={colors.primary} />
+        )}
+        <Text style={formStyles.uploadBtnText}>{form.thumbnail_url ? 'Change Thumbnail' : 'Upload Thumbnail'}</Text>
+      </TouchableOpacity>
+
+      {form.thumbnail_url ? (
+        <Image source={resolveImageSource(form.thumbnail_url)} style={formStyles.preview} resizeMode="cover" />
+      ) : null}
+
+      <View style={formStyles.switchRow}>
+        <Text style={formStyles.switchLabel}>Published</Text>
+        <Switch
+          value={!!form.is_published}
+          onValueChange={(v) => setForm((f) => ({ ...f, is_published: v }))}
+          trackColor={{ false: colors.inactive, true: colors.primary }}
+          thumbColor="#fff"
+        />
+      </View>
+
+      <View style={formStyles.actions}>
+        <TouchableOpacity style={formStyles.saveBtn} onPress={handleSave} disabled={saving}>
+          {saving ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel}>
+          <Text style={formStyles.cancelBtnText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+// ─── Main Admin Screen ────────────────────────────────────────────────────────
 
 export default function AdminScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { isAdmin, checkingAdmin } = useAdmin();
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('artists');
 
-  // Modal state
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalConfig, setModalConfig] = useState({
-    title: '',
-    message: '',
-    type: 'info' as 'info' | 'error' | 'success' | 'confirm',
-    onConfirm: undefined as (() => void) | undefined,
-  });
+  const [activeSection, setActiveSection] = useState<AdminSection>('songs');
 
-  // Artists state
-  const [artists, setArtists] = useState<Artist[]>([]);
-  const [editingArtist, setEditingArtist] = useState<Partial<Artist>>({});
-
-  // Merch state
-  const [merchItems, setMerchItems] = useState<MerchItem[]>([]);
-  const [editingMerch, setEditingMerch] = useState<Partial<MerchItem>>({});
-
-  // Homepage state
-  const [homepageContent, setHomepageContent] = useState<HomepageContent>({});
-
-  // About state
-  const [aboutContent, setAboutContent] = useState<AboutContent>({});
-
-  // Music state
+  // Data
   const [songs, setSongs] = useState<Song[]>([]);
-  const [editingSong, setEditingSong] = useState<Partial<Song>>({});
-  const [uploadingAudio, setUploadingAudio] = useState(false);
-  const [uploadingCover, setUploadingCover] = useState(false);
+  const [merch, setMerch] = useState<MerchItem[]>([]);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
 
-  // Video state
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [editingVideo, setEditingVideo] = useState<Partial<Video>>({});
-  const [uploadingVideo, setUploadingVideo] = useState(false);
-  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  // Loading
+  const [loadingSongs, setLoadingSongs] = useState(false);
+  const [loadingMerch, setLoadingMerch] = useState(false);
+  const [loadingVideos, setLoadingVideos] = useState(false);
 
-  // User management state
-  const [users, setUsers] = useState<User[]>([]);
-  const [newUser, setNewUser] = useState({
-    email: '',
-    password: '',
-    name: '',
-    isAdmin: false,
-    canUpload: false,
-  });
+  // Form modal
+  const [formVisible, setFormVisible] = useState(false);
+  const [editingSong, setEditingSong] = useState<Partial<Song> | null>(null);
+  const [editingMerch, setEditingMerch] = useState<Partial<MerchItem> | null>(null);
+  const [editingVideo, setEditingVideo] = useState<Partial<VideoItem> | null>(null);
 
-  useEffect(() => {
-    if (isAdmin) {
-      if (activeTab === 'artists') fetchArtists();
-      else if (activeTab === 'merch') fetchMerchItems();
-      else if (activeTab === 'homepage') fetchHomepageContent();
-      else if (activeTab === 'about') fetchAboutContent();
-      else if (activeTab === 'music') fetchSongs();
-      else if (activeTab === 'videos') fetchVideos();
-      else if (activeTab === 'users') fetchUsers();
-    }
-  }, [isAdmin, activeTab]);
+  // ── Fetch ──────────────────────────────────────────────────────────────────
 
-  const showModal = (
-    title: string,
-    message: string,
-    type: 'info' | 'error' | 'success' | 'confirm' = 'info',
-    onConfirm?: () => void
-  ) => {
-    setModalConfig({ title, message, type, onConfirm });
-    setModalVisible(true);
-  };
-
-  const uploadFileToBackend = async (
-    uri: string,
-    filename: string,
-    mimeType: string,
-    endpoint: string
-  ): Promise<string | null> => {
+  const fetchSongs = useCallback(async () => {
+    console.log('[AdminScreen] Fetching all songs from /api/admin/songs');
+    setLoadingSongs(true);
     try {
-      console.log(`[AdminScreen] Uploading file to ${endpoint}:`, filename, mimeType);
-      const { authenticatedUpload } = await import('@/utils/api');
-      const result = await authenticatedUpload<{ url: string; filename: string }>(
-        endpoint,
-        uri,
-        filename,
-        mimeType
-      );
-      console.log(`[AdminScreen] Upload success:`, result);
-      return result.url || null;
-    } catch (error: any) {
-      console.error(`[AdminScreen] Upload error:`, error);
-      throw error;
-    }
-  };
-
-  const uploadImage = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images' as any,
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        console.log('[AdminScreen] Image selected:', asset.uri);
-
-        const filename = asset.fileName || `image_${Date.now()}.jpg`;
-        const mimeType = asset.mimeType || 'image/jpeg';
-
-        showModal('Uploading', 'Uploading image to server...', 'info');
-        // Use /api/upload/image (the correct backend endpoint)
-        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/upload/image');
-        if (url) {
-          showModal('Success', 'Image uploaded successfully', 'success');
-          return url;
-        }
-      }
-    } catch (error: any) {
-      console.error('[AdminScreen] Error picking/uploading image:', error);
-      showModal('Error', error.message || 'Failed to upload image', 'error');
-    }
-    return null;
-  };
-
-  const uploadAudio = async () => {
-    try {
-      setUploadingAudio(true);
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'audio/*',
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        console.log('[AdminScreen] Audio file selected:', asset.uri);
-
-        const filename = asset.name || `audio_${Date.now()}.mp3`;
-        const mimeType = asset.mimeType || 'audio/mpeg';
-
-        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/upload/audio');
-        if (url) {
-          showModal('Success', 'Audio file uploaded successfully', 'success');
-          return url;
-        }
-      }
-    } catch (error: any) {
-      console.error('[AdminScreen] Error picking/uploading audio:', error);
-      showModal('Error', error.message || 'Failed to upload audio file', 'error');
+      const data = await authenticatedGet<{ songs: Song[] }>('/api/admin/songs');
+      console.log('[AdminScreen] Admin songs received:', data?.songs?.length ?? 0);
+      setSongs((data?.songs ?? []).sort((a, b) => a.sort_order - b.sort_order));
+    } catch (e: any) {
+      console.error('[AdminScreen] Error fetching songs:', e);
+      Alert.alert('Error', 'Failed to load songs');
     } finally {
-      setUploadingAudio(false);
+      setLoadingSongs(false);
     }
-    return null;
-  };
+  }, []);
 
-  const uploadVideoFile = async () => {
+  const fetchMerch = useCallback(async () => {
+    console.log('[AdminScreen] Fetching all merch from /api/admin/merch');
+    setLoadingMerch(true);
     try {
-      setUploadingVideo(true);
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'video/*',
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        console.log('[AdminScreen] Video file selected:', asset.uri);
-
-        const filename = asset.name || `video_${Date.now()}.mp4`;
-        const mimeType = asset.mimeType || 'video/mp4';
-
-        const url = await uploadFileToBackend(asset.uri, filename, mimeType, '/api/upload/video');
-        if (url) {
-          showModal('Success', 'Video file uploaded successfully', 'success');
-          return url;
-        }
-      }
-    } catch (error: any) {
-      console.error('[AdminScreen] Error picking/uploading video:', error);
-      showModal('Error', error.message || 'Failed to upload video file', 'error');
+      const data = await authenticatedGet<{ merch: MerchItem[] }>('/api/admin/merch');
+      console.log('[AdminScreen] Admin merch received:', data?.merch?.length ?? 0);
+      setMerch((data?.merch ?? []).sort((a, b) => a.sort_order - b.sort_order));
+    } catch (e: any) {
+      console.error('[AdminScreen] Error fetching merch:', e);
+      Alert.alert('Error', 'Failed to load merch');
     } finally {
-      setUploadingVideo(false);
+      setLoadingMerch(false);
     }
-    return null;
-  };
+  }, []);
 
-  // Artist functions
-  const normalizeArtistForAdmin = (artist: any): Artist => ({
-    id: artist.id,
-    name: artist.name,
-    bio: artist.bio,
-    photo_url: artist.photo_url || artist.photoUrl,
-    spotify_url: artist.spotify_url || artist.spotifyUrl,
-    apple_music_url: artist.apple_music_url || artist.appleMusicUrl,
-    youtube_url: artist.youtube_url || artist.youtubeUrl,
-    soundcloud_url: artist.soundcloud_url || artist.soundcloudUrl,
-    instagram_url: artist.instagram_url || artist.instagramUrl,
-    twitter_url: artist.twitter_url || artist.twitterUrl,
-    specialties: typeof artist.specialties === 'string' ? artist.specialties : JSON.stringify(artist.specialties || []),
-    status: artist.status || 'Active',
-    label: artist.label || 'Hungry Hustler Records',
-  });
-
-  const fetchArtists = async () => {
+  const fetchVideos = useCallback(async () => {
+    console.log('[AdminScreen] Fetching all videos from /api/admin/videos');
+    setLoadingVideos(true);
     try {
-      setLoading(true);
-      console.log('[AdminScreen] Fetching artists');
-      const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<any[]>('/api/artists');
-      console.log('[AdminScreen] Artists received:', data);
-      setArtists((data || []).map(normalizeArtistForAdmin));
-    } catch (error: any) {
-      console.error('[AdminScreen] Error fetching artists:', error);
-      showModal('Error', 'Failed to fetch artists', 'error');
+      const data = await authenticatedGet<{ videos: VideoItem[] }>('/api/admin/videos');
+      console.log('[AdminScreen] Admin videos received:', data?.videos?.length ?? 0);
+      setVideos((data?.videos ?? []).sort((a, b) => a.sort_order - b.sort_order));
+    } catch (e: any) {
+      console.error('[AdminScreen] Error fetching videos:', e);
+      Alert.alert('Error', 'Failed to load videos');
     } finally {
-      setLoading(false);
+      setLoadingVideos(false);
     }
-  };
+  }, []);
 
-  const fetchMerchItems = async () => {
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Fetching merch items');
-      const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<any[]>('/api/merch');
-      console.log('[AdminScreen] Merch items received:', data);
-      setMerchItems((data || []).map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        price: parseFloat(item.price) || 0,
-        image_url: item.image_url || item.imageUrl,
-        stock: parseInt(item.stock) || 0,
-      })));
-    } catch (error: any) {
-      console.error('[AdminScreen] Error fetching merch items:', error);
-      showModal('Error', 'Failed to fetch merch items', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchHomepageContent = async () => {
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Fetching homepage content');
-      const { apiGet } = await import('@/utils/api');
-      const rawData = await apiGet<any>('/api/homepage');
-      console.log('[AdminScreen] Homepage content received:', rawData);
-      // Normalize camelCase fields from API to snake_case for admin form
-      setHomepageContent({
-        hero_banner_url: rawData?.heroBannerUrl || rawData?.hero_banner_url || '',
-        featured_artist_id: rawData?.featuredArtist?.id || rawData?.featuredArtistId || rawData?.featured_artist_id || '',
-        featured_merch_id: rawData?.featuredMerch?.id || rawData?.featuredMerchId || rawData?.featured_merch_id || '',
-        latest_release_title: rawData?.latestReleaseTitle || rawData?.latest_release_title || '',
-        latest_release_url: rawData?.latestReleaseUrl || rawData?.latest_release_url || '',
-      });
-    } catch (error: any) {
-      console.error('[AdminScreen] Error fetching homepage content:', error);
-      showModal('Error', 'Failed to fetch homepage content', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAboutContent = async () => {
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Fetching about content');
-      const { apiGet } = await import('@/utils/api');
-      const rawData = await apiGet<any>('/api/about');
-      console.log('[AdminScreen] About content received:', rawData);
-      // Normalize camelCase fields from API to snake_case for admin form
-      setAboutContent({
-        logo_url: rawData?.logoUrl || rawData?.logo_url || '',
-        description: rawData?.description || '',
-        mission: rawData?.mission || '',
-        contact_email: rawData?.contactEmail || rawData?.contact_email || '',
-        contact_phone: rawData?.contactPhone || rawData?.contact_phone || '',
-        instagram_url: rawData?.instagramUrl || rawData?.instagram_url || '',
-        twitter_url: rawData?.twitterUrl || rawData?.twitter_url || '',
-        facebook_url: rawData?.facebookUrl || rawData?.facebook_url || '',
-      });
-    } catch (error: any) {
-      console.error('[AdminScreen] Error fetching about content:', error);
-      showModal('Error', 'Failed to fetch about content', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchSongs = async () => {
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Fetching songs from /api/songs');
-      const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<Song[]>('/api/songs');
-      console.log('[AdminScreen] Songs received:', data);
-      setSongs((data || []).map((s: any) => ({
-        id: s.id,
-        title: s.title,
-        artistId: s.artistId || s.artist_id,
-        mp3Url: s.mp3Url || s.mp3_url,
-        coverPhotoUrl: s.coverPhotoUrl || s.cover_photo_url,
-        price: parseFloat(s.price) || 0,
-        isExclusive: s.isExclusive ?? s.is_exclusive ?? true,
-        releaseDate: s.releaseDate || s.release_date,
-      })));
-    } catch (error: any) {
-      console.error('[AdminScreen] Error fetching songs:', error);
-      showModal('Error', 'Failed to fetch songs', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchVideos = async () => {
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Fetching videos from /api/videos');
-      const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<Video[]>('/api/videos');
-      console.log('[AdminScreen] Videos received:', data);
-      setVideos((data || []).map((v: any) => ({
-        id: v.id,
-        title: v.title,
-        artistId: v.artistId || v.artist_id,
-        videoUrl: v.videoUrl || v.video_url,
-        thumbnailUrl: v.thumbnailUrl || v.thumbnail_url,
-        isExclusive: v.isExclusive ?? v.is_exclusive ?? true,
-        releaseDate: v.releaseDate || v.release_date,
-      })));
-    } catch (error: any) {
-      console.error('[AdminScreen] Error fetching videos:', error);
-      showModal('Error', 'Failed to fetch videos', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Fetching users from /api/admin/users');
-      const { authenticatedGet } = await import('@/utils/api');
-      const data = await authenticatedGet<User[]>('/api/admin/users');
-      console.log('[AdminScreen] Users received:', data);
-      setUsers((data || []).map((u: any) => ({
-        id: u.id,
-        email: u.email,
-        name: u.name || u.email,
-        isAdmin: u.isAdmin ?? u.is_admin ?? false,
-        canUpload: u.canUpload ?? u.can_upload ?? false,
-        createdAt: u.createdAt || u.created_at,
-      })));
-    } catch (error: any) {
-      console.error('[AdminScreen] Error fetching users:', error);
-      showModal('Error', 'Failed to fetch users', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveArtist = async () => {
-    if (!editingArtist.name) {
-      showModal('Error', 'Artist name is required', 'error');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Saving artist:', editingArtist);
-      const { authenticatedPost, authenticatedPut } = await import('@/utils/api');
-
-      if (editingArtist.id) {
-        await authenticatedPut(`/api/admin/artists/${editingArtist.id}`, editingArtist);
-        showModal('Success', 'Artist updated successfully', 'success');
-      } else {
-        await authenticatedPost('/api/admin/artists', editingArtist);
-        showModal('Success', 'Artist created successfully', 'success');
-      }
-
-      setEditingArtist({});
-      fetchArtists();
-    } catch (error: any) {
-      console.error('[AdminScreen] Error saving artist:', error);
-      showModal('Error', error.message || 'Failed to save artist', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteArtist = (id: string) => {
-    showModal(
-      'Confirm Delete',
-      'Are you sure you want to delete this artist?',
-      'confirm',
-      async () => {
-        try {
-          setLoading(true);
-          console.log('[AdminScreen] Deleting artist:', id);
-          const { authenticatedDelete } = await import('@/utils/api');
-          await authenticatedDelete(`/api/admin/artists/${id}`);
-          showModal('Success', 'Artist deleted successfully', 'success');
-          fetchArtists();
-        } catch (error: any) {
-          console.error('[AdminScreen] Error deleting artist:', error);
-          showModal('Error', 'Failed to delete artist', 'error');
-        } finally {
-          setLoading(false);
-        }
-      }
-    );
-  };
-
-  const handleSaveMerch = async () => {
-    if (!editingMerch.name || !editingMerch.price) {
-      showModal('Error', 'Name and price are required', 'error');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Saving merch:', editingMerch);
-      const { authenticatedPost, authenticatedPut } = await import('@/utils/api');
-
-      if (editingMerch.id) {
-        await authenticatedPut(`/api/admin/merch/${editingMerch.id}`, editingMerch);
-        showModal('Success', 'Merch item updated successfully', 'success');
-      } else {
-        await authenticatedPost('/api/admin/merch', editingMerch);
-        showModal('Success', 'Merch item created successfully', 'success');
-      }
-
-      setEditingMerch({});
-      fetchMerchItems();
-    } catch (error: any) {
-      console.error('[AdminScreen] Error saving merch:', error);
-      showModal('Error', error.message || 'Failed to save merch item', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteMerch = (id: string) => {
-    showModal(
-      'Confirm Delete',
-      'Are you sure you want to delete this merch item?',
-      'confirm',
-      async () => {
-        try {
-          setLoading(true);
-          console.log('[AdminScreen] Deleting merch:', id);
-          const { authenticatedDelete } = await import('@/utils/api');
-          await authenticatedDelete(`/api/admin/merch/${id}`);
-          showModal('Success', 'Merch item deleted successfully', 'success');
-          fetchMerchItems();
-        } catch (error: any) {
-          console.error('[AdminScreen] Error deleting merch:', error);
-          showModal('Error', 'Failed to delete merch item', 'error');
-        } finally {
-          setLoading(false);
-        }
-      }
-    );
-  };
-
-  const handleSaveHomepage = async () => {
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Saving homepage content:', homepageContent);
-      const { authenticatedPut } = await import('@/utils/api');
-      await authenticatedPut('/api/admin/homepage', homepageContent);
-      showModal('Success', 'Homepage content updated successfully', 'success');
-      fetchHomepageContent();
-    } catch (error: any) {
-      console.error('[AdminScreen] Error saving homepage content:', error);
-      showModal('Error', 'Failed to save homepage content', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveAbout = async () => {
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Saving about content:', aboutContent);
-      const { authenticatedPut } = await import('@/utils/api');
-      await authenticatedPut('/api/admin/about', aboutContent);
-      showModal('Success', 'About content updated successfully', 'success');
-      fetchAboutContent();
-    } catch (error: any) {
-      console.error('[AdminScreen] Error saving about content:', error);
-      showModal('Error', 'Failed to save about content', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveSong = async () => {
-    if (!editingSong.title || !editingSong.mp3Url || !editingSong.coverPhotoUrl) {
-      showModal('Error', 'Title, MP3 file, and cover photo are required', 'error');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Saving song:', editingSong);
-      const { authenticatedPost, authenticatedPut } = await import('@/utils/api');
-
-      const songData = {
-        ...editingSong,
-        price: editingSong.price || 0,
-        isExclusive: editingSong.isExclusive !== false,
-      };
-
-      if (editingSong.id) {
-        console.log('[AdminScreen] Updating song via PUT /api/admin/songs/' + editingSong.id);
-        await authenticatedPut(`/api/admin/songs/${editingSong.id}`, songData);
-        showModal('Success', 'Song updated successfully', 'success');
-      } else {
-        console.log('[AdminScreen] Creating song via POST /api/admin/songs');
-        await authenticatedPost('/api/admin/songs', songData);
-        showModal('Success', 'Song uploaded successfully and will appear in Merch tab', 'success');
-      }
-
-      setEditingSong({});
+  useFocusEffect(
+    useCallback(() => {
+      if (!isAdmin) return;
       fetchSongs();
-    } catch (error: any) {
-      console.error('[AdminScreen] Error saving song:', error);
-      showModal('Error', error.message || 'Failed to save song', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteSong = (id: string) => {
-    showModal(
-      'Confirm Delete',
-      'Are you sure you want to delete this song?',
-      'confirm',
-      async () => {
-        try {
-          setLoading(true);
-          console.log('[AdminScreen] Deleting song via DELETE /api/admin/songs/' + id);
-          const { authenticatedDelete } = await import('@/utils/api');
-          await authenticatedDelete(`/api/admin/songs/${id}`);
-          showModal('Success', 'Song deleted successfully', 'success');
-          fetchSongs();
-        } catch (error: any) {
-          console.error('[AdminScreen] Error deleting song:', error);
-          showModal('Error', 'Failed to delete song', 'error');
-        } finally {
-          setLoading(false);
-        }
-      }
-    );
-  };
-
-  const handleSaveVideo = async () => {
-    if (!editingVideo.title || !editingVideo.videoUrl) {
-      showModal('Error', 'Title and video file are required', 'error');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Saving video:', editingVideo);
-      const { authenticatedPost, authenticatedPut } = await import('@/utils/api');
-
-      const videoData = {
-        ...editingVideo,
-        isExclusive: editingVideo.isExclusive !== false,
-      };
-
-      if (editingVideo.id) {
-        console.log('[AdminScreen] Updating video via PUT /api/admin/videos/' + editingVideo.id);
-        await authenticatedPut(`/api/admin/videos/${editingVideo.id}`, videoData);
-        showModal('Success', 'Video updated successfully', 'success');
-      } else {
-        console.log('[AdminScreen] Creating video via POST /api/admin/videos');
-        await authenticatedPost('/api/admin/videos', videoData);
-        showModal('Success', 'Video uploaded successfully and will appear in Home tab', 'success');
-      }
-
-      setEditingVideo({});
+      fetchMerch();
       fetchVideos();
-    } catch (error: any) {
-      console.error('[AdminScreen] Error saving video:', error);
-      showModal('Error', error.message || 'Failed to save video', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+    }, [isAdmin, fetchSongs, fetchMerch, fetchVideos])
+  );
 
-  const handleDeleteVideo = (id: string) => {
-    showModal(
-      'Confirm Delete',
-      'Are you sure you want to delete this video?',
-      'confirm',
-      async () => {
-        try {
-          setLoading(true);
-          console.log('[AdminScreen] Deleting video via DELETE /api/admin/videos/' + id);
-          const { authenticatedDelete } = await import('@/utils/api');
-          await authenticatedDelete(`/api/admin/videos/${id}`);
-          showModal('Success', 'Video deleted successfully', 'success');
-          fetchVideos();
-        } catch (error: any) {
-          console.error('[AdminScreen] Error deleting video:', error);
-          showModal('Error', 'Failed to delete video', 'error');
-        } finally {
-          setLoading(false);
-        }
-      }
-    );
-  };
+  // ── Songs CRUD ─────────────────────────────────────────────────────────────
 
-  const handleCreateUser = async () => {
-    if (!newUser.email || !newUser.password || !newUser.name) {
-      showModal('Error', 'Email, password, and name are required', 'error');
-      return;
-    }
-
+  const handleSaveSong = async (data: Partial<Song>) => {
     try {
-      setLoading(true);
-      console.log('[AdminScreen] Creating user via POST /api/admin/users:', newUser);
-      const { authenticatedPost } = await import('@/utils/api');
-      await authenticatedPost('/api/admin/users', newUser);
-      showModal('Success', 'User created successfully', 'success');
-      setNewUser({ email: '', password: '', name: '', isAdmin: false, canUpload: false });
-      fetchUsers();
-    } catch (error: any) {
-      console.error('[AdminScreen] Error creating user:', error);
-      showModal('Error', error.message || 'Failed to create user', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteUser = (userId: string) => {
-    showModal(
-      'Confirm Delete',
-      'Are you sure you want to delete this user account? This action cannot be undone.',
-      'confirm',
-      async () => {
-        try {
-          setLoading(true);
-          console.log('[AdminScreen] Deleting user via DELETE /api/admin/users/' + userId);
-          const { authenticatedDelete } = await import('@/utils/api');
-          await authenticatedDelete(`/api/admin/users/${userId}`);
-          showModal('Success', 'User deleted successfully', 'success');
-          fetchUsers();
-        } catch (error: any) {
-          console.error('[AdminScreen] Error deleting user:', error);
-          showModal('Error', error.message || 'Failed to delete user', 'error');
-        } finally {
-          setLoading(false);
-        }
+      if (data.id) {
+        console.log(`[AdminScreen] PUT /api/admin/songs/${data.id}`);
+        await authenticatedPut(`/api/admin/songs/${data.id}`, data);
+      } else {
+        console.log('[AdminScreen] POST /api/admin/songs');
+        await authenticatedPost('/api/admin/songs', data);
       }
-    );
-  };
-
-  const handleUpdateUserPermissions = async (userId: string, permissions: { isAdmin?: boolean; canUpload?: boolean }) => {
-    try {
-      setLoading(true);
-      console.log('[AdminScreen] Updating user permissions via PUT /api/admin/users/' + userId + '/permissions:', permissions);
-      const { authenticatedPut } = await import('@/utils/api');
-      await authenticatedPut(`/api/admin/users/${userId}/permissions`, permissions);
-      showModal('Success', 'User permissions updated successfully', 'success');
-      fetchUsers();
-    } catch (error: any) {
-      console.error('[AdminScreen] Error updating user permissions:', error);
-      showModal('Error', error.message || 'Failed to update user permissions', 'error');
-    } finally {
-      setLoading(false);
+      setFormVisible(false);
+      setEditingSong(null);
+      await fetchSongs();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save song');
     }
   };
 
-  const handleSignOut = async () => {
-    showModal(
-      'Confirm Sign Out',
-      'Are you sure you want to sign out?',
-      'confirm',
-      async () => {
-        try {
+  const handleDeleteSong = (id: string, title: string) => {
+    console.log(`[AdminScreen] Delete song pressed: ${title}`);
+    Alert.alert('Delete Song', `Delete "${title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          console.log(`[AdminScreen] DELETE /api/admin/songs/${id}`);
+          try {
+            await authenticatedDelete(`/api/admin/songs/${id}`);
+            await fetchSongs();
+          } catch (e: any) {
+            Alert.alert('Error', e.message || 'Failed to delete song');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleToggleSongPublish = async (song: Song) => {
+    const endpoint = song.is_published
+      ? `/api/admin/songs/${song.id}/unpublish`
+      : `/api/admin/songs/${song.id}/publish`;
+    console.log(`[AdminScreen] Toggle publish song: ${song.title}, endpoint: ${endpoint}`);
+    try {
+      await authenticatedPost(endpoint, {});
+      await fetchSongs();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to update song');
+    }
+  };
+
+  const handleReorderSongs = async (list: Song[]) => {
+    const ids = list.map((s) => s.id);
+    console.log('[AdminScreen] POST /api/admin/songs/reorder', ids);
+    setSongs(list);
+    try {
+      await authenticatedPost('/api/admin/songs/reorder', { ids });
+    } catch (e: any) {
+      Alert.alert('Error', 'Failed to reorder songs');
+      await fetchSongs();
+    }
+  };
+
+  const moveSong = (index: number, direction: 'up' | 'down') => {
+    const newList = [...songs];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= newList.length) return;
+    [newList[index], newList[swapIndex]] = [newList[swapIndex], newList[index]];
+    handleReorderSongs(newList);
+  };
+
+  // ── Merch CRUD ─────────────────────────────────────────────────────────────
+
+  const handleSaveMerch = async (data: Partial<MerchItem>) => {
+    try {
+      if (data.id) {
+        console.log(`[AdminScreen] PUT /api/admin/merch/${data.id}`);
+        await authenticatedPut(`/api/admin/merch/${data.id}`, data);
+      } else {
+        console.log('[AdminScreen] POST /api/admin/merch');
+        await authenticatedPost('/api/admin/merch', data);
+      }
+      setFormVisible(false);
+      setEditingMerch(null);
+      await fetchMerch();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save merch');
+    }
+  };
+
+  const handleDeleteMerch = (id: string, name: string) => {
+    console.log(`[AdminScreen] Delete merch pressed: ${name}`);
+    Alert.alert('Delete Item', `Delete "${name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          console.log(`[AdminScreen] DELETE /api/admin/merch/${id}`);
+          try {
+            await authenticatedDelete(`/api/admin/merch/${id}`);
+            await fetchMerch();
+          } catch (e: any) {
+            Alert.alert('Error', e.message || 'Failed to delete merch');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleToggleMerchPublish = async (item: MerchItem) => {
+    const endpoint = item.is_published
+      ? `/api/admin/merch/${item.id}/unpublish`
+      : `/api/admin/merch/${item.id}/publish`;
+    console.log(`[AdminScreen] Toggle publish merch: ${item.name}, endpoint: ${endpoint}`);
+    try {
+      await authenticatedPost(endpoint, {});
+      await fetchMerch();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to update merch');
+    }
+  };
+
+  const handleReorderMerch = async (list: MerchItem[]) => {
+    const ids = list.map((m) => m.id);
+    console.log('[AdminScreen] POST /api/admin/merch/reorder', ids);
+    setMerch(list);
+    try {
+      await authenticatedPost('/api/admin/merch/reorder', { ids });
+    } catch (e: any) {
+      Alert.alert('Error', 'Failed to reorder merch');
+      await fetchMerch();
+    }
+  };
+
+  const moveMerch = (index: number, direction: 'up' | 'down') => {
+    const newList = [...merch];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= newList.length) return;
+    [newList[index], newList[swapIndex]] = [newList[swapIndex], newList[index]];
+    handleReorderMerch(newList);
+  };
+
+  // ── Videos CRUD ────────────────────────────────────────────────────────────
+
+  const handleSaveVideo = async (data: Partial<VideoItem>) => {
+    try {
+      if (data.id) {
+        console.log(`[AdminScreen] PUT /api/admin/videos/${data.id}`);
+        await authenticatedPut(`/api/admin/videos/${data.id}`, data);
+      } else {
+        console.log('[AdminScreen] POST /api/admin/videos');
+        await authenticatedPost('/api/admin/videos', data);
+      }
+      setFormVisible(false);
+      setEditingVideo(null);
+      await fetchVideos();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save video');
+    }
+  };
+
+  const handleDeleteVideo = (id: string, title: string) => {
+    console.log(`[AdminScreen] Delete video pressed: ${title}`);
+    Alert.alert('Delete Video', `Delete "${title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          console.log(`[AdminScreen] DELETE /api/admin/videos/${id}`);
+          try {
+            await authenticatedDelete(`/api/admin/videos/${id}`);
+            await fetchVideos();
+          } catch (e: any) {
+            Alert.alert('Error', e.message || 'Failed to delete video');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleToggleVideoPublish = async (video: VideoItem) => {
+    const endpoint = video.is_published
+      ? `/api/admin/videos/${video.id}/unpublish`
+      : `/api/admin/videos/${video.id}/publish`;
+    console.log(`[AdminScreen] Toggle publish video: ${video.title}, endpoint: ${endpoint}`);
+    try {
+      await authenticatedPost(endpoint, {});
+      await fetchVideos();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to update video');
+    }
+  };
+
+  const handleReorderVideos = async (list: VideoItem[]) => {
+    const ids = list.map((v) => v.id);
+    console.log('[AdminScreen] POST /api/admin/videos/reorder', ids);
+    setVideos(list);
+    try {
+      await authenticatedPost('/api/admin/videos/reorder', { ids });
+    } catch (e: any) {
+      Alert.alert('Error', 'Failed to reorder videos');
+      await fetchVideos();
+    }
+  };
+
+  const moveVideo = (index: number, direction: 'up' | 'down') => {
+    const newList = [...videos];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= newList.length) return;
+    [newList[index], newList[swapIndex]] = [newList[swapIndex], newList[index]];
+    handleReorderVideos(newList);
+  };
+
+  // ── Sign Out ───────────────────────────────────────────────────────────────
+
+  const handleSignOut = () => {
+    console.log('[AdminScreen] Sign out pressed');
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out', style: 'destructive', onPress: async () => {
           await signOut();
           router.replace('/auth');
-        } catch (error: any) {
-          console.error('[AdminScreen] Error signing out:', error);
-          showModal('Error', 'Failed to sign out', 'error');
-        }
-      }
-    );
+        },
+      },
+    ]);
   };
+
+  // ── Open Form ──────────────────────────────────────────────────────────────
+
+  const openNewSong = () => {
+    console.log('[AdminScreen] Open new song form');
+    setEditingSong({ is_published: false });
+    setFormVisible(true);
+  };
+
+  const openEditSong = (song: Song) => {
+    console.log(`[AdminScreen] Open edit song form: ${song.title}`);
+    setEditingSong(song);
+    setFormVisible(true);
+  };
+
+  const openNewMerch = () => {
+    console.log('[AdminScreen] Open new merch form');
+    setEditingMerch({ is_published: false, stock: 0, price: 0 });
+    setFormVisible(true);
+  };
+
+  const openEditMerch = (item: MerchItem) => {
+    console.log(`[AdminScreen] Open edit merch form: ${item.name}`);
+    setEditingMerch(item);
+    setFormVisible(true);
+  };
+
+  const openNewVideo = () => {
+    console.log('[AdminScreen] Open new video form');
+    setEditingVideo({ is_published: false });
+    setFormVisible(true);
+  };
+
+  const openEditVideo = (video: VideoItem) => {
+    console.log(`[AdminScreen] Open edit video form: ${video.title}`);
+    setEditingVideo(video);
+    setFormVisible(true);
+  };
+
+  const closeForm = () => {
+    setFormVisible(false);
+    setEditingSong(null);
+    setEditingMerch(null);
+    setEditingVideo(null);
+  };
+
+  // ── Guards ─────────────────────────────────────────────────────────────────
 
   if (checkingAdmin) {
     return (
-      <View style={[commonStyles.container, styles.centerContent]}>
+      <View style={[commonStyles.container, styles.centered]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Checking admin access...</Text>
       </View>
@@ -818,13 +888,7 @@ export default function AdminScreen() {
 
   if (!user) {
     return (
-      <View style={[commonStyles.container, styles.centerContent]}>
-        <IconSymbol
-          ios_icon_name="lock.shield"
-          android_material_icon_name="lock"
-          size={64}
-          color={colors.textSecondary}
-        />
+      <View style={[commonStyles.container, styles.centered]}>
         <Text style={styles.emptyText}>Please sign in to access admin panel</Text>
         <TouchableOpacity style={commonStyles.button} onPress={() => router.push('/auth')}>
           <Text style={commonStyles.buttonText}>Sign In</Text>
@@ -835,13 +899,7 @@ export default function AdminScreen() {
 
   if (!isAdmin) {
     return (
-      <View style={[commonStyles.container, styles.centerContent]}>
-        <IconSymbol
-          ios_icon_name="exclamationmark.triangle"
-          android_material_icon_name="warning"
-          size={64}
-          color={colors.textSecondary}
-        />
+      <View style={[commonStyles.container, styles.centered]}>
         <Text style={styles.emptyText}>You do not have admin privileges</Text>
         <TouchableOpacity style={commonStyles.button} onPress={() => router.back()}>
           <Text style={commonStyles.buttonText}>Go Back</Text>
@@ -850,1537 +908,609 @@ export default function AdminScreen() {
     );
   }
 
-  const paddingTop = Platform.OS === 'android' ? 48 : 0;
+  const isLoading = loadingSongs || loadingMerch || loadingVideos;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <SafeAreaView style={commonStyles.container} edges={['top']}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={[styles.header, { paddingTop }]}>
-          <Text style={styles.headerTitle}>ADMIN PANEL</Text>
-          <TouchableOpacity onPress={handleSignOut} style={styles.signOutButton}>
-            <IconSymbol
-              ios_icon_name="rectangle.portrait.and.arrow.right"
-              android_material_icon_name="logout"
-              size={20}
-              color={colors.primary}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Tab Navigation */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'artists' && styles.tabActive]}
-            onPress={() => setActiveTab('artists')}
-          >
-            <Text style={[styles.tabText, activeTab === 'artists' && styles.tabTextActive]}>
-              Artists
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'music' && styles.tabActive]}
-            onPress={() => setActiveTab('music')}
-          >
-            <Text style={[styles.tabText, activeTab === 'music' && styles.tabTextActive]}>
-              Music
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'videos' && styles.tabActive]}
-            onPress={() => setActiveTab('videos')}
-          >
-            <Text style={[styles.tabText, activeTab === 'videos' && styles.tabTextActive]}>
-              Videos
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'merch' && styles.tabActive]}
-            onPress={() => setActiveTab('merch')}
-          >
-            <Text style={[styles.tabText, activeTab === 'merch' && styles.tabTextActive]}>
-              Merch
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'homepage' && styles.tabActive]}
-            onPress={() => setActiveTab('homepage')}
-          >
-            <Text style={[styles.tabText, activeTab === 'homepage' && styles.tabTextActive]}>
-              Home
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'about' && styles.tabActive]}
-            onPress={() => setActiveTab('about')}
-          >
-            <Text style={[styles.tabText, activeTab === 'about' && styles.tabTextActive]}>
-              About
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'users' && styles.tabActive]}
-            onPress={() => setActiveTab('users')}
-          >
-            <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>
-              Users
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        {/* Content */}
-        <ScrollView style={styles.content}>
-          {/* Artists Tab */}
-          {activeTab === 'artists' && (
-            <View style={styles.tabContent}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Manage Artists</Text>
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => router.push('/add-artists-helper')}
-                >
-                  <IconSymbol
-                    ios_icon_name="person.badge.plus"
-                    android_material_icon_name="person-add"
-                    size={18}
-                    color={colors.background}
-                  />
-                  <Text style={styles.addButtonText}>Quick Add</Text>
-                </TouchableOpacity>
-              </View>
-
-              {artists.length === 0 && !loading && (
-                <View style={styles.emptyStateCard}>
-                  <IconSymbol
-                    ios_icon_name="person.3"
-                    android_material_icon_name="group"
-                    size={48}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.emptyStateTitle}>No Artists Yet</Text>
-                  <Text style={styles.emptyStateText}>
-                    Get started by adding Afroman and OG Daddy V with their complete profiles, bios, and photos.
-                  </Text>
-                  <TouchableOpacity
-                    style={[commonStyles.button, styles.emptyStateButton]}
-                    onPress={() => router.push('/add-artists-helper')}
-                  >
-                    <IconSymbol
-                      ios_icon_name="plus.circle"
-                      android_material_icon_name="add-circle"
-                      size={20}
-                      color={colors.background}
-                    />
-                    <Text style={commonStyles.buttonText}>Add Artists Now</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {loading ? (
-                <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-              ) : (
-                <>
-                  {artists.map((artist) => {
-                    const artistName = artist.name;
-                    const artistStatus = artist.status || 'Active';
-                    
-                    return (
-                      <View key={artist.id} style={styles.listItem}>
-                        <View style={styles.listItemHeader}>
-                          {artist.photo_url && (
-                            <Image
-                              source={resolveImageSource(artist.photo_url)}
-                              style={styles.listItemImage}
-                              resizeMode="cover"
-                            />
-                          )}
-                          <View style={styles.listItemInfo}>
-                            <Text style={styles.listItemTitle}>{artistName}</Text>
-                            <Text style={styles.listItemSubtitle}>{artistStatus}</Text>
-                          </View>
-                        </View>
-                        <View style={styles.listItemActions}>
-                          <TouchableOpacity
-                            style={styles.editButton}
-                            onPress={() => setEditingArtist(artist)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="pencil"
-                              android_material_icon_name="edit"
-                              size={18}
-                              color={colors.primary}
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.deleteButton}
-                            onPress={() => handleDeleteArtist(artist.id)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="trash"
-                              android_material_icon_name="delete"
-                              size={18}
-                              color={colors.error}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-
-                  {editingArtist && Object.keys(editingArtist).length > 0 && (
-                    <View style={styles.editForm}>
-                      <Text style={styles.formTitle}>
-                        {editingArtist.id ? 'Edit Artist' : 'New Artist'}
-                      </Text>
-                      
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Artist Name *"
-                        placeholderTextColor={colors.textTertiary}
-                        value={editingArtist.name || ''}
-                        onChangeText={(text) => setEditingArtist({ ...editingArtist, name: text })}
-                      />
-                      
-                      <TextInput
-                        style={[styles.input, styles.textArea]}
-                        placeholder="Bio"
-                        placeholderTextColor={colors.textTertiary}
-                        value={editingArtist.bio || ''}
-                        onChangeText={(text) => setEditingArtist({ ...editingArtist, bio: text })}
-                        multiline
-                        numberOfLines={4}
-                      />
-
-                      <TouchableOpacity
-                        style={styles.uploadButton}
-                        onPress={async () => {
-                          const uri = await uploadImage();
-                          if (uri) setEditingArtist({ ...editingArtist, photo_url: uri });
-                        }}
-                      >
-                        <IconSymbol
-                          ios_icon_name="photo"
-                          android_material_icon_name="image"
-                          size={20}
-                          color={colors.primary}
-                        />
-                        <Text style={styles.uploadButtonText}>Upload Photo</Text>
-                      </TouchableOpacity>
-
-                      <View style={styles.formActions}>
-                        <TouchableOpacity
-                          style={[commonStyles.button, styles.saveButton]}
-                          onPress={handleSaveArtist}
-                          disabled={loading}
-                        >
-                          {loading ? (
-                            <ActivityIndicator size="small" color={colors.background} />
-                          ) : (
-                            <Text style={commonStyles.buttonText}>Save</Text>
-                          )}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.cancelButton}
-                          onPress={() => setEditingArtist({})}
-                        >
-                          <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
-          )}
-
-          {/* Music Tab */}
-          {activeTab === 'music' && (
-            <View style={styles.tabContent}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Manage Music</Text>
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => setEditingSong({ isExclusive: true, price: 0 })}
-                >
-                  <IconSymbol
-                    ios_icon_name="plus"
-                    android_material_icon_name="add"
-                    size={18}
-                    color={colors.background}
-                  />
-                  <Text style={styles.addButtonText}>Upload Song</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.infoBox}>
-                <IconSymbol
-                  ios_icon_name="info.circle"
-                  android_material_icon_name="info"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={styles.infoText}>
-                  Songs marked as exclusive will automatically appear in the Merch tab
-                </Text>
-              </View>
-
-              {loading ? (
-                <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-              ) : (
-                <>
-                  {songs.map((song) => {
-                    const songTitle = song.title;
-                    const songPrice = `$${song.price.toFixed(2)}`;
-                    const exclusiveLabel = song.isExclusive ? 'Exclusive' : 'Standard';
-                    
-                    return (
-                      <View key={song.id} style={styles.listItem}>
-                        <View style={styles.listItemHeader}>
-                          {song.coverPhotoUrl && (
-                            <Image
-                              source={resolveImageSource(song.coverPhotoUrl)}
-                              style={styles.listItemImage}
-                              resizeMode="cover"
-                            />
-                          )}
-                          <View style={styles.listItemInfo}>
-                            <Text style={styles.listItemTitle}>{songTitle}</Text>
-                            <Text style={styles.listItemSubtitle}>{songPrice}</Text>
-                            <Text style={styles.listItemSubtitle}>{exclusiveLabel}</Text>
-                          </View>
-                        </View>
-                        <View style={styles.listItemActions}>
-                          <TouchableOpacity
-                            style={styles.editButton}
-                            onPress={() => setEditingSong(song)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="pencil"
-                              android_material_icon_name="edit"
-                              size={18}
-                              color={colors.primary}
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.deleteButton}
-                            onPress={() => handleDeleteSong(song.id)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="trash"
-                              android_material_icon_name="delete"
-                              size={18}
-                              color={colors.error}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-
-                  {editingSong && Object.keys(editingSong).length > 0 && (
-                    <View style={styles.editForm}>
-                      <Text style={styles.formTitle}>
-                        {editingSong.id ? 'Edit Song' : 'Upload New Song'}
-                      </Text>
-                      
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Song Title *"
-                        placeholderTextColor={colors.textTertiary}
-                        value={editingSong.title || ''}
-                        onChangeText={(text) => setEditingSong({ ...editingSong, title: text })}
-                      />
-
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Price (USD)"
-                        placeholderTextColor={colors.textTertiary}
-                        value={editingSong.price?.toString() || '0'}
-                        onChangeText={(text) => setEditingSong({ ...editingSong, price: parseFloat(text) || 0 })}
-                        keyboardType="decimal-pad"
-                      />
-
-                      <TouchableOpacity
-                        style={styles.uploadButton}
-                        onPress={async () => {
-                          const uri = await uploadAudio();
-                          if (uri) setEditingSong({ ...editingSong, mp3Url: uri });
-                        }}
-                        disabled={uploadingAudio}
-                      >
-                        {uploadingAudio ? (
-                          <ActivityIndicator size="small" color={colors.primary} />
-                        ) : (
-                          <>
-                            <IconSymbol
-                              ios_icon_name="music.note"
-                              android_material_icon_name="music-note"
-                              size={20}
-                              color={colors.primary}
-                            />
-                            <Text style={styles.uploadButtonText}>
-                              {editingSong.mp3Url ? 'Change MP3 File' : 'Upload MP3 File *'}
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.uploadButton}
-                        onPress={async () => {
-                          const uri = await uploadImage();
-                          if (uri) setEditingSong({ ...editingSong, coverPhotoUrl: uri });
-                        }}
-                        disabled={uploadingCover}
-                      >
-                        {uploadingCover ? (
-                          <ActivityIndicator size="small" color={colors.primary} />
-                        ) : (
-                          <>
-                            <IconSymbol
-                              ios_icon_name="photo"
-                              android_material_icon_name="image"
-                              size={20}
-                              color={colors.primary}
-                            />
-                            <Text style={styles.uploadButtonText}>
-                              {editingSong.coverPhotoUrl ? 'Change Cover Photo' : 'Upload Cover Photo *'}
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.checkboxContainer}
-                        onPress={() => setEditingSong({ ...editingSong, isExclusive: !editingSong.isExclusive })}
-                      >
-                        <View style={[styles.checkbox, editingSong.isExclusive && styles.checkboxChecked]}>
-                          {editingSong.isExclusive && (
-                            <IconSymbol
-                              ios_icon_name="checkmark"
-                              android_material_icon_name="check"
-                              size={16}
-                              color={colors.background}
-                            />
-                          )}
-                        </View>
-                        <Text style={styles.checkboxLabel}>Exclusive Release (Show in Merch Tab)</Text>
-                      </TouchableOpacity>
-
-                      <View style={styles.formActions}>
-                        <TouchableOpacity
-                          style={[commonStyles.button, styles.saveButton]}
-                          onPress={handleSaveSong}
-                          disabled={loading}
-                        >
-                          {loading ? (
-                            <ActivityIndicator size="small" color={colors.background} />
-                          ) : (
-                            <Text style={commonStyles.buttonText}>Save</Text>
-                          )}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.cancelButton}
-                          onPress={() => setEditingSong({})}
-                        >
-                          <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
-          )}
-
-          {/* Videos Tab */}
-          {activeTab === 'videos' && (
-            <View style={styles.tabContent}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Manage Videos</Text>
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => setEditingVideo({ isExclusive: true })}
-                >
-                  <IconSymbol
-                    ios_icon_name="plus"
-                    android_material_icon_name="add"
-                    size={18}
-                    color={colors.background}
-                  />
-                  <Text style={styles.addButtonText}>Upload Video</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.infoBox}>
-                <IconSymbol
-                  ios_icon_name="info.circle"
-                  android_material_icon_name="info"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={styles.infoText}>
-                  Videos marked as exclusive will automatically appear in the Home tab
-                </Text>
-              </View>
-
-              {loading ? (
-                <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-              ) : (
-                <>
-                  {videos.map((video) => {
-                    const videoTitle = video.title;
-                    const exclusiveLabel = video.isExclusive ? 'Exclusive' : 'Standard';
-                    
-                    return (
-                      <View key={video.id} style={styles.listItem}>
-                        <View style={styles.listItemHeader}>
-                          {video.thumbnailUrl && (
-                            <Image
-                              source={resolveImageSource(video.thumbnailUrl)}
-                              style={styles.listItemImage}
-                              resizeMode="cover"
-                            />
-                          )}
-                          <View style={styles.listItemInfo}>
-                            <Text style={styles.listItemTitle}>{videoTitle}</Text>
-                            <Text style={styles.listItemSubtitle}>{exclusiveLabel}</Text>
-                          </View>
-                        </View>
-                        <View style={styles.listItemActions}>
-                          <TouchableOpacity
-                            style={styles.editButton}
-                            onPress={() => setEditingVideo(video)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="pencil"
-                              android_material_icon_name="edit"
-                              size={18}
-                              color={colors.primary}
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.deleteButton}
-                            onPress={() => handleDeleteVideo(video.id)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="trash"
-                              android_material_icon_name="delete"
-                              size={18}
-                              color={colors.error}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-
-                  {editingVideo && Object.keys(editingVideo).length > 0 && (
-                    <View style={styles.editForm}>
-                      <Text style={styles.formTitle}>
-                        {editingVideo.id ? 'Edit Video' : 'Upload New Video'}
-                      </Text>
-                      
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Video Title *"
-                        placeholderTextColor={colors.textTertiary}
-                        value={editingVideo.title || ''}
-                        onChangeText={(text) => setEditingVideo({ ...editingVideo, title: text })}
-                      />
-
-                      <TouchableOpacity
-                        style={styles.uploadButton}
-                        onPress={async () => {
-                          const uri = await uploadVideoFile();
-                          if (uri) setEditingVideo({ ...editingVideo, videoUrl: uri });
-                        }}
-                        disabled={uploadingVideo}
-                      >
-                        {uploadingVideo ? (
-                          <ActivityIndicator size="small" color={colors.primary} />
-                        ) : (
-                          <>
-                            <IconSymbol
-                              ios_icon_name="play.rectangle"
-                              android_material_icon_name="videocam"
-                              size={20}
-                              color={colors.primary}
-                            />
-                            <Text style={styles.uploadButtonText}>
-                              {editingVideo.videoUrl ? 'Change Video File' : 'Upload Video File *'}
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.uploadButton}
-                        onPress={async () => {
-                          const uri = await uploadImage();
-                          if (uri) setEditingVideo({ ...editingVideo, thumbnailUrl: uri });
-                        }}
-                        disabled={uploadingThumbnail}
-                      >
-                        {uploadingThumbnail ? (
-                          <ActivityIndicator size="small" color={colors.primary} />
-                        ) : (
-                          <>
-                            <IconSymbol
-                              ios_icon_name="photo"
-                              android_material_icon_name="image"
-                              size={20}
-                              color={colors.primary}
-                            />
-                            <Text style={styles.uploadButtonText}>
-                              {editingVideo.thumbnailUrl ? 'Change Thumbnail' : 'Upload Thumbnail (Optional)'}
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.checkboxContainer}
-                        onPress={() => setEditingVideo({ ...editingVideo, isExclusive: !editingVideo.isExclusive })}
-                      >
-                        <View style={[styles.checkbox, editingVideo.isExclusive && styles.checkboxChecked]}>
-                          {editingVideo.isExclusive && (
-                            <IconSymbol
-                              ios_icon_name="checkmark"
-                              android_material_icon_name="check"
-                              size={16}
-                              color={colors.background}
-                            />
-                          )}
-                        </View>
-                        <Text style={styles.checkboxLabel}>Exclusive Release (Show in Home Tab)</Text>
-                      </TouchableOpacity>
-
-                      <View style={styles.formActions}>
-                        <TouchableOpacity
-                          style={[commonStyles.button, styles.saveButton]}
-                          onPress={handleSaveVideo}
-                          disabled={loading}
-                        >
-                          {loading ? (
-                            <ActivityIndicator size="small" color={colors.background} />
-                          ) : (
-                            <Text style={commonStyles.buttonText}>Save</Text>
-                          )}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.cancelButton}
-                          onPress={() => setEditingVideo({})}
-                        >
-                          <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
-          )}
-
-          {/* Users Tab */}
-          {activeTab === 'users' && (
-            <View style={styles.tabContent}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>User Management</Text>
-              </View>
-
-              <View style={styles.infoBox}>
-                <IconSymbol
-                  ios_icon_name="info.circle"
-                  android_material_icon_name="info"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={styles.infoText}>
-                  Create user accounts and manage permissions. Users with upload capability can add music and videos.
-                </Text>
-              </View>
-
-              {/* Create New User Form */}
-              <View style={styles.editForm}>
-                <Text style={styles.formTitle}>Create New User</Text>
-                
-                <TextInput
-                  style={styles.input}
-                  placeholder="Email *"
-                  placeholderTextColor={colors.textTertiary}
-                  value={newUser.email}
-                  onChangeText={(text) => setNewUser({ ...newUser, email: text })}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-
-                <TextInput
-                  style={styles.input}
-                  placeholder="Password *"
-                  placeholderTextColor={colors.textTertiary}
-                  value={newUser.password}
-                  onChangeText={(text) => setNewUser({ ...newUser, password: text })}
-                  secureTextEntry
-                />
-
-                <TextInput
-                  style={styles.input}
-                  placeholder="Name *"
-                  placeholderTextColor={colors.textTertiary}
-                  value={newUser.name}
-                  onChangeText={(text) => setNewUser({ ...newUser, name: text })}
-                />
-
-                <TouchableOpacity
-                  style={styles.checkboxContainer}
-                  onPress={() => setNewUser({ ...newUser, isAdmin: !newUser.isAdmin })}
-                >
-                  <View style={[styles.checkbox, newUser.isAdmin && styles.checkboxChecked]}>
-                    {newUser.isAdmin && (
-                      <IconSymbol
-                        ios_icon_name="checkmark"
-                        android_material_icon_name="check"
-                        size={16}
-                        color={colors.background}
-                      />
-                    )}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Admin Privileges</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.checkboxContainer}
-                  onPress={() => setNewUser({ ...newUser, canUpload: !newUser.canUpload })}
-                >
-                  <View style={[styles.checkbox, newUser.canUpload && styles.checkboxChecked]}>
-                    {newUser.canUpload && (
-                      <IconSymbol
-                        ios_icon_name="checkmark"
-                        android_material_icon_name="check"
-                        size={16}
-                        color={colors.background}
-                      />
-                    )}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Upload Capability</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[commonStyles.button, styles.saveButton]}
-                  onPress={handleCreateUser}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator size="small" color={colors.background} />
-                  ) : (
-                    <>
-                      <IconSymbol
-                        ios_icon_name="person.badge.plus"
-                        android_material_icon_name="person-add"
-                        size={20}
-                        color={colors.background}
-                      />
-                      <Text style={commonStyles.buttonText}>Create User</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {/* Existing Users List */}
-              <Text style={styles.sectionSubtitle}>Existing Users</Text>
-              
-              {loading ? (
-                <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-              ) : (
-                <>
-                  {users.map((userItem) => {
-                    const userName = userItem.name;
-                    const userEmail = userItem.email;
-                    const isAdminUser = userItem.isAdmin;
-                    const canUploadUser = userItem.canUpload;
-                    
-                    return (
-                      <View key={userItem.id} style={styles.userItem}>
-                        <View style={styles.userItemHeader}>
-                          <IconSymbol
-                            ios_icon_name="person.circle"
-                            android_material_icon_name="account-circle"
-                            size={40}
-                            color={colors.primary}
-                          />
-                          <View style={styles.userItemInfo}>
-                            <Text style={styles.userItemName}>{userName}</Text>
-                            <Text style={styles.userItemEmail}>{userEmail}</Text>
-                            <View style={styles.userItemBadges}>
-                              {isAdminUser && (
-                                <View style={styles.badge}>
-                                  <Text style={styles.badgeText}>Admin</Text>
-                                </View>
-                              )}
-                              {canUploadUser && (
-                                <View style={[styles.badge, styles.badgeSecondary]}>
-                                  <Text style={styles.badgeText}>Can Upload</Text>
-                                </View>
-                              )}
-                            </View>
-                          </View>
-                        </View>
-                        <View style={styles.userItemActions}>
-                          <TouchableOpacity
-                            style={styles.permissionButton}
-                            onPress={() => handleUpdateUserPermissions(userItem.id, { isAdmin: !isAdminUser })}
-                          >
-                            <IconSymbol
-                              ios_icon_name="shield"
-                              android_material_icon_name="security"
-                              size={18}
-                              color={colors.primary}
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.permissionButton}
-                            onPress={() => handleUpdateUserPermissions(userItem.id, { canUpload: !canUploadUser })}
-                          >
-                            <IconSymbol
-                              ios_icon_name="arrow.up.doc"
-                              android_material_icon_name="upload"
-                              size={18}
-                              color={colors.primary}
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.deleteButton}
-                            onPress={() => handleDeleteUser(userItem.id)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="trash"
-                              android_material_icon_name="delete"
-                              size={18}
-                              color={colors.error}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </>
-              )}
-            </View>
-          )}
-
-          {/* Merch Tab (existing) */}
-          {activeTab === 'merch' && (
-            <View style={styles.tabContent}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Manage Merch</Text>
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => setEditingMerch({ stock: 0, price: 0 })}
-                >
-                  <IconSymbol
-                    ios_icon_name="plus"
-                    android_material_icon_name="add"
-                    size={18}
-                    color={colors.background}
-                  />
-                  <Text style={styles.addButtonText}>Add Item</Text>
-                </TouchableOpacity>
-              </View>
-
-              {loading ? (
-                <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-              ) : (
-                <>
-                  {merchItems.map((item) => {
-                    const itemName = item.name;
-                    const itemPrice = `$${item.price.toFixed(2)}`;
-                    const itemStock = `${item.stock} in stock`;
-                    
-                    return (
-                      <View key={item.id} style={styles.listItem}>
-                        <View style={styles.listItemHeader}>
-                          {item.image_url && (
-                            <Image
-                              source={resolveImageSource(item.image_url)}
-                              style={styles.listItemImage}
-                              resizeMode="cover"
-                            />
-                          )}
-                          <View style={styles.listItemInfo}>
-                            <Text style={styles.listItemTitle}>{itemName}</Text>
-                            <Text style={styles.listItemSubtitle}>{itemPrice}</Text>
-                            <Text style={styles.listItemSubtitle}>{itemStock}</Text>
-                          </View>
-                        </View>
-                        <View style={styles.listItemActions}>
-                          <TouchableOpacity
-                            style={styles.editButton}
-                            onPress={() => setEditingMerch(item)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="pencil"
-                              android_material_icon_name="edit"
-                              size={18}
-                              color={colors.primary}
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.deleteButton}
-                            onPress={() => handleDeleteMerch(item.id)}
-                          >
-                            <IconSymbol
-                              ios_icon_name="trash"
-                              android_material_icon_name="delete"
-                              size={18}
-                              color={colors.error}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-
-                  {editingMerch && Object.keys(editingMerch).length > 0 && (
-                    <View style={styles.editForm}>
-                      <Text style={styles.formTitle}>
-                        {editingMerch.id ? 'Edit Merch Item' : 'New Merch Item'}
-                      </Text>
-                      
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Item Name *"
-                        placeholderTextColor={colors.textTertiary}
-                        value={editingMerch.name || ''}
-                        onChangeText={(text) => setEditingMerch({ ...editingMerch, name: text })}
-                      />
-                      
-                      <TextInput
-                        style={[styles.input, styles.textArea]}
-                        placeholder="Description"
-                        placeholderTextColor={colors.textTertiary}
-                        value={editingMerch.description || ''}
-                        onChangeText={(text) => setEditingMerch({ ...editingMerch, description: text })}
-                        multiline
-                        numberOfLines={3}
-                      />
-
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Price *"
-                        placeholderTextColor={colors.textTertiary}
-                        value={editingMerch.price?.toString() || ''}
-                        onChangeText={(text) => setEditingMerch({ ...editingMerch, price: parseFloat(text) || 0 })}
-                        keyboardType="decimal-pad"
-                      />
-
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Stock"
-                        placeholderTextColor={colors.textTertiary}
-                        value={editingMerch.stock?.toString() || ''}
-                        onChangeText={(text) => setEditingMerch({ ...editingMerch, stock: parseInt(text) || 0 })}
-                        keyboardType="number-pad"
-                      />
-
-                      <TouchableOpacity
-                        style={styles.uploadButton}
-                        onPress={async () => {
-                          const uri = await uploadImage();
-                          if (uri) setEditingMerch({ ...editingMerch, image_url: uri });
-                        }}
-                      >
-                        <IconSymbol
-                          ios_icon_name="photo"
-                          android_material_icon_name="image"
-                          size={20}
-                          color={colors.primary}
-                        />
-                        <Text style={styles.uploadButtonText}>Upload Image</Text>
-                      </TouchableOpacity>
-
-                      <View style={styles.formActions}>
-                        <TouchableOpacity
-                          style={[commonStyles.button, styles.saveButton]}
-                          onPress={handleSaveMerch}
-                          disabled={loading}
-                        >
-                          {loading ? (
-                            <ActivityIndicator size="small" color={colors.background} />
-                          ) : (
-                            <Text style={commonStyles.buttonText}>Save</Text>
-                          )}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.cancelButton}
-                          onPress={() => setEditingMerch({})}
-                        >
-                          <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
-          )}
-
-          {/* Homepage Tab (existing) */}
-          {activeTab === 'homepage' && (
-            <View style={styles.tabContent}>
-              <Text style={styles.sectionTitle}>Homepage Content</Text>
-              
-              {loading ? (
-                <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-              ) : (
-                <View style={styles.editForm}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Hero Banner URL"
-                    placeholderTextColor={colors.textTertiary}
-                    value={homepageContent.hero_banner_url || ''}
-                    onChangeText={(text) => setHomepageContent({ ...homepageContent, hero_banner_url: text })}
-                  />
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Featured Artist ID"
-                    placeholderTextColor={colors.textTertiary}
-                    value={homepageContent.featured_artist_id || ''}
-                    onChangeText={(text) => setHomepageContent({ ...homepageContent, featured_artist_id: text })}
-                  />
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Featured Merch ID"
-                    placeholderTextColor={colors.textTertiary}
-                    value={homepageContent.featured_merch_id || ''}
-                    onChangeText={(text) => setHomepageContent({ ...homepageContent, featured_merch_id: text })}
-                  />
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Latest Release Title"
-                    placeholderTextColor={colors.textTertiary}
-                    value={homepageContent.latest_release_title || ''}
-                    onChangeText={(text) => setHomepageContent({ ...homepageContent, latest_release_title: text })}
-                  />
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Latest Release URL"
-                    placeholderTextColor={colors.textTertiary}
-                    value={homepageContent.latest_release_url || ''}
-                    onChangeText={(text) => setHomepageContent({ ...homepageContent, latest_release_url: text })}
-                  />
-
-                  <TouchableOpacity
-                    style={[commonStyles.button, styles.saveButton]}
-                    onPress={handleSaveHomepage}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color={colors.background} />
-                    ) : (
-                      <Text style={commonStyles.buttonText}>Save Changes</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* About Tab (existing) */}
-          {activeTab === 'about' && (
-            <View style={styles.tabContent}>
-              <Text style={styles.sectionTitle}>About Content</Text>
-              
-              {loading ? (
-                <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-              ) : (
-                <View style={styles.editForm}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Logo URL"
-                    placeholderTextColor={colors.textTertiary}
-                    value={aboutContent.logo_url || ''}
-                    onChangeText={(text) => setAboutContent({ ...aboutContent, logo_url: text })}
-                  />
-
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Description"
-                    placeholderTextColor={colors.textTertiary}
-                    value={aboutContent.description || ''}
-                    onChangeText={(text) => setAboutContent({ ...aboutContent, description: text })}
-                    multiline
-                    numberOfLines={4}
-                  />
-
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Mission"
-                    placeholderTextColor={colors.textTertiary}
-                    value={aboutContent.mission || ''}
-                    onChangeText={(text) => setAboutContent({ ...aboutContent, mission: text })}
-                    multiline
-                    numberOfLines={4}
-                  />
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Contact Email"
-                    placeholderTextColor={colors.textTertiary}
-                    value={aboutContent.contact_email || ''}
-                    onChangeText={(text) => setAboutContent({ ...aboutContent, contact_email: text })}
-                    keyboardType="email-address"
-                  />
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Contact Phone"
-                    placeholderTextColor={colors.textTertiary}
-                    value={aboutContent.contact_phone || ''}
-                    onChangeText={(text) => setAboutContent({ ...aboutContent, contact_phone: text })}
-                    keyboardType="phone-pad"
-                  />
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Instagram URL"
-                    placeholderTextColor={colors.textTertiary}
-                    value={aboutContent.instagram_url || ''}
-                    onChangeText={(text) => setAboutContent({ ...aboutContent, instagram_url: text })}
-                  />
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Twitter URL"
-                    placeholderTextColor={colors.textTertiary}
-                    value={aboutContent.twitter_url || ''}
-                    onChangeText={(text) => setAboutContent({ ...aboutContent, twitter_url: text })}
-                  />
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Facebook URL"
-                    placeholderTextColor={colors.textTertiary}
-                    value={aboutContent.facebook_url || ''}
-                    onChangeText={(text) => setAboutContent({ ...aboutContent, facebook_url: text })}
-                  />
-
-                  <TouchableOpacity
-                    style={[commonStyles.button, styles.saveButton]}
-                    onPress={handleSaveAbout}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color={colors.background} />
-                    ) : (
-                      <Text style={commonStyles.buttonText}>Save Changes</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          )}
-
-          <View style={styles.bottomPadding} />
-        </ScrollView>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>ADMIN</Text>
+        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+          <LogOut size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
+      {/* Section Switcher */}
+      <View style={styles.segmentRow}>
+        <TouchableOpacity
+          style={[styles.segmentBtn, activeSection === 'songs' && styles.segmentBtnActive]}
+          onPress={() => { console.log('[AdminScreen] Section switched to songs'); setActiveSection('songs'); }}
+        >
+          <Music size={16} color={activeSection === 'songs' ? colors.background : colors.textSecondary} />
+          <Text style={[styles.segmentText, activeSection === 'songs' && styles.segmentTextActive]}>Songs</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.segmentBtn, activeSection === 'merch' && styles.segmentBtnActive]}
+          onPress={() => { console.log('[AdminScreen] Section switched to merch'); setActiveSection('merch'); }}
+        >
+          <ShoppingBag size={16} color={activeSection === 'merch' ? colors.background : colors.textSecondary} />
+          <Text style={[styles.segmentText, activeSection === 'merch' && styles.segmentTextActive]}>Merch</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.segmentBtn, activeSection === 'videos' && styles.segmentBtnActive]}
+          onPress={() => { console.log('[AdminScreen] Section switched to videos'); setActiveSection('videos'); }}
+        >
+          <Video size={16} color={activeSection === 'videos' ? colors.background : colors.textSecondary} />
+          <Text style={[styles.segmentText, activeSection === 'videos' && styles.segmentTextActive]}>Videos</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* ── Songs Section ── */}
+        {activeSection === 'songs' && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Songs</Text>
+              <TouchableOpacity style={styles.addBtn} onPress={openNewSong}>
+                <Plus size={18} color={colors.background} />
+                <Text style={styles.addBtnText}>Add Song</Text>
+              </TouchableOpacity>
+            </View>
+            {loadingSongs ? (
+              <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+            ) : songs.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Music size={40} color={colors.textSecondary} />
+                <Text style={styles.emptyStateText}>No songs yet</Text>
+              </View>
+            ) : (
+              songs.map((song, index) => {
+                const songTitle = song.title;
+                const songArtist = song.artist;
+                return (
+                  <View key={song.id} style={styles.listItem}>
+                    <View style={styles.listItemLeft}>
+                      {song.cover_url ? (
+                        <Image source={resolveImageSource(song.cover_url)} style={styles.listItemThumb} resizeMode="cover" />
+                      ) : (
+                        <View style={styles.listItemThumbPlaceholder}>
+                          <Music size={16} color={colors.textSecondary} />
+                        </View>
+                      )}
+                      <View style={styles.listItemInfo}>
+                        <Text style={styles.listItemTitle} numberOfLines={1}>{songTitle}</Text>
+                        <Text style={styles.listItemSubtitle} numberOfLines={1}>{songArtist}</Text>
+                        <PublishedBadge published={song.is_published} />
+                      </View>
+                    </View>
+                    <View style={styles.listItemActions}>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => moveSong(index, 'up')} disabled={index === 0}>
+                        <ChevronUp size={18} color={index === 0 ? colors.inactive : colors.textSecondary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => moveSong(index, 'down')} disabled={index === songs.length - 1}>
+                        <ChevronDown size={18} color={index === songs.length - 1 ? colors.inactive : colors.textSecondary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => handleToggleSongPublish(song)}>
+                        {song.is_published ? (
+                          <EyeOff size={18} color={colors.textSecondary} />
+                        ) : (
+                          <Eye size={18} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => openEditSong(song)}>
+                        <Pencil size={18} color={colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => handleDeleteSong(song.id, song.title)}>
+                        <Trash2 size={18} color={colors.error} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        {/* ── Merch Section ── */}
+        {activeSection === 'merch' && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Merch</Text>
+              <TouchableOpacity style={styles.addBtn} onPress={openNewMerch}>
+                <Plus size={18} color={colors.background} />
+                <Text style={styles.addBtnText}>Add Item</Text>
+              </TouchableOpacity>
+            </View>
+            {loadingMerch ? (
+              <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+            ) : merch.length === 0 ? (
+              <View style={styles.emptyState}>
+                <ShoppingBag size={40} color={colors.textSecondary} />
+                <Text style={styles.emptyStateText}>No merch items yet</Text>
+              </View>
+            ) : (
+              merch.map((item, index) => {
+                const itemName = item.name;
+                const priceText = `$${Number(item.price).toFixed(2)}`;
+                return (
+                  <View key={item.id} style={styles.listItem}>
+                    <View style={styles.listItemLeft}>
+                      {item.image_url ? (
+                        <Image source={resolveImageSource(item.image_url)} style={styles.listItemThumb} resizeMode="cover" />
+                      ) : (
+                        <View style={styles.listItemThumbPlaceholder}>
+                          <ShoppingBag size={16} color={colors.textSecondary} />
+                        </View>
+                      )}
+                      <View style={styles.listItemInfo}>
+                        <Text style={styles.listItemTitle} numberOfLines={1}>{itemName}</Text>
+                        <Text style={styles.listItemSubtitle}>{priceText}</Text>
+                        <PublishedBadge published={item.is_published} />
+                      </View>
+                    </View>
+                    <View style={styles.listItemActions}>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => moveMerch(index, 'up')} disabled={index === 0}>
+                        <ChevronUp size={18} color={index === 0 ? colors.inactive : colors.textSecondary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => moveMerch(index, 'down')} disabled={index === merch.length - 1}>
+                        <ChevronDown size={18} color={index === merch.length - 1 ? colors.inactive : colors.textSecondary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => handleToggleMerchPublish(item)}>
+                        {item.is_published ? (
+                          <EyeOff size={18} color={colors.textSecondary} />
+                        ) : (
+                          <Eye size={18} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => openEditMerch(item)}>
+                        <Pencil size={18} color={colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => handleDeleteMerch(item.id, item.name)}>
+                        <Trash2 size={18} color={colors.error} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        {/* ── Videos Section ── */}
+        {activeSection === 'videos' && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Videos</Text>
+              <TouchableOpacity style={styles.addBtn} onPress={openNewVideo}>
+                <Plus size={18} color={colors.background} />
+                <Text style={styles.addBtnText}>Add Video</Text>
+              </TouchableOpacity>
+            </View>
+            {loadingVideos ? (
+              <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+            ) : videos.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Video size={40} color={colors.textSecondary} />
+                <Text style={styles.emptyStateText}>No videos yet</Text>
+              </View>
+            ) : (
+              videos.map((video, index) => {
+                const videoTitle = video.title;
+                return (
+                  <View key={video.id} style={styles.listItem}>
+                    <View style={styles.listItemLeft}>
+                      {video.thumbnail_url ? (
+                        <Image source={resolveImageSource(video.thumbnail_url)} style={styles.listItemThumb} resizeMode="cover" />
+                      ) : (
+                        <View style={styles.listItemThumbPlaceholder}>
+                          <Video size={16} color={colors.textSecondary} />
+                        </View>
+                      )}
+                      <View style={styles.listItemInfo}>
+                        <Text style={styles.listItemTitle} numberOfLines={1}>{videoTitle}</Text>
+                        {video.description ? (
+                          <Text style={styles.listItemSubtitle} numberOfLines={1}>{video.description}</Text>
+                        ) : null}
+                        <PublishedBadge published={video.is_published} />
+                      </View>
+                    </View>
+                    <View style={styles.listItemActions}>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => moveVideo(index, 'up')} disabled={index === 0}>
+                        <ChevronUp size={18} color={index === 0 ? colors.inactive : colors.textSecondary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => moveVideo(index, 'down')} disabled={index === videos.length - 1}>
+                        <ChevronDown size={18} color={index === videos.length - 1 ? colors.inactive : colors.textSecondary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => handleToggleVideoPublish(video)}>
+                        {video.is_published ? (
+                          <EyeOff size={18} color={colors.textSecondary} />
+                        ) : (
+                          <Eye size={18} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => openEditVideo(video)}>
+                        <Pencil size={18} color={colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.iconBtn} onPress={() => handleDeleteVideo(video.id, video.title)}>
+                        <Trash2 size={18} color={colors.error} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        <View style={{ height: 120 }} />
+      </ScrollView>
+
+      {/* Form Modal */}
       <Modal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onConfirm={modalConfig.type === 'confirm' && modalConfig.onConfirm
-          ? () => {
-              setModalVisible(false);
-              modalConfig.onConfirm!();
-            }
-          : undefined
-        }
-        title={modalConfig.title}
-        message={modalConfig.message}
-        type={modalConfig.type}
-        confirmText={modalConfig.type === 'confirm' ? 'Confirm' : 'OK'}
-      />
+        visible={formVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closeForm}
+      >
+        <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={closeForm} style={styles.modalCloseBtn}>
+              <X size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+          {activeSection === 'songs' && editingSong && (
+            <SongForm
+              initial={editingSong}
+              onSave={handleSaveSong}
+              onCancel={closeForm}
+            />
+          )}
+          {activeSection === 'merch' && editingMerch && (
+            <MerchForm
+              initial={editingMerch}
+              onSave={handleSaveMerch}
+              onCancel={closeForm}
+            />
+          )}
+          {activeSection === 'videos' && editingVideo && (
+            <VideoForm
+              initial={editingVideo}
+              onSave={handleSaveVideo}
+              onCancel={closeForm}
+            />
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centerContent: {
+  centered: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    gap: 16,
+    paddingHorizontal: 32,
+  },
+  loadingText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginTop: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '900',
     color: colors.primary,
-    letterSpacing: 1.5,
+    letterSpacing: 2,
   },
-  signOutButton: {
+  signOutBtn: {
     padding: 8,
   },
-  loadingText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginTop: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginTop: 16,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  emptyStateCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 24,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  emptyStateButton: {
+  segmentRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     gap: 8,
-  },
-  tabBar: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingHorizontal: 8,
   },
-  tab: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginHorizontal: 4,
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
+  segmentBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-  },
-  tabTextActive: {
-    color: colors.primary,
+  segmentText: {
+    fontSize: 13,
     fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  segmentTextActive: {
+    color: colors.background,
   },
   content: {
     flex: 1,
   },
-  tabContent: {
-    padding: 16,
+  section: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: colors.text,
-    letterSpacing: 0.5,
   },
-  sectionSubtitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 24,
-    marginBottom: 12,
-  },
-  addButton: {
+  addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
     gap: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
-  addButtonText: {
-    fontSize: 14,
+  addBtnText: {
+    fontSize: 13,
     fontWeight: '700',
     color: colors.background,
-    letterSpacing: 0.3,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.secondary,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 20,
   },
   loader: {
-    marginVertical: 32,
+    marginTop: 40,
   },
-  listItem: {
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  listItemHeader: {
-    flexDirection: 'row',
+  emptyState: {
     alignItems: 'center',
-    marginBottom: 12,
+    paddingVertical: 48,
     gap: 12,
   },
-  listItemImage: {
-    width: 60,
-    height: 60,
+  emptyStateText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 8px rgba(0,0,0,0.12)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+    }),
+  },
+  listItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+    marginRight: 8,
+  },
+  listItemThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    flexShrink: 0,
+  },
+  listItemThumbPlaceholder: {
+    width: 48,
+    height: 48,
     borderRadius: 8,
     backgroundColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   listItemInfo: {
     flex: 1,
+    gap: 3,
   },
   listItemTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
   },
   listItemSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
-    marginBottom: 2,
   },
   listItemActions: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  editButton: {
-    flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 2,
+  },
+  iconBtn: {
+    padding: 6,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  badgeLive: {
+    backgroundColor: 'rgba(0,255,102,0.15)',
+  },
+  badgeDraft: {
     backgroundColor: colors.secondary,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  deleteButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.secondary,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  editForm: {
-    backgroundColor: colors.card,
-    padding: 20,
-    borderRadius: 12,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  formTitle: {
-    fontSize: 18,
+  badgeText: {
+    fontSize: 10,
     fontWeight: '800',
-    color: colors.text,
-    marginBottom: 16,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
-  input: {
-    backgroundColor: colors.secondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 14,
-    fontSize: 15,
-    color: colors.text,
-    marginBottom: 12,
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.secondary,
-    paddingVertical: 14,
-    borderRadius: 8,
-    marginBottom: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  uploadButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+  badgeLiveText: {
     color: colors.primary,
   },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  formActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  saveButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: colors.secondary,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cancelButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
+  badgeDraftText: {
     color: colors.textSecondary,
   },
-  userItem: {
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+});
+
+const formStyles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+  },
+  container: {
+    padding: 20,
+    paddingBottom: 60,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 6,
+    marginTop: 14,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  input: {
     backgroundColor: colors.card,
-    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    color: colors.text,
+    fontSize: 15,
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 14,
+  },
+  uploadBtnText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+    flex: 1,
+  },
+  preview: {
+    width: '100%',
+    height: 160,
+    borderRadius: 10,
+    marginTop: 10,
+    backgroundColor: colors.secondary,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    paddingVertical: 4,
+  },
+  switchLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 28,
+  },
+  saveBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
     borderRadius: 12,
-    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.background,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: colors.card,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
   },
-  userItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
-  },
-  userItemInfo: {
-    flex: 1,
-  },
-  userItemName: {
+  cancelBtnText: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
-  },
-  userItemEmail: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  userItemBadges: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  badge: {
-    backgroundColor: colors.primary,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
-  badgeSecondary: {
-    backgroundColor: colors.secondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.background,
-    letterSpacing: 0.5,
-  },
-  userItemActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  permissionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.secondary,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  bottomPadding: {
-    height: 100,
   },
 });

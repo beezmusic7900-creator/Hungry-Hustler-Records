@@ -22,6 +22,12 @@ const BASE_TABS: TabBarItem[] = [
     label: 'Artists',
   },
   {
+    name: 'music',
+    route: '/(tabs)/music',
+    icon: 'music-note',
+    label: 'Music',
+  },
+  {
     name: 'videos',
     route: '/(tabs)/videos',
     icon: 'play-circle',
@@ -71,6 +77,7 @@ export default function TabLayout() {
       >
         <Tabs.Screen name="index" options={{ title: 'Home' }} />
         <Tabs.Screen name="artists" options={{ title: 'Artists' }} />
+        <Tabs.Screen name="music" options={{ title: 'Music' }} />
         <Tabs.Screen name="videos" options={{ title: 'Videos' }} />
         <Tabs.Screen name="merch" options={{ title: 'Merch' }} />
         <Tabs.Screen name="about" options={{ title: 'About' }} />
