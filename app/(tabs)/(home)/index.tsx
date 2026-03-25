@@ -1,9 +1,29 @@
 import React from "react";
-import { StyleSheet, View, Text } from "react-native";
+import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import { useTheme } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import { Lock, Settings } from "lucide-react-native";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/AdminContext";
 
 export default function HomeScreen() {
   const theme = useTheme();
+  const router = useRouter();
+  const { user } = useAuth();
+  const { isAdmin } = useAdmin();
+
+  const isAdminUser = user && isAdmin;
+  const iconColor = theme.dark ? '#555' : '#bbb';
+
+  function handleAdminPress() {
+    if (isAdminUser) {
+      console.log('[HomeScreen] Admin panel button pressed — navigating to admin panel');
+      router.push('/(tabs)/admin');
+    } else {
+      console.log('[HomeScreen] Admin login button pressed — navigating to auth screen');
+      router.push('/auth');
+    }
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -13,6 +33,25 @@ export default function HomeScreen() {
       <Text style={[styles.subtitle, { color: theme.dark ? '#98989D' : '#666' }]}>
         Your app is currently building...
       </Text>
+
+      <TouchableOpacity
+        style={styles.adminButton}
+        onPress={handleAdminPress}
+        activeOpacity={0.6}
+        accessibilityLabel={isAdminUser ? 'Admin Panel' : 'Admin Login'}
+      >
+        {isAdminUser ? (
+          <>
+            <Settings size={14} color={iconColor} />
+            <Text style={[styles.adminText, { color: iconColor }]}>Admin Panel</Text>
+          </>
+        ) : (
+          <>
+            <Lock size={14} color={iconColor} />
+            <Text style={[styles.adminText, { color: iconColor }]}>Admin</Text>
+          </>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -33,5 +72,19 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  adminButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    opacity: 0.7,
+  },
+  adminText: {
+    fontSize: 12,
   },
 });
