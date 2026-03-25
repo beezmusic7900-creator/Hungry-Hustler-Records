@@ -33,24 +33,12 @@ const BASE_TABS: TabBarItem[] = [
     icon: 'info',
     label: 'About',
   },
-  {
-    name: 'profile',
-    route: '/(tabs)/profile',
-    icon: 'person',
-    label: 'Profile',
-  },
 ];
 
 export default function TabLayout() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin } = useAdmin();
 
-  const loginTab: TabBarItem = {
-    name: 'auth',
-    route: '/auth',
-    icon: 'person',
-    label: 'Login',
-  };
   const adminTab: TabBarItem = {
     name: 'admin',
     route: '/(tabs)/admin',
@@ -59,14 +47,10 @@ export default function TabLayout() {
   };
 
   let visibleTabs: TabBarItem[];
-  if (authLoading) {
-    visibleTabs = BASE_TABS;
-  } else if (user && isAdmin) {
+  if (!authLoading && user && isAdmin) {
     visibleTabs = [...BASE_TABS, adminTab];
-  } else if (user) {
-    visibleTabs = BASE_TABS;
   } else {
-    visibleTabs = [...BASE_TABS, loginTab];
+    visibleTabs = BASE_TABS;
   }
 
   const tabBarWidth = Math.min(screenWidth - 32, 500);
@@ -83,7 +67,7 @@ export default function TabLayout() {
         <Tabs.Screen name="artists" options={{ title: 'Artists' }} />
         <Tabs.Screen name="merch" options={{ title: 'Merch' }} />
         <Tabs.Screen name="about" options={{ title: 'About' }} />
-        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+        <Tabs.Screen name="profile" options={{ title: 'Profile', href: null }} />
         <Tabs.Screen
           name="admin"
           options={{

@@ -86,6 +86,18 @@ export default function ArtistsScreen() {
     label: artist.label || 'Hungry Hustler Records',
   });
 
+  const AFROMAN_LOCAL: Artist = {
+    id: 'afroman-local',
+    name: 'Afroman',
+    bio: 'Afroman is a legendary voice in hip-hop whose influence spans generations. Best known for his worldwide smash hit "Because I Got High," & "Crazy Rap". Afroman earned global recognition and a Grammy nomination, cementing his place as one of the most recognizable and authentic artists in the culture. His music blends humor, truth, and real-life storytelling, creating timeless records that continue to resonate with fans across the world. Born Joseph Edgar Foreman in Hattiesburg, Mississippi, by the way of Los Angeles, California, Afroman built his career independently, proving that authenticity and consistency can break barriers in the music industry. His laid-back delivery, signature sound, and unapologetic honesty helped define an era of hip-hop while inspiring countless independent artists to follow their own path. Today, Afroman continues to perform internationally, release new music, and expand his legacy as a pioneer, entrepreneur, and cultural icon. His dedication to his craft and his fans has solidified his status as a respected legend whose impact on hip-hop remains undeniable.',
+    photo_url: undefined,
+    status: 'Active',
+    label: 'Hungry Hustler Records',
+    specialties: [],
+  };
+
+  const AFROMAN_IMAGE = require('@/assets/images/642808ff-ffcc-4ee4-9821-35212f99ca16.jpeg');
+
   const fetchArtists = async () => {
     try {
       setLoading(true);
@@ -96,10 +108,11 @@ export default function ArtistsScreen() {
       
       console.log('[ArtistsScreen] Artists received:', data);
       const normalized = (data || []).map(normalizeArtist);
-      setArtists(normalized);
+      // Prepend Afroman as a local entry
+      setArtists([AFROMAN_LOCAL, ...normalized]);
     } catch (error) {
       console.error('[ArtistsScreen] Error fetching artists:', error);
-      setArtists([]);
+      setArtists([AFROMAN_LOCAL]);
     } finally {
       setLoading(false);
     }
@@ -166,10 +179,10 @@ export default function ArtistsScreen() {
               return (
                 <View key={artist.id} style={styles.artistCard}>
                   {/* Artist Photo with Gradient Overlay */}
-                  {artist.photo_url ? (
+                  {(artist.photo_url || artist.id === 'afroman-local') ? (
                     <View style={styles.artistImageContainer}>
                       <Image
-                        source={resolveImageSource(artist.photo_url)}
+                        source={artist.id === 'afroman-local' ? AFROMAN_IMAGE : resolveImageSource(artist.photo_url)}
                         style={styles.artistImage}
                         resizeMode="cover"
                       />
