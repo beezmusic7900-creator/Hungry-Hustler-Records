@@ -6,11 +6,15 @@ import * as schema from '../db/schema.js';
 import * as authSchema from '../db/auth-schema.js';
 import { hash } from '@node-rs/argon2';
 
-// File size limit: 50MB
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+// File size limits
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for images
+const MAX_AUDIO_FILE_SIZE = 100 * 1024 * 1024; // 100MB for audio
+const MAX_VIDEO_FILE_SIZE = 500 * 1024 * 1024; // 500MB for video
 
-// Allowed image MIME types
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+// Allowed MIME types
+const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+const ALLOWED_AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/wav', 'audio/aac', 'audio/ogg', 'audio/flac', 'audio/mp4', 'audio/webm'];
+const ALLOWED_VIDEO_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska', 'video/mpeg'];
 
 export function registerAdminRoutes(app: App) {
   const fastify = app.fastify;
@@ -177,7 +181,7 @@ export function registerAdminRoutes(app: App) {
       }
 
       // Validate MIME type
-      if (!ALLOWED_MIME_TYPES.includes(data.mimetype)) {
+      if (!ALLOWED_IMAGE_MIME_TYPES.includes(data.mimetype)) {
         app.logger.warn({ mimetype: data.mimetype }, 'Invalid file type');
         return reply.status(400).send({ error: 'Only image files are allowed (JPEG, PNG, GIF, WebP, SVG)' });
       }
@@ -205,6 +209,102 @@ export function registerAdminRoutes(app: App) {
       return { url };
     } catch (error) {
       app.logger.error({ err: error }, 'Failed to upload image');
+      throw error;
+    }
+  });
+
+  // Upload audio
+  fastify.post('/api/upload/audio', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.logger.info('Audio upload initiated');
+
+    const admin = await requireAdmin(app, request, reply);
+    if (!admin) return;
+
+    try {
+      const data = await request.file({ limits: { fileSize: MAX_AUDIO_FILE_SIZE } });
+
+      if (!data) {
+        app.logger.warn('No file provided in upload request');
+        return reply.status(400).send({ error: 'No file provided' });
+      }
+
+      // Validate MIME type
+      if (!ALLOWED_AUDIO_MIME_TYPES.includes(data.mimetype)) {
+        app.logger.warn({ mimetype: data.mimetype }, 'Invalid file type');
+        return reply.status(400).send({ error: 'Only audio files are allowed (MP3, WAV, AAC, OGG, FLAC, M4A, WebM)' });
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = await data.toBuffer();
+      } catch (err) {
+        app.logger.error({ err }, 'File too large');
+        return reply.status(413).send({ error: 'File too large' });
+      }
+
+      // Generate storage key with timestamp and sanitized filename
+      const timestamp = Date.now();
+      const sanitizedFilename = data.filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const key = `uploads/${timestamp}-${sanitizedFilename}`;
+
+      // Upload to storage
+      const uploadedKey = await app.storage.upload(key, buffer);
+
+      // Generate signed URL
+      const { url } = await app.storage.getSignedUrl(uploadedKey);
+
+      app.logger.info({ key: uploadedKey, filename: data.filename }, 'Audio uploaded successfully');
+      return { url };
+    } catch (error) {
+      app.logger.error({ err: error }, 'Failed to upload audio');
+      throw error;
+    }
+  });
+
+  // Upload video
+  fastify.post('/api/upload/video', async (request: FastifyRequest, reply: FastifyReply) => {
+    app.logger.info('Video upload initiated');
+
+    const admin = await requireAdmin(app, request, reply);
+    if (!admin) return;
+
+    try {
+      const data = await request.file({ limits: { fileSize: MAX_VIDEO_FILE_SIZE } });
+
+      if (!data) {
+        app.logger.warn('No file provided in upload request');
+        return reply.status(400).send({ error: 'No file provided' });
+      }
+
+      // Validate MIME type
+      if (!ALLOWED_VIDEO_MIME_TYPES.includes(data.mimetype)) {
+        app.logger.warn({ mimetype: data.mimetype }, 'Invalid file type');
+        return reply.status(400).send({ error: 'Only video files are allowed (MP4, MOV, AVI, WebM, MKV, MPEG)' });
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = await data.toBuffer();
+      } catch (err) {
+        app.logger.error({ err }, 'File too large');
+        return reply.status(413).send({ error: 'File too large' });
+      }
+
+      // Generate storage key with timestamp and sanitized filename
+      const timestamp = Date.now();
+      const sanitizedFilename = data.filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const key = `uploads/${timestamp}-${sanitizedFilename}`;
+
+      // Upload to storage
+      const uploadedKey = await app.storage.upload(key, buffer);
+
+      // Generate signed URL
+      const { url } = await app.storage.getSignedUrl(uploadedKey);
+
+      app.logger.info({ key: uploadedKey, filename: data.filename }, 'Video uploaded successfully');
+      return { url };
+    } catch (error) {
+      app.logger.error({ err: error }, 'Failed to upload video');
       throw error;
     }
   });
