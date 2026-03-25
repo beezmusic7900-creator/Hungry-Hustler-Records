@@ -3,12 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import { Dimensions } from 'react-native';
 import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
-import { colors } from '@/styles/commonStyles';
+import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedPost } from '@/utils/api';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const ALL_TABS: TabBarItem[] = [
+const BASE_TABS: TabBarItem[] = [
   {
     name: 'index',
     route: '/(tabs)/',
@@ -33,21 +33,20 @@ const ALL_TABS: TabBarItem[] = [
     icon: 'info',
     label: 'About',
   },
-  {
-    name: 'admin',
-    route: '/(tabs)/admin',
-    icon: 'lock',
-    label: 'Admin',
-  },
 ];
 
 export default function TabLayout() {
+  const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
     const checkAdmin = async () => {
       try {
-        console.log('[TabLayout] Checking admin status');
+        console.log('[TabLayout] Checking admin status for user:', user.email);
         const data = await authenticatedPost<{ isAdmin: boolean }>('/api/admin/check', {});
         console.log('[TabLayout] Admin check result:', data);
         setIsAdmin(data.isAdmin === true);
@@ -57,11 +56,34 @@ export default function TabLayout() {
       }
     };
     checkAdmin();
-  }, []);
+  }, [user]);
 
-  const visibleTabs = isAdmin ? ALL_TABS : ALL_TABS.filter(t => t.name !== 'admin');
+  // Build visible tabs: base tabs + either Admin (logged-in admin) or Login (logged out)
+  const loginTab: TabBarItem = {
+    name: 'auth',
+    route: '/auth',
+    icon: 'person',
+    label: 'Login',
+  };
+  const adminTab: TabBarItem = {
+    name: 'admin',
+    route: '/(tabs)/admin',
+    icon: 'lock',
+    label: 'Admin',
+  };
 
-  // Use most of the screen width for tabs to ensure they all fit properly
+  let visibleTabs: TabBarItem[];
+  if (authLoading) {
+    visibleTabs = BASE_TABS;
+  } else if (user && isAdmin) {
+    visibleTabs = [...BASE_TABS, adminTab];
+  } else if (user) {
+    // Logged in but not admin — no extra tab needed
+    visibleTabs = BASE_TABS;
+  } else {
+    visibleTabs = [...BASE_TABS, loginTab];
+  }
+
   const tabBarWidth = Math.min(screenWidth - 32, 500);
 
   return (

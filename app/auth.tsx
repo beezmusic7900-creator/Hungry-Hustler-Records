@@ -53,22 +53,41 @@ export default function AuthScreen() {
   const checkAdminAndRedirect = async () => {
     try {
       console.log('[AuthScreen] Starting admin check after login');
-      
-      // Wait for token to be persisted
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Get the token directly
-      const token = await getBearerToken();
-      
+
+      // Retry getting the token up to 5 times with 400ms gaps.
+      // fetchUser() in AuthContext stores it asynchronously, so we may need
+      // to wait a moment for SecureStore / localStorage to be written.
+      let token: string | null = null;
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        token = await getBearerToken();
+        if (token) {
+          console.log(`[AuthScreen] Token found on attempt ${attempt}`);
+          break;
+        }
+        console.log(`[AuthScreen] Token not yet available (attempt ${attempt}/5), retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+
       if (!token) {
-        console.error('[AuthScreen] No authentication token found after login');
+        // Last resort: pull the token directly from the auth client session
+        console.log('[AuthScreen] Falling back to authClient.getSession() for token');
+        const { authClient, setBearerToken } = await import('@/lib/auth');
+        const session = await authClient.getSession();
+        if (session?.data?.session?.token) {
+          token = session.data.session.token;
+          await setBearerToken(token);
+          console.log('[AuthScreen] Token obtained from session fallback');
+        }
+      }
+
+      if (!token) {
+        console.error('[AuthScreen] No authentication token found after login — redirecting home');
         router.replace('/(tabs)');
         return;
       }
-      
-      console.log('[AuthScreen] Token found, making admin check request');
-      
-      // Make the admin check request with the token
+
+      console.log('[AuthScreen] Token ready, making admin check request');
+
       const response = await fetch(`${BACKEND_URL}/api/admin/check`, {
         method: 'POST',
         headers: {
@@ -77,33 +96,28 @@ export default function AuthScreen() {
         },
         body: JSON.stringify({}),
       });
-      
+
       console.log('[AuthScreen] Admin check response status:', response.status);
-      
+
       if (!response.ok) {
-        console.error('[AuthScreen] Admin check failed with status:', response.status);
         const errorText = await response.text();
-        console.error('[AuthScreen] Error response:', errorText);
+        console.error('[AuthScreen] Admin check failed:', response.status, errorText);
         router.replace('/(tabs)');
         return;
       }
-      
+
       const data = await response.json();
       console.log('[AuthScreen] Admin check response data:', data);
-      
+
       if (data.isAdmin === true) {
         console.log('[AuthScreen] User IS admin, redirecting to admin panel');
-        // Delay to allow _layout.tsx admin check to complete and show the tab
-        setTimeout(() => {
-          router.replace('/(tabs)/admin');
-        }, 1200);
+        router.replace('/(tabs)/admin');
       } else {
         console.log('[AuthScreen] User is NOT admin, redirecting to home');
         router.replace('/(tabs)');
       }
     } catch (error) {
       console.error('[AuthScreen] Error checking admin status:', error);
-      // If check fails, just go to home
       router.replace('/(tabs)');
     }
   };
