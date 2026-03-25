@@ -308,4 +308,64 @@ export function registerAdminRoutes(app: App) {
       throw error;
     }
   });
+
+  // POST /api/upload/file - Generic file upload to specified bucket
+  fastify.post('/api/upload/file', {
+    schema: {
+      description: 'Upload a file to a specified bucket (admin only)',
+      tags: ['upload'],
+      querystring: {
+        type: 'object',
+        required: ['bucket'],
+        properties: {
+          bucket: { type: 'string', enum: ['songs', 'covers', 'videos', 'merch-images'] },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { url: { type: 'string' } } },
+        400: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    app.logger.info({ query: request.query }, 'Generic file upload initiated');
+
+    const admin = await requireAdmin(app, request, reply);
+    if (!admin) return;
+
+    try {
+      const { bucket } = request.query as { bucket?: string };
+
+      if (!bucket || !['songs', 'covers', 'videos', 'merch-images'].includes(bucket)) {
+        app.logger.warn({ bucket }, 'Invalid bucket specified');
+        return reply.status(400).send({ error: 'Invalid bucket. Must be one of: songs, covers, videos, merch-images' });
+      }
+
+      const data = await request.file();
+      if (!data) {
+        app.logger.warn('No file provided');
+        return reply.status(400).send({ error: 'No file provided' });
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = await data.toBuffer();
+      } catch (err) {
+        app.logger.error({ err }, 'File too large');
+        return reply.status(413).send({ error: 'File too large' });
+      }
+
+      const timestamp = Date.now();
+      const sanitizedFilename = data.filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const key = `${timestamp}-${sanitizedFilename}`;
+
+      const uploadedKey = await app.storage.upload(key, buffer);
+      const { url } = await app.storage.getSignedUrl(uploadedKey);
+
+      app.logger.info({ key: uploadedKey, bucket }, 'File uploaded successfully');
+      return { url };
+    } catch (error) {
+      app.logger.error({ err: error }, 'Failed to upload file');
+      throw error;
+    }
+  });
 }

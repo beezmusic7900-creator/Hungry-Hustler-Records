@@ -31,6 +31,22 @@ export const merchItems = pgTable('merch_items', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const merch = pgTable('merch', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  description: text('description'),
+  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+  imageUrl: text('image_url'),
+  stock: integer('stock').default(0).notNull(),
+  isPublished: boolean('is_published').default(true).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  stripeUrl: text('stripe_url'),
+  uploadedBy: text('uploaded_by'),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const homepageContent = pgTable('homepage_content', {
   id: uuid('id').primaryKey().defaultRandom(),
   heroBannerUrl: text('hero_banner_url'),
@@ -64,12 +80,16 @@ export const adminUsers = pgTable('admin_users', {
 export const songs = pgTable('songs', {
   id: uuid('id').primaryKey().defaultRandom(),
   title: text('title').notNull(),
-  artistId: uuid('artist_id').references(() => artists.id, { onDelete: 'set null' }),
-  mp3Url: text('mp3_url').notNull(),
-  coverPhotoUrl: text('cover_photo_url').notNull(),
+  artist: text('artist').notNull(),
+  album: text('album'),
+  duration: integer('duration'),
+  fileUrl: text('file_url').notNull(),
+  coverUrl: text('cover_url'),
+  category: text('category').default('exclusive').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  isPublished: boolean('is_published').default(true).notNull(),
   price: decimal('price', { precision: 10, scale: 2 }).default('0').notNull(),
-  isExclusive: boolean('is_exclusive').default(true),
-  releaseDate: timestamp('release_date', { withTimezone: true }).defaultNow().notNull(),
+  uploadedBy: text('uploaded_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -77,11 +97,18 @@ export const songs = pgTable('songs', {
 export const videos = pgTable('videos', {
   id: uuid('id').primaryKey().defaultRandom(),
   title: text('title').notNull(),
-  artistId: uuid('artist_id').references(() => artists.id, { onDelete: 'set null' }),
-  videoUrl: text('video_url').notNull(),
+  artist: text('artist'),
+  description: text('description'),
+  videoUrl: text('video_url'),
   thumbnailUrl: text('thumbnail_url'),
-  isExclusive: boolean('is_exclusive').default(true),
-  releaseDate: timestamp('release_date', { withTimezone: true }).defaultNow().notNull(),
+  youtubeUrl: text('youtube_url'),
+  fileUrl: text('file_url'),
+  coverUrl: text('cover_url'),
+  category: text('category').default('music_video').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  isPublished: boolean('is_published').default(true).notNull(),
+  duration: integer('duration'),
+  uploadedBy: text('uploaded_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -105,16 +132,3 @@ export const adminUsersRelations = relations(adminUsers, ({ one }) => ({
   }),
 }));
 
-export const songsRelations = relations(songs, ({ one }) => ({
-  artist: one(artists, {
-    fields: [songs.artistId],
-    references: [artists.id],
-  }),
-}));
-
-export const videosRelations = relations(videos, ({ one }) => ({
-  artist: one(artists, {
-    fields: [videos.artistId],
-    references: [artists.id],
-  }),
-}));

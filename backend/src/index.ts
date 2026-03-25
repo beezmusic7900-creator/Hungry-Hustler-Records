@@ -2,11 +2,11 @@ import { createApplication } from "@specific-dev/framework";
 import * as appSchema from './db/schema.js';
 import * as authSchema from './db/auth-schema.js';
 import { registerArtistRoutes } from './routes/artists.js';
-import { registerMerchRoutes } from './routes/merch.js';
 import { registerContentRoutes } from './routes/content.js';
 import { registerAdminRoutes } from './routes/admin.js';
-import { registerSongRoutes } from './routes/songs.js';
-import { registerVideoRoutes } from './routes/videos.js';
+import { registerSongUploadRoutes } from './routes/songs-upload.js';
+import { registerVideoUploadRoutes } from './routes/videos-upload.js';
+import { registerMerchUploadRoutes } from './routes/merch-upload.js';
 
 // Combine app and auth schemas
 const schema = { ...appSchema, ...authSchema };
@@ -23,11 +23,11 @@ app.withStorage();
 
 // Register all route modules - order doesn't matter as they're independent
 registerArtistRoutes(app);
-registerMerchRoutes(app);
 registerContentRoutes(app);
 registerAdminRoutes(app);
-registerSongRoutes(app);
-registerVideoRoutes(app);
+registerSongUploadRoutes(app);
+registerVideoUploadRoutes(app);
+registerMerchUploadRoutes(app);
 
 await app.run();
 app.logger.info('Application running');
