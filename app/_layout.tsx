@@ -15,6 +15,7 @@ import {
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AdminProvider } from "@/contexts/AdminContext";
 import { colors } from "@/styles/commonStyles";
 
 SplashScreen.preventAutoHideAsync();
@@ -74,18 +75,20 @@ export default function RootLayout() {
       <StatusBar style="light" animated />
       <ThemeProvider value={HungryHustlerTheme}>
         <AuthProvider>
-          <GestureHandlerRootView>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="auth" options={{ headerShown: false }} />
-              <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
-              <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
-              <Stack.Screen name="admin-setup" options={{ headerShown: false }} />
-              <Stack.Screen name="add-artists-helper" options={{ headerShown: false }} />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <SystemBars style="light" />
-          </GestureHandlerRootView>
+          <AdminProvider>
+            <GestureHandlerRootView>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="auth" options={{ headerShown: false }} />
+                <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
+                <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+                <Stack.Screen name="admin-setup" options={{ headerShown: false }} />
+                <Stack.Screen name="add-artists-helper" options={{ headerShown: false }} />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+              <SystemBars style="light" />
+            </GestureHandlerRootView>
+          </AdminProvider>
         </AuthProvider>
       </ThemeProvider>
     </>
