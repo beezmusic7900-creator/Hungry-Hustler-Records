@@ -98,6 +98,18 @@ export default function ArtistsScreen() {
 
   const AFROMAN_IMAGE = require('@/assets/images/642808ff-ffcc-4ee4-9821-35212f99ca16.jpeg');
 
+  const OG_DADDY_V_LOCAL: Artist = {
+    id: 'og-daddy-v-local',
+    name: 'OG Daddy V',
+    bio: 'OG Daddy V is an hip-hop artist representing authenticity, resilience, and the true spirit of independent hustle. Known for his raw lyricism and commanding presence, OG Daddy V delivers music rooted life experiences, street wisdom, and personal growth. His sound reflects both struggle and success, connecting with listeners who value truth, loyalty, and perseverance. With a growing fanbase and a strong independent foundation, OG Daddy V continues to build his brand through consistent releases, live performances, and community engagement. His dedication to his craft and his message has positioned him as a respected voice and rising force in modern hip-hop. As he continues to evolve as an artist, OG Daddy V represents more than music, he represents vision, leadership, and the relentless drive to succeed. His journey reflects the core values of Hungry Hustler Records: independence, authenticity, and legacy.',
+    photo_url: undefined,
+    status: 'Active',
+    label: 'Hungry Hustler Records',
+    specialties: [],
+  };
+
+  const OG_DADDY_V_IMAGE = require('@/assets/images/aaa383a6-b67a-4440-a35b-8b456595eaff.png');
+
   const fetchArtists = async () => {
     try {
       setLoading(true);
@@ -108,11 +120,11 @@ export default function ArtistsScreen() {
       
       console.log('[ArtistsScreen] Artists received:', data);
       const normalized = (data || []).map(normalizeArtist);
-      // Prepend Afroman as a local entry
-      setArtists([AFROMAN_LOCAL, ...normalized]);
+      // Prepend local artists: Afroman first, then OG Daddy V
+      setArtists([AFROMAN_LOCAL, OG_DADDY_V_LOCAL, ...normalized]);
     } catch (error) {
       console.error('[ArtistsScreen] Error fetching artists:', error);
-      setArtists([AFROMAN_LOCAL]);
+      setArtists([AFROMAN_LOCAL, OG_DADDY_V_LOCAL]);
     } finally {
       setLoading(false);
     }
@@ -179,10 +191,10 @@ export default function ArtistsScreen() {
               return (
                 <View key={artist.id} style={styles.artistCard}>
                   {/* Artist Photo with Gradient Overlay */}
-                  {(artist.photo_url || artist.id === 'afroman-local') ? (
+                  {(artist.photo_url || artist.id === 'afroman-local' || artist.id === 'og-daddy-v-local') ? (
                     <View style={styles.artistImageContainer}>
                       <Image
-                        source={artist.id === 'afroman-local' ? AFROMAN_IMAGE : resolveImageSource(artist.photo_url)}
+                        source={artist.id === 'afroman-local' ? AFROMAN_IMAGE : artist.id === 'og-daddy-v-local' ? OG_DADDY_V_IMAGE : resolveImageSource(artist.photo_url)}
                         style={styles.artistImage}
                         resizeMode="cover"
                       />
