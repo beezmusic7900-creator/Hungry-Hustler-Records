@@ -16,7 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Play, Pause, X, Music, Lock } from 'lucide-react-native';
 import { colors } from '@/styles/commonStyles';
-import { apiGet } from '@/utils/api';
+import { supabaseGet } from '@/utils/supabaseApi';
 
 type Song = {
   id: string;
@@ -186,7 +186,7 @@ export default function ExclusiveSongsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiGet<{ songs: Song[] }>('/api/songs?category=exclusive');
+      const data = await supabaseGet<{ songs: Song[] }>('/api/songs?category=exclusive');
       console.log('[ExclusiveSongs] Songs received:', data?.songs?.length ?? 0);
       setSongs(data?.songs ?? []);
     } catch (err: any) {

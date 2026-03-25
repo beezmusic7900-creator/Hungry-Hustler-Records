@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { authenticatedPost } from '@/utils/api';
+import { supabasePost } from '@/utils/supabaseApi';
 
 interface AdminContextType {
   isAdmin: boolean;
@@ -23,7 +23,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     try {
       setCheckingAdmin(true);
       console.log('[AdminContext] Checking admin status for user:', user.email);
-      const data = await authenticatedPost<{ isAdmin: boolean }>('/api/admin/check', {});
+      const data = await supabasePost<{ isAdmin: boolean }>('/api/admin/check', {});
       console.log('[AdminContext] Admin check result:', data);
       const result = data.isAdmin === true;
       setIsAdmin(result);

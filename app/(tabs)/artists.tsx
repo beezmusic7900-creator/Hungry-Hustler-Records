@@ -115,8 +115,8 @@ export default function ArtistsScreen() {
       setLoading(true);
       console.log('[ArtistsScreen] Fetching artists from /api/artists');
       
-      const { apiGet } = await import('@/utils/api');
-      const data = await apiGet<any[]>('/api/artists');
+      const { supabaseGet } = await import('@/utils/supabaseApi');
+      const data = await supabaseGet<any[]>('/api/artists');
       
       console.log('[ArtistsScreen] Artists received:', data);
       const normalized = (data || []).map(normalizeArtist);

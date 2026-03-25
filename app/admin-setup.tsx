@@ -36,8 +36,8 @@ export default function AdminSetupScreen() {
     setLoading(true);
     try {
       console.log('[AdminSetup] Calling admin setup endpoint');
-      const { apiPost } = await import('@/utils/api');
-      const response = await apiPost<{ success: boolean; message: string }>('/api/admin/setup', {});
+      const { supabasePost } = await import('@/utils/supabaseApi');
+      const response = await supabasePost<{ success: boolean; message: string }>('/api/admin/setup', {});
       
       console.log('[AdminSetup] Setup response:', response);
       

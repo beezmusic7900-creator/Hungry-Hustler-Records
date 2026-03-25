@@ -16,7 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Play, Video as VideoIcon } from 'lucide-react-native';
 import { colors } from '@/styles/commonStyles';
-import { apiGet } from '@/utils/api';
+import { supabaseGet } from '@/utils/supabaseApi';
 
 type Video = {
   id: string;
@@ -90,7 +90,7 @@ export default function VideosScreen() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiGet<{ videos: Video[] }>('/api/videos');
+      const data = await supabaseGet<{ videos: Video[] }>('/api/videos');
       console.log('[VideosScreen] Videos received:', data?.videos?.length ?? 0);
       setVideos(data?.videos ?? []);
     } catch (err: any) {
