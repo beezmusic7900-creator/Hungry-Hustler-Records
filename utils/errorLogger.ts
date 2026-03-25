@@ -6,6 +6,7 @@ declare const __DEV__: boolean;
 
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 // Simple debouncing to prevent duplicate logs
 const recentLogs: { [key: string]: boolean } = {};

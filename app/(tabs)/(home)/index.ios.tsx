@@ -1,6 +1,6 @@
 import React from "react";
 import { Stack, useRouter } from "expo-router";
-import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, View, Text, Pressable } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { Lock, Settings } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,7 +13,7 @@ export default function HomeScreen() {
   const { isAdmin } = useAdmin();
 
   const isAdminUser = user && isAdmin;
-  const iconColor = theme.dark ? '#555' : '#bbb';
+  const accentColor = '#E8B84B';
 
   function handleAdminPress() {
     if (isAdminUser) {
@@ -25,27 +25,26 @@ export default function HomeScreen() {
     }
   }
 
-  const adminHeaderButton = (
-    <TouchableOpacity
+  const headerRightButton = () => (
+    <Pressable
       onPress={handleAdminPress}
       style={styles.headerButton}
-      activeOpacity={0.6}
       accessibilityLabel={isAdminUser ? 'Admin Panel' : 'Admin Login'}
     >
       {isAdminUser ? (
-        <Settings size={20} color={iconColor} />
+        <Settings size={22} color={accentColor} />
       ) : (
-        <Lock size={20} color={iconColor} />
+        <Lock size={22} color={accentColor} />
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: "Building the app...",
-          headerRight: () => adminHeaderButton,
+          title: 'Home',
+          headerRight: headerRightButton,
         }}
       />
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>

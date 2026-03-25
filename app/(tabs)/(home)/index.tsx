@@ -1,7 +1,7 @@
 import React from "react";
-import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import { Stack, useRouter } from "expo-router";
+import { StyleSheet, View, Text, Pressable } from "react-native";
 import { useTheme } from "@react-navigation/native";
-import { useRouter } from "expo-router";
 import { Lock, Settings } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
@@ -13,7 +13,7 @@ export default function HomeScreen() {
   const { isAdmin } = useAdmin();
 
   const isAdminUser = user && isAdmin;
-  const iconColor = theme.dark ? '#555' : '#bbb';
+  const accentColor = '#E8B84B';
 
   function handleAdminPress() {
     if (isAdminUser) {
@@ -25,34 +25,37 @@ export default function HomeScreen() {
     }
   }
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.title, { color: theme.colors.text }]}>
-        Welcome to Natively
-      </Text>
-      <Text style={[styles.subtitle, { color: theme.dark ? '#98989D' : '#666' }]}>
-        Your app is currently building...
-      </Text>
+  const headerRightButton = () => (
+    <Pressable
+      onPress={handleAdminPress}
+      style={styles.headerButton}
+      accessibilityLabel={isAdminUser ? 'Admin Panel' : 'Admin Login'}
+    >
+      {isAdminUser ? (
+        <Settings size={22} color={accentColor} />
+      ) : (
+        <Lock size={22} color={accentColor} />
+      )}
+    </Pressable>
+  );
 
-      <TouchableOpacity
-        style={styles.adminButton}
-        onPress={handleAdminPress}
-        activeOpacity={0.6}
-        accessibilityLabel={isAdminUser ? 'Admin Panel' : 'Admin Login'}
-      >
-        {isAdminUser ? (
-          <>
-            <Settings size={14} color={iconColor} />
-            <Text style={[styles.adminText, { color: iconColor }]}>Admin Panel</Text>
-          </>
-        ) : (
-          <>
-            <Lock size={14} color={iconColor} />
-            <Text style={[styles.adminText, { color: iconColor }]}>Admin</Text>
-          </>
-        )}
-      </TouchableOpacity>
-    </View>
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: 'Home',
+          headerRight: headerRightButton,
+        }}
+      />
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>
+          Welcome to Natively
+        </Text>
+        <Text style={[styles.subtitle, { color: theme.dark ? '#98989D' : '#666' }]}>
+          Your app is currently building...
+        </Text>
+      </View>
+    </>
   );
 }
 
@@ -73,18 +76,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-  adminButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    opacity: 0.7,
-  },
-  adminText: {
-    fontSize: 12,
+  headerButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
 });
