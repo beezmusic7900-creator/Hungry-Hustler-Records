@@ -9,10 +9,162 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
+  Linking,
+  ImageSourcePropType,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+
+const STRIPE_URL = 'https://buy.stripe.com/3cIfZjajP3pu35z8hL6Na08';
+const SHIRT_SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+
+const LOCAL_MERCH_ITEMS = [
+  {
+    id: 'afroman-tshirt-white',
+    name: 'Official Afroman T-Shirt',
+    color: 'White',
+    image: require('@/assets/images/eeb1ec34-93d3-4cd5-929e-357a7b1e2578.jpeg'),
+  },
+  {
+    id: 'afroman-tshirt-black',
+    name: 'Official Afroman T-Shirt',
+    color: 'Black',
+    image: require('@/assets/images/29bf2a31-d9fb-4a8b-9527-1a9535714d67.jpeg'),
+  },
+];
+
+function resolveLocalImageSource(source: ImageSourcePropType | string | undefined): ImageSourcePropType {
+  if (!source) return { uri: '' };
+  if (typeof source === 'string') return { uri: source };
+  return source as ImageSourcePropType;
+}
+
+function LocalMerchCard({ item }: { item: typeof LOCAL_MERCH_ITEMS[0] }) {
+  const [selectedSize, setSelectedSize] = useState('M');
+
+  const handleSizePress = (size: string) => {
+    console.log(`[MerchScreen] Size selected: ${size} for ${item.name} (${item.color})`);
+    setSelectedSize(size);
+  };
+
+  const handleBuyNow = () => {
+    console.log(`[MerchScreen] Buy Now pressed for ${item.name} (${item.color}), size: ${selectedSize}`);
+    Linking.openURL(STRIPE_URL);
+  };
+
+  return (
+    <View style={localStyles.card}>
+      <Image
+        source={resolveLocalImageSource(item.image)}
+        style={localStyles.cardImage}
+        resizeMode="cover"
+      />
+      <View style={localStyles.cardBody}>
+        <Text style={localStyles.cardName}>{item.name}</Text>
+        <Text style={localStyles.cardColor}>{item.color}</Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={localStyles.sizesRow}
+        >
+          {SHIRT_SIZES.map((size) => {
+            const isSelected = selectedSize === size;
+            const chipStyle = isSelected ? localStyles.sizeChipSelected : localStyles.sizeChipUnselected;
+            const textStyle = isSelected ? localStyles.sizeChipTextSelected : localStyles.sizeChipTextUnselected;
+            return (
+              <TouchableOpacity
+                key={size}
+                style={[localStyles.sizeChip, chipStyle]}
+                onPress={() => handleSizePress(size)}
+              >
+                <Text style={[localStyles.sizeChipText, textStyle]}>{size}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <TouchableOpacity style={localStyles.buyButton} onPress={handleBuyNow}>
+          <Text style={localStyles.buyButtonText}>Buy Now</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const localStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    marginBottom: 16,
+  },
+  cardImage: {
+    width: '100%',
+    height: 250,
+  },
+  cardBody: {
+    padding: 16,
+  },
+  cardName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  cardColor: {
+    fontSize: 14,
+    color: '#888888',
+    marginBottom: 16,
+  },
+  sizesRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 4,
+    marginBottom: 16,
+  },
+  sizeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  sizeChipSelected: {
+    backgroundColor: '#00FF66',
+    borderColor: '#00FF66',
+  },
+  sizeChipUnselected: {
+    backgroundColor: '#1A1A1A',
+    borderColor: '#3A3A3A',
+  },
+  sizeChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sizeChipTextSelected: {
+    color: '#111111',
+  },
+  sizeChipTextUnselected: {
+    color: '#CCCCCC',
+  },
+  buyButton: {
+    backgroundColor: '#00FF66',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  buyButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111111',
+    letterSpacing: 0.5,
+  },
+});
 
 interface MerchItem {
   id: string;
@@ -117,15 +269,27 @@ export default function MerchScreen() {
           <Text style={styles.subtitle}>Official Hungry Hustler Records Merchandise & Exclusive Releases</Text>
         </View>
 
-        {!hasAnyContent ? (
-          <View style={styles.emptyState}>
+        {/* Local Afroman T-Shirts — always shown at top */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <View style={styles.sectionAccent} />
+              <Text style={styles.sectionTitle}>MERCHANDISE</Text>
+            </View>
             <IconSymbol
               ios_icon_name="bag"
               android_material_icon_name="shopping-bag"
-              size={64}
-              color={colors.textSecondary}
+              size={24}
+              color={colors.primary}
             />
-            <Text style={styles.emptyText}>No merch or exclusive releases available yet</Text>
+          </View>
+          {LOCAL_MERCH_ITEMS.map((item) => (
+            <LocalMerchCard key={item.id} item={item} />
+          ))}
+        </View>
+
+        {!hasAnyContent ? (
+          <View style={styles.emptyState}>
           </View>
         ) : (
           <>
