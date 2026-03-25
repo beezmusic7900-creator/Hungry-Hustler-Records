@@ -28,7 +28,8 @@ import {
   authenticatedPost,
   authenticatedPut,
   authenticatedDelete,
-  authenticatedUpload,
+  getBearerToken,
+  BACKEND_URL,
 } from '@/utils/api';
 import {
   Plus,
@@ -48,16 +49,20 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+type SongCategory = 'exclusive' | 'featured' | 'new';
+
 type Song = {
   id: string;
   title: string;
   artist: string;
-  album?: string;
-  duration?: number;
-  audio_url: string;
+  category: SongCategory;
+  file_url: string;
   cover_url?: string;
+  price: number;
+  is_active: boolean;
   is_published: boolean;
-  sort_order: number;
+  duration?: number;
+  created_at: string;
 };
 
 type MerchItem = {
@@ -92,21 +97,66 @@ function resolveImageSource(source: string | number | ImageSourcePropType | unde
   return source as ImageSourcePropType;
 }
 
-async function uploadFile(
+async function uploadFileToStorage(
   uri: string,
-  type: 'audio' | 'video' | 'image',
+  bucket: string,
   mimeType: string,
   filename: string
 ): Promise<string> {
-  console.log(`[AdminScreen] Uploading ${type} file: ${filename}`);
-  const result = await authenticatedUpload<{ url: string }>(
-    `/api/upload/${type}`,
-    uri,
-    filename,
-    mimeType
-  );
-  console.log(`[AdminScreen] Upload success, url: ${result.url}`);
-  return result.url;
+  console.log(`[AdminScreen] Uploading file to bucket=${bucket}: ${filename}`);
+  const token = await getBearerToken();
+  const url = `${BACKEND_URL}/api/upload/file`;
+  const formData = new FormData();
+  formData.append('file', { uri, name: filename, type: mimeType } as any);
+  formData.append('bucket', bucket);
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const response = await fetch(url, { method: 'POST', headers, body: formData });
+  if (!response.ok) {
+    const text = await response.text();
+    console.error('[AdminScreen] File upload error:', response.status, text);
+    throw new Error(`Upload failed: ${response.status} - ${text}`);
+  }
+  const data = await response.json();
+  console.log('[AdminScreen] File upload success, url:', data.url);
+  return data.url as string;
+}
+
+async function uploadSongMultipart(fields: {
+  title: string;
+  artist: string;
+  category: SongCategory;
+  price: number;
+  audioUri: string;
+  audioMime: string;
+  audioName: string;
+  coverUri?: string;
+  coverMime?: string;
+  coverName?: string;
+}): Promise<Song> {
+  console.log('[AdminScreen] POST /api/songs/upload multipart:', fields.title);
+  const token = await getBearerToken();
+  const url = `${BACKEND_URL}/api/songs/upload`;
+  const formData = new FormData();
+  formData.append('file', { uri: fields.audioUri, name: fields.audioName, type: fields.audioMime } as any);
+  formData.append('title', fields.title);
+  formData.append('artist', fields.artist);
+  formData.append('category', fields.category);
+  formData.append('price', String(fields.price));
+  if (fields.coverUri) {
+    formData.append('cover', { uri: fields.coverUri, name: fields.coverName || 'cover.jpg', type: fields.coverMime || 'image/jpeg' } as any);
+  }
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const response = await fetch(url, { method: 'POST', headers, body: formData });
+  if (!response.ok) {
+    const text = await response.text();
+    console.error('[AdminScreen] Song upload error:', response.status, text);
+    throw new Error(`Upload failed: ${response.status} - ${text}`);
+  }
+  const data = await response.json();
+  console.log('[AdminScreen] Song upload success:', data);
+  return data as Song;
 }
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
@@ -124,82 +174,154 @@ function PublishedBadge({ published }: { published: boolean }) {
 
 // ─── Song Form ────────────────────────────────────────────────────────────────
 
+const SONG_CATEGORIES: SongCategory[] = ['exclusive', 'featured', 'new'];
+
+type SongFormState = {
+  title: string;
+  artist: string;
+  category: SongCategory;
+  price: string;
+  is_published: boolean;
+  // For new songs: local file info
+  audioUri?: string;
+  audioMime?: string;
+  audioName?: string;
+  coverUri?: string;
+  coverMime?: string;
+  coverName?: string;
+  // For existing songs: already-uploaded URLs
+  file_url?: string;
+  cover_url?: string;
+};
+
 function SongForm({
   initial,
   onSave,
   onCancel,
 }: {
   initial: Partial<Song>;
-  onSave: (data: Partial<Song>) => Promise<void>;
+  onSave: (song: Song) => void;
   onCancel: () => void;
 }) {
-  const [form, setForm] = useState<Partial<Song>>(initial);
-  const [saving, setSaving] = useState(false);
-  const [uploadingAudio, setUploadingAudio] = useState(false);
-  const [uploadingCover, setUploadingCover] = useState(false);
-  const [audioFilename, setAudioFilename] = useState('');
+  const isEdit = !!initial.id;
+  const [form, setForm] = useState<SongFormState>({
+    title: initial.title || '',
+    artist: initial.artist || '',
+    category: initial.category || 'exclusive',
+    price: initial.price !== undefined ? String(initial.price) : '0',
+    is_published: initial.is_published ?? false,
+    file_url: initial.file_url,
+    cover_url: initial.cover_url,
+  });
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
 
   const pickAudio = async () => {
     console.log('[AdminScreen] Picking audio file');
     try {
-      setUploadingAudio(true);
       const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*', copyToCacheDirectory: true });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        const url = await uploadFile(asset.uri, 'audio', asset.mimeType || 'audio/mpeg', asset.name || 'audio.mp3');
-        setForm((f) => ({ ...f, audio_url: url }));
-        setAudioFilename(asset.name || 'audio.mp3');
+        console.log('[AdminScreen] Audio picked:', asset.name);
+        setForm((f) => ({
+          ...f,
+          audioUri: asset.uri,
+          audioMime: asset.mimeType || 'audio/mpeg',
+          audioName: asset.name || 'audio.mp3',
+        }));
       }
     } catch (e: any) {
-      Alert.alert('Upload Error', e.message || 'Failed to upload audio');
-    } finally {
-      setUploadingAudio(false);
+      Alert.alert('Error', e.message || 'Failed to pick audio');
     }
   };
 
   const pickCover = async () => {
     console.log('[AdminScreen] Picking cover image');
     try {
-      setUploadingCover(true);
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images' as any, quality: 0.8 });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        const url = await uploadFile(asset.uri, 'image', asset.mimeType || 'image/jpeg', asset.fileName || 'cover.jpg');
-        setForm((f) => ({ ...f, cover_url: url }));
+        console.log('[AdminScreen] Cover picked:', asset.fileName);
+        setForm((f) => ({
+          ...f,
+          coverUri: asset.uri,
+          coverMime: asset.mimeType || 'image/jpeg',
+          coverName: asset.fileName || 'cover.jpg',
+        }));
       }
     } catch (e: any) {
-      Alert.alert('Upload Error', e.message || 'Failed to upload image');
-    } finally {
-      setUploadingCover(false);
+      Alert.alert('Error', e.message || 'Failed to pick cover');
     }
   };
 
   const handleSave = async () => {
-    if (!form.title?.trim()) { Alert.alert('Validation', 'Title is required'); return; }
-    if (!form.artist?.trim()) { Alert.alert('Validation', 'Artist is required'); return; }
-    if (!form.audio_url && !initial.id) { Alert.alert('Validation', 'Audio file is required'); return; }
-    console.log('[AdminScreen] Saving song:', form.title);
-    setSaving(true);
+    if (!form.title.trim()) { Alert.alert('Validation', 'Title is required'); return; }
+    if (!form.artist.trim()) { Alert.alert('Validation', 'Artist is required'); return; }
+    if (!isEdit && !form.audioUri) { Alert.alert('Validation', 'Audio file is required'); return; }
+
+    console.log('[AdminScreen] Saving song:', form.title, 'isEdit:', isEdit);
+    setUploading(true);
     try {
-      await onSave(form);
+      if (isEdit) {
+        // For edits: upload cover separately if changed, then PUT metadata
+        let coverUrl = form.cover_url;
+        if (form.coverUri) {
+          setUploadProgress('Uploading cover...');
+          coverUrl = await uploadFileToStorage(form.coverUri, 'covers', form.coverMime || 'image/jpeg', form.coverName || 'cover.jpg');
+        }
+        setUploadProgress('Saving...');
+        console.log(`[AdminScreen] PUT /api/songs/${initial.id}`);
+        const updated = await authenticatedPut<Song>(`/api/songs/${initial.id}`, {
+          title: form.title,
+          artist: form.artist,
+          category: form.category,
+          price: parseFloat(form.price) || 0,
+          is_published: form.is_published,
+          cover_url: coverUrl,
+        });
+        if (!updated?.id) throw new Error('Server did not return updated song');
+        onSave(updated);
+      } else {
+        // For new songs: use multipart upload endpoint
+        setUploadProgress('Uploading song...');
+        const created = await uploadSongMultipart({
+          title: form.title,
+          artist: form.artist,
+          category: form.category,
+          price: parseFloat(form.price) || 0,
+          audioUri: form.audioUri!,
+          audioMime: form.audioMime || 'audio/mpeg',
+          audioName: form.audioName || 'audio.mp3',
+          coverUri: form.coverUri,
+          coverMime: form.coverMime,
+          coverName: form.coverName,
+        });
+        if (!created?.id) throw new Error('Server did not return created song with id');
+        onSave(created);
+      }
+    } catch (e: any) {
+      console.error('[AdminScreen] Song save error:', e);
+      Alert.alert('Error', e.message || 'Failed to save song');
     } finally {
-      setSaving(false);
+      setUploading(false);
+      setUploadProgress('');
     }
   };
 
-  const audioLabel = form.audio_url ? (audioFilename || 'Audio uploaded') : 'Upload Audio File *';
-  const coverLabel = form.cover_url ? 'Change Cover Image' : 'Upload Cover Image';
+  const audioLabel = form.audioUri ? (form.audioName || 'Audio selected') : (form.file_url ? 'Audio uploaded (tap to replace)' : 'Select Audio File *');
+  const coverLabel = form.coverUri ? (form.coverName || 'Cover selected') : (form.cover_url ? 'Cover uploaded (tap to replace)' : 'Select Cover Image');
+  const coverPreview = form.coverUri || form.cover_url;
 
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.container}>
-      <Text style={formStyles.title}>{initial.id ? 'Edit Song' : 'New Song'}</Text>
+      <Text style={formStyles.title}>{isEdit ? 'Edit Song' : 'New Song'}</Text>
 
       <Text style={formStyles.label}>Title *</Text>
       <TextInput
         style={formStyles.input}
         placeholder="Song title"
         placeholderTextColor={colors.textTertiary}
-        value={form.title || ''}
+        value={form.title}
         onChangeText={(t) => setForm((f) => ({ ...f, title: t }))}
       />
 
@@ -208,56 +330,74 @@ function SongForm({
         style={formStyles.input}
         placeholder="Artist name"
         placeholderTextColor={colors.textTertiary}
-        value={form.artist || ''}
+        value={form.artist}
         onChangeText={(t) => setForm((f) => ({ ...f, artist: t }))}
       />
 
-      <Text style={formStyles.label}>Album</Text>
+      <Text style={formStyles.label}>Category</Text>
+      <View style={formStyles.categoryRow}>
+        {SONG_CATEGORIES.map((cat) => {
+          const isActive = form.category === cat;
+          return (
+            <TouchableOpacity
+              key={cat}
+              style={[formStyles.categoryBtn, isActive && formStyles.categoryBtnActive]}
+              onPress={() => { console.log('[AdminScreen] Category selected:', cat); setForm((f) => ({ ...f, category: cat })); }}
+            >
+              <Text style={[formStyles.categoryBtnText, isActive && formStyles.categoryBtnTextActive]}>
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Text style={formStyles.label}>Price ($)</Text>
       <TextInput
         style={formStyles.input}
-        placeholder="Album name (optional)"
+        placeholder="0.00"
         placeholderTextColor={colors.textTertiary}
-        value={form.album || ''}
-        onChangeText={(t) => setForm((f) => ({ ...f, album: t }))}
+        value={form.price}
+        onChangeText={(t) => setForm((f) => ({ ...f, price: t }))}
+        keyboardType="decimal-pad"
       />
 
-      <TouchableOpacity style={formStyles.uploadBtn} onPress={pickAudio} disabled={uploadingAudio}>
-        {uploadingAudio ? (
-          <ActivityIndicator size="small" color={colors.primary} />
-        ) : (
-          <Upload size={18} color={colors.primary} />
-        )}
+      <TouchableOpacity style={formStyles.uploadBtn} onPress={pickAudio} disabled={uploading}>
+        <Upload size={18} color={colors.primary} />
         <Text style={formStyles.uploadBtnText}>{audioLabel}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={formStyles.uploadBtn} onPress={pickCover} disabled={uploadingCover}>
-        {uploadingCover ? (
-          <ActivityIndicator size="small" color={colors.primary} />
-        ) : (
-          <Upload size={18} color={colors.primary} />
-        )}
+      <TouchableOpacity style={formStyles.uploadBtn} onPress={pickCover} disabled={uploading}>
+        <Upload size={18} color={colors.primary} />
         <Text style={formStyles.uploadBtnText}>{coverLabel}</Text>
       </TouchableOpacity>
 
-      {form.cover_url ? (
-        <Image source={resolveImageSource(form.cover_url)} style={formStyles.preview} resizeMode="cover" />
+      {coverPreview ? (
+        <Image source={resolveImageSource(coverPreview)} style={formStyles.preview} resizeMode="cover" />
       ) : null}
 
       <View style={formStyles.switchRow}>
         <Text style={formStyles.switchLabel}>Published</Text>
         <Switch
-          value={!!form.is_published}
+          value={form.is_published}
           onValueChange={(v) => setForm((f) => ({ ...f, is_published: v }))}
           trackColor={{ false: colors.inactive, true: colors.primary }}
           thumbColor="#fff"
         />
       </View>
 
+      {uploading && (
+        <View style={formStyles.progressRow}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={formStyles.progressText}>{uploadProgress || 'Uploading...'}</Text>
+        </View>
+      )}
+
       <View style={formStyles.actions}>
-        <TouchableOpacity style={formStyles.saveBtn} onPress={handleSave} disabled={saving}>
-          {saving ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
+        <TouchableOpacity style={formStyles.saveBtn} onPress={handleSave} disabled={uploading}>
+          {uploading ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
         </TouchableOpacity>
-        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel}>
+        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel} disabled={uploading}>
           <Text style={formStyles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
       </View>
@@ -287,7 +427,7 @@ function MerchForm({
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images' as any, quality: 0.8 });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        const url = await uploadFile(asset.uri, 'image', asset.mimeType || 'image/jpeg', asset.fileName || 'merch.jpg');
+        const url = await uploadFileToStorage(asset.uri, 'merch-images', asset.mimeType || 'image/jpeg', asset.fileName || 'merch.jpg');
         setForm((f) => ({ ...f, image_url: url }));
       }
     } catch (e: any) {
@@ -414,7 +554,7 @@ function VideoForm({
       const result = await DocumentPicker.getDocumentAsync({ type: 'video/*', copyToCacheDirectory: true });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        const url = await uploadFile(asset.uri, 'video', asset.mimeType || 'video/mp4', asset.name || 'video.mp4');
+        const url = await uploadFileToStorage(asset.uri, 'videos', asset.mimeType || 'video/mp4', asset.name || 'video.mp4');
         setForm((f) => ({ ...f, video_url: url }));
         setVideoFilename(asset.name || 'video.mp4');
       }
@@ -432,7 +572,7 @@ function VideoForm({
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images' as any, quality: 0.8 });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        const url = await uploadFile(asset.uri, 'image', asset.mimeType || 'image/jpeg', asset.fileName || 'thumb.jpg');
+        const url = await uploadFileToStorage(asset.uri, 'covers', asset.mimeType || 'image/jpeg', asset.fileName || 'thumb.jpg');
         setForm((f) => ({ ...f, thumbnail_url: url }));
       }
     } catch (e: any) {
@@ -552,12 +692,12 @@ export default function AdminScreen() {
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
   const fetchSongs = useCallback(async () => {
-    console.log('[AdminScreen] Fetching all songs from /api/admin/songs');
+    console.log('[AdminScreen] Fetching all songs from /api/songs');
     setLoadingSongs(true);
     try {
-      const data = await authenticatedGet<{ songs: Song[] }>('/api/admin/songs');
-      console.log('[AdminScreen] Admin songs received:', data?.songs?.length ?? 0);
-      setSongs((data?.songs ?? []).sort((a, b) => a.sort_order - b.sort_order));
+      const data = await authenticatedGet<{ songs: Song[] }>('/api/songs');
+      console.log('[AdminScreen] Songs received:', data?.songs?.length ?? 0);
+      setSongs(data?.songs ?? []);
     } catch (e: any) {
       console.error('[AdminScreen] Error fetching songs:', e);
       Alert.alert('Error', 'Failed to load songs');
@@ -607,21 +747,21 @@ export default function AdminScreen() {
 
   // ── Songs CRUD ─────────────────────────────────────────────────────────────
 
-  const handleSaveSong = async (data: Partial<Song>) => {
-    try {
-      if (data.id) {
-        console.log(`[AdminScreen] PUT /api/admin/songs/${data.id}`);
-        await authenticatedPut(`/api/admin/songs/${data.id}`, data);
-      } else {
-        console.log('[AdminScreen] POST /api/admin/songs');
-        await authenticatedPost('/api/admin/songs', data);
+  const handleSaveSong = async (savedSong: Song) => {
+    console.log('[AdminScreen] Song saved successfully, id:', savedSong.id);
+    // Optimistically add/update in list, then confirm with full refetch
+    setSongs((prev) => {
+      const exists = prev.find((s) => s.id === savedSong.id);
+      if (exists) {
+        return prev.map((s) => s.id === savedSong.id ? savedSong : s);
       }
-      setFormVisible(false);
-      setEditingSong(null);
-      await fetchSongs();
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save song');
-    }
+      return [savedSong, ...prev];
+    });
+    setFormVisible(false);
+    setEditingSong(null);
+    Alert.alert('Success', `"${savedSong.title}" saved successfully!`);
+    // Confirm persistence with full refetch
+    await fetchSongs();
   };
 
   const handleDeleteSong = (id: string, title: string) => {
@@ -630,9 +770,9 @@ export default function AdminScreen() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
-          console.log(`[AdminScreen] DELETE /api/admin/songs/${id}`);
+          console.log(`[AdminScreen] DELETE /api/songs/${id}`);
           try {
-            await authenticatedDelete(`/api/admin/songs/${id}`);
+            await authenticatedDelete(`/api/songs/${id}`);
             await fetchSongs();
           } catch (e: any) {
             Alert.alert('Error', e.message || 'Failed to delete song');
@@ -643,12 +783,9 @@ export default function AdminScreen() {
   };
 
   const handleToggleSongPublish = async (song: Song) => {
-    const endpoint = song.is_published
-      ? `/api/admin/songs/${song.id}/unpublish`
-      : `/api/admin/songs/${song.id}/publish`;
-    console.log(`[AdminScreen] Toggle publish song: ${song.title}, endpoint: ${endpoint}`);
+    console.log(`[AdminScreen] Toggle publish song: ${song.title}, current: ${song.is_published}`);
     try {
-      await authenticatedPost(endpoint, {});
+      await authenticatedPut<Song>(`/api/songs/${song.id}`, { is_published: !song.is_published });
       await fetchSongs();
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to update song');
@@ -656,15 +793,8 @@ export default function AdminScreen() {
   };
 
   const handleReorderSongs = async (list: Song[]) => {
-    const ids = list.map((s) => s.id);
-    console.log('[AdminScreen] POST /api/admin/songs/reorder', ids);
+    console.log('[AdminScreen] Reordering songs');
     setSongs(list);
-    try {
-      await authenticatedPost('/api/admin/songs/reorder', { ids });
-    } catch (e: any) {
-      Alert.alert('Error', 'Failed to reorder songs');
-      await fetchSongs();
-    }
   };
 
   const moveSong = (index: number, direction: 'up' | 'down') => {
@@ -907,8 +1037,6 @@ export default function AdminScreen() {
       </View>
     );
   }
-
-  const isLoading = loadingSongs || loadingMerch || loadingVideos;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -1163,7 +1291,7 @@ export default function AdminScreen() {
           </View>
           {activeSection === 'songs' && editingSong && (
             <SongForm
-              initial={editingSong}
+              initial={editingSong as Partial<Song>}
               onSave={handleSaveSong}
               onCancel={closeForm}
             />
@@ -1507,6 +1635,49 @@ const formStyles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  categoryBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  categoryBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  categoryBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  categoryBtnTextActive: {
+    color: colors.background,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  progressText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   cancelBtnText: {
     fontSize: 16,
