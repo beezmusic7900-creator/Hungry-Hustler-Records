@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { Play, Pause, X, Music } from 'lucide-react-native';
+import { Play, Pause, X, Music, Lock } from 'lucide-react-native';
 import { colors } from '@/styles/commonStyles';
 import { apiGet } from '@/utils/api';
 
@@ -22,14 +22,14 @@ type Song = {
   id: string;
   title: string;
   artist: string;
-  album?: string;
-  duration?: number;
-  audio_url: string;
+  category: string;
+  file_url: string;
   cover_url?: string;
+  price: number;
+  is_active: boolean;
   is_published: boolean;
-  sort_order: number;
+  duration?: number;
   created_at: string;
-  updated_at: string;
 };
 
 function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
@@ -46,6 +46,12 @@ function formatDuration(seconds?: number): string {
   return `${m}:${sStr}`;
 }
 
+function formatPrice(price: number): string {
+  const num = Number(price);
+  if (!num || num <= 0) return 'Free';
+  return `$${num.toFixed(2)}`;
+}
+
 function MiniPlayer({
   song,
   player,
@@ -59,7 +65,7 @@ function MiniPlayer({
   const isPlaying = status.playing;
 
   const handlePlayPause = () => {
-    console.log(`[MusicTab] MiniPlayer play/pause pressed for: ${song.title}, isPlaying: ${isPlaying}`);
+    console.log(`[ExclusiveSongs] MiniPlayer play/pause pressed: ${song.title}, isPlaying: ${isPlaying}`);
     if (isPlaying) {
       player.pause();
     } else {
@@ -68,12 +74,13 @@ function MiniPlayer({
   };
 
   const handleClose = () => {
-    console.log(`[MusicTab] MiniPlayer close pressed for: ${song.title}`);
+    console.log(`[ExclusiveSongs] MiniPlayer close pressed: ${song.title}`);
     player.pause();
     onClose();
   };
 
   const coverSource = resolveImageSource(song.cover_url);
+  const priceLabel = formatPrice(song.price);
 
   return (
     <View style={miniStyles.container}>
@@ -88,7 +95,10 @@ function MiniPlayer({
       </View>
       <View style={miniStyles.info}>
         <Text style={miniStyles.title} numberOfLines={1}>{song.title}</Text>
-        <Text style={miniStyles.artist} numberOfLines={1}>{song.artist}</Text>
+        <View style={miniStyles.metaRow}>
+          <Text style={miniStyles.artist} numberOfLines={1}>{song.artist}</Text>
+          <Text style={miniStyles.price}>{priceLabel}</Text>
+        </View>
       </View>
       <TouchableOpacity style={miniStyles.actionBtn} onPress={handlePlayPause}>
         {isPlaying ? (
@@ -116,7 +126,9 @@ function SongRow({
   onPress: () => void;
 }) {
   const durationText = formatDuration(song.duration);
+  const priceText = formatPrice(song.price);
   const coverSource = resolveImageSource(song.cover_url);
+  const isPaid = Number(song.price) > 0;
 
   return (
     <TouchableOpacity
@@ -143,37 +155,43 @@ function SongRow({
         )}
       </View>
       <View style={styles.songInfo}>
-        <Text style={[styles.songTitle, isActive && styles.songTitleActive]} numberOfLines={1}>
-          {song.title}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.songTitle, isActive && styles.songTitleActive]} numberOfLines={1}>
+            {song.title}
+          </Text>
+          {isPaid && <Lock size={12} color={colors.primary} style={styles.lockIcon} />}
+        </View>
         <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
       </View>
-      <Text style={styles.duration}>{durationText}</Text>
+      <View style={styles.rightCol}>
+        <Text style={[styles.priceTag, isPaid && styles.priceTagPaid]}>{priceText}</Text>
+        <Text style={styles.duration}>{durationText}</Text>
+      </View>
     </TouchableOpacity>
   );
 }
 
-export default function MusicScreen() {
+export default function ExclusiveSongsScreen() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSong, setActiveSong] = useState<Song | null>(null);
   const [miniPlayerVisible, setMiniPlayerVisible] = useState(false);
 
-  const player = useAudioPlayer(activeSong ? { uri: activeSong.audio_url } : null);
+  const player = useAudioPlayer(activeSong ? { uri: activeSong.file_url } : null);
   const status = useAudioPlayerStatus(player);
 
   const fetchSongs = useCallback(async () => {
-    console.log('[MusicTab] Fetching songs from /api/songs');
+    console.log('[ExclusiveSongs] Fetching songs from /api/songs?category=exclusive');
     try {
       setLoading(true);
       setError(null);
-      const data = await apiGet<{ songs: Song[] }>('/api/songs');
-      console.log('[MusicTab] Songs received:', data?.songs?.length ?? 0);
+      const data = await apiGet<{ songs: Song[] }>('/api/songs?category=exclusive');
+      console.log('[ExclusiveSongs] Songs received:', data?.songs?.length ?? 0);
       setSongs(data?.songs ?? []);
     } catch (err: any) {
-      console.error('[MusicTab] Error fetching songs:', err);
-      setError('Failed to load songs. Please try again.');
+      console.error('[ExclusiveSongs] Error fetching songs:', err);
+      setError('Failed to load exclusive songs. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -186,7 +204,7 @@ export default function MusicScreen() {
   );
 
   const handleSongPress = (song: Song) => {
-    console.log(`[MusicTab] Song pressed: ${song.title} by ${song.artist}`);
+    console.log(`[ExclusiveSongs] Song pressed: ${song.title} by ${song.artist}`);
     if (activeSong?.id === song.id) {
       if (status.playing) {
         player.pause();
@@ -196,7 +214,6 @@ export default function MusicScreen() {
     } else {
       setActiveSong(song);
       setMiniPlayerVisible(true);
-      // Player will reload with new source, then play
       setTimeout(() => {
         player.play();
       }, 100);
@@ -204,6 +221,7 @@ export default function MusicScreen() {
   };
 
   const handleCloseMiniPlayer = () => {
+    console.log('[ExclusiveSongs] Mini player closed');
     setMiniPlayerVisible(false);
     setActiveSong(null);
   };
@@ -226,7 +244,7 @@ export default function MusicScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>MUSIC</Text>
+        <Text style={styles.headerTitle}>EXCLUSIVE</Text>
         <Text style={styles.headerSubtitle}>Hungry Hustler Records</Text>
       </View>
 
@@ -238,14 +256,14 @@ export default function MusicScreen() {
         <View style={styles.centered}>
           <Music size={48} color={colors.textSecondary} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchSongs}>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => { console.log('[ExclusiveSongs] Retry pressed'); fetchSongs(); }}>
             <Text style={styles.retryBtnText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : songs.length === 0 ? (
         <View style={styles.centered}>
           <Music size={56} color={colors.textSecondary} />
-          <Text style={styles.emptyTitle}>No Songs Yet</Text>
+          <Text style={styles.emptyTitle}>No Exclusive Songs Yet</Text>
           <Text style={styles.emptySubtitle}>Check back soon for new releases.</Text>
         </View>
       ) : (
@@ -376,26 +394,46 @@ const styles = StyleSheet.create({
     marginLeft: 14,
     marginRight: 8,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 3,
+  },
   songTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 3,
+    flexShrink: 1,
   },
   songTitleActive: {
     color: colors.primary,
+  },
+  lockIcon: {
+    flexShrink: 0,
   },
   songArtist: {
     fontSize: 13,
     color: colors.textSecondary,
     fontWeight: '500',
   },
+  rightCol: {
+    alignItems: 'flex-end',
+    gap: 4,
+    minWidth: 48,
+  },
+  priceTag: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  priceTagPaid: {
+    color: colors.primary,
+  },
   duration: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textTertiary,
     fontWeight: '500',
-    minWidth: 40,
-    textAlign: 'right',
   },
   separator: {
     height: 1,
@@ -458,10 +496,22 @@ const miniStyles = StyleSheet.create({
     color: colors.text,
     marginBottom: 2,
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   artist: {
     fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '500',
+    flexShrink: 1,
+  },
+  price: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    flexShrink: 0,
   },
   actionBtn: {
     padding: 8,
