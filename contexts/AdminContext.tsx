@@ -5,7 +5,7 @@ import { SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 interface AdminContextType {
   isAdmin: boolean;
   checkingAdmin: boolean;
-  recheckAdmin: () => Promise<boolean>;
+  recheckAdmin: (accessToken?: string) => Promise<boolean>;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -15,8 +15,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAdmin, setCheckingAdmin] = useState(false);
 
-  const recheckAdmin = useCallback(async (): Promise<boolean> => {
-    if (!session?.access_token) {
+  const recheckAdmin = useCallback(async (accessToken?: string): Promise<boolean> => {
+    const token = accessToken || session?.access_token;
+    if (!token) {
       setIsAdmin(false);
       return false;
     }
@@ -28,7 +29,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
           'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({}),
       });

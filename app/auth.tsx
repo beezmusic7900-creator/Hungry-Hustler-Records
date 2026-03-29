@@ -33,9 +33,9 @@ export default function AuthScreen() {
     setLoading(true);
     setError('');
     try {
-      await signInWithEmail(email.trim(), password);
+      const token = await signInWithEmail(email.trim(), password);
       console.log('[AuthScreen] Sign in successful, checking admin status');
-      const isAdmin = await recheckAdmin();
+      const isAdmin = await recheckAdmin(token);
       if (isAdmin) {
         console.log('[AuthScreen] User is admin, redirecting to admin panel');
         router.replace('/(tabs)/admin');
