@@ -37,7 +37,10 @@
               "scheme": "hungryhustlerrecords"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
