@@ -1,10 +1,9 @@
 
 import "react-native-reanimated";
-import React, { useEffect } from "react";
-import { useFonts } from "expo-font";
+import React, { useEffect, useState } from "react";
+import * as Font from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useColorScheme } from "react-native";
 import {
@@ -26,15 +25,22 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
-  });
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+    (async () => {
+      try {
+        await Font.loadAsync({
+          SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+        });
+      } catch (e) {
+        console.warn('[Layout] Font load failed:', e);
+      } finally {
+        setLoaded(true);
+        await SplashScreen.hideAsync();
+      }
+    })();
+  }, []);
 
   if (!loaded) {
     return null;
@@ -86,7 +92,6 @@ export default function RootLayout() {
                 <Stack.Screen name="add-artists-helper" options={{ headerShown: false }} />
                 <Stack.Screen name="+not-found" />
               </Stack>
-              <SystemBars style="light" />
             </GestureHandlerRootView>
           </AdminProvider>
         </AuthProvider>

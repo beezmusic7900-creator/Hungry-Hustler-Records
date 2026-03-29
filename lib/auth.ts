@@ -25,26 +25,35 @@ const secureStorage = {
   },
 };
 
-export const authClient = createAuthClient({
-  baseURL: API_URL,
-  plugins: [
-    expoClient({
-      scheme: "hungry-hustler",
-      storagePrefix: "hungry-hustler",
-      storage: secureStorage,
-    }),
-  ],
-  // On web, use cookies (credentials: include) and fallback to bearer token
-  ...(Platform.OS === "web" && {
-    fetchOptions: {
-      credentials: "include",
-      auth: {
-        type: "Bearer" as const,
-        token: () => localStorage.getItem(BEARER_TOKEN_KEY) || "",
-      },
-    },
-  }),
-});
+let authClient: ReturnType<typeof createAuthClient> | null = null;
+try {
+  if (API_URL) {
+    authClient = createAuthClient({
+      baseURL: API_URL,
+      plugins: [
+        expoClient({
+          scheme: "hungry-hustler",
+          storagePrefix: "hungry-hustler",
+          storage: secureStorage,
+        }),
+      ],
+      // On web, use cookies (credentials: include) and fallback to bearer token
+      ...(Platform.OS === "web" && {
+        fetchOptions: {
+          credentials: "include",
+          auth: {
+            type: "Bearer" as const,
+            token: () => localStorage.getItem(BEARER_TOKEN_KEY) || "",
+          },
+        },
+      }),
+    });
+  } else {
+    console.warn('[auth] API_URL is empty — skipping better-auth client initialization');
+  }
+} catch (e) {
+  console.warn('[auth] Failed to initialize auth client:', e);
+}
 
 export async function setBearerToken(token: string) {
   if (Platform.OS === "web") {

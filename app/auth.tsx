@@ -63,7 +63,7 @@ export default function AuthScreen() {
           <Lock size={40} color="#E8B84B" />
         </View>
 
-        <Text style={styles.title}>Admin Portal</Text>
+        <Text style={styles.title}>Sign In</Text>
         <Text style={styles.subtitle}>Hungry Hustler Records</Text>
 
         <View style={styles.card}>
@@ -106,12 +106,6 @@ export default function AuthScreen() {
               <Text style={styles.buttonText}>Sign In</Text>
             )}
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.credentialsHint}>
-          <Text style={styles.credentialsHintTitle}>Admin Login</Text>
-          <Text style={styles.credentialsHintText}>hungry.hustler@yahoo.com</Text>
-          <Text style={styles.credentialsHintText}>Afroman420!</Text>
         </View>
 
         <TouchableOpacity onPress={() => { console.log('[AuthScreen] Back to app pressed'); router.back(); }} style={styles.backBtn}>
@@ -196,29 +190,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.5,
-  },
-  credentialsHint: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: '#111',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#222',
-    alignItems: 'center',
-    gap: 4,
-  },
-  credentialsHintTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#555',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  credentialsHintText: {
-    fontSize: 13,
-    color: '#E8B84B',
-    fontWeight: '600',
   },
   backBtn: { alignItems: 'center', marginTop: 24 },
   backText: { color: '#555', fontSize: 14 },

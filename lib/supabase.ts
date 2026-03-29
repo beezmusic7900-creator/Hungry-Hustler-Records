@@ -60,12 +60,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
-// Suppress unhandled auto-refresh errors so they don't bubble up as crashes
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'TOKEN_REFRESHED') {
-    console.log('[Supabase] Token refreshed successfully');
-  }
-});
 
 export { SUPABASE_URL, SUPABASE_ANON_KEY };
 export const SUPABASE_FUNCTIONS_URL = 'https://egmaxjskylfepliwaeme.supabase.co/functions/v1';
