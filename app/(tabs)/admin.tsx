@@ -79,11 +79,14 @@ type VideoItem = {
   id: string;
   title: string;
   description?: string;
-  video_url: string;
+  video_url?: string;
   thumbnail_url?: string;
   duration?: number;
   is_published: boolean;
   sort_order: number;
+  source_type?: 'upload' | 'youtube';
+  youtube_url?: string;
+  youtube_id?: string;
 };
 
 type AdminSection = 'songs' | 'merch' | 'videos';
@@ -663,7 +666,30 @@ function MerchForm({
   );
 }
 
+// ─── YouTube ID extractor ─────────────────────────────────────────────────────
+
+function extractYouTubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
 // ─── Video Form ───────────────────────────────────────────────────────────────
+
+type VideoFormState = {
+  title: string;
+  description: string;
+  is_published: boolean;
+  source_type: 'upload' | 'youtube';
+  youtube_url: string;
+  youtube_id: string | null;
+};
 
 function VideoForm({
   initial,
@@ -671,12 +697,23 @@ function VideoForm({
   onCancel,
 }: {
   initial: Partial<VideoItem>;
-  onSave: (data: Partial<VideoItem>) => Promise<void>;
+  onSave: (saved: VideoItem) => void;
   onCancel: () => void;
 }) {
-  const [form, setForm] = useState<Partial<VideoItem>>(initial);
+  const isEdit = !!initial.id;
+
+  const [form, setForm] = useState<VideoFormState>({
+    title: initial.title || '',
+    description: initial.description || '',
+    is_published: initial.is_published ?? true,
+    source_type: initial.source_type || 'upload',
+    youtube_url: initial.youtube_url || '',
+    youtube_id: initial.youtube_id || null,
+  });
+
   const [saving, setSaving] = useState(false);
 
+  // Upload source state
   const [videoUri, setVideoUri] = useState<string | undefined>(undefined);
   const [videoName, setVideoName] = useState<string | undefined>(undefined);
   const [videoMime, setVideoMime] = useState<string>('video/mp4');
@@ -686,6 +723,13 @@ function VideoForm({
   const [thumbMime, setThumbMime] = useState<string>('image/jpeg');
   const [uploadingThumb, setUploadingThumb] = useState(false);
 
+  // YouTube validation state
+  const [ytValidated, setYtValidated] = useState(!!initial.youtube_id);
+  const [ytPreviewId, setYtPreviewId] = useState<string | null>(initial.youtube_id || null);
+
+  const existingVideoUrl = initial.video_url;
+  const existingThumbnailUrl = initial.thumbnail_url;
+
   const pickVideo = async () => {
     console.log('[AdminScreen] Opening document picker for video');
     try {
@@ -693,10 +737,7 @@ function VideoForm({
         type: 'video/*',
         copyToCacheDirectory: true,
       });
-      if (result.canceled) {
-        console.log('[AdminScreen] Video picker cancelled');
-        return;
-      }
+      if (result.canceled) { console.log('[AdminScreen] Video picker cancelled'); return; }
       const asset = result.assets[0];
       console.log('[AdminScreen] Video selected:', asset.name, asset.mimeType);
       setVideoUri(asset.uri);
@@ -716,10 +757,7 @@ function VideoForm({
         allowsEditing: true,
         quality: 0.85,
       });
-      if (result.canceled) {
-        console.log('[AdminScreen] Thumbnail picker cancelled');
-        return;
-      }
+      if (result.canceled) { console.log('[AdminScreen] Thumbnail picker cancelled'); return; }
       const asset = result.assets[0];
       console.log('[AdminScreen] Thumbnail selected:', asset.uri);
       setThumbLocalUri(asset.uri);
@@ -731,42 +769,89 @@ function VideoForm({
     }
   };
 
+  const handleValidateYouTube = () => {
+    console.log('[AdminScreen] Validate YouTube URL pressed:', form.youtube_url);
+    const ytId = extractYouTubeId(form.youtube_url);
+    if (!ytId) {
+      Alert.alert('Invalid URL', 'Could not extract a YouTube video ID. Please check the URL.');
+      setYtValidated(false);
+      setYtPreviewId(null);
+      return;
+    }
+    console.log('[AdminScreen] YouTube ID extracted:', ytId);
+    setYtPreviewId(ytId);
+    setYtValidated(true);
+    setForm((f) => ({ ...f, youtube_id: ytId }));
+  };
+
   const handleSave = async () => {
-    if (!form.title?.trim()) { Alert.alert('Validation', 'Title is required'); return; }
-    if (!initial.id && !videoUri) { Alert.alert('Validation', 'Video file is required'); return; }
-    console.log('[AdminScreen] Saving video:', form.title);
+    if (!form.title.trim()) { Alert.alert('Validation', 'Title is required'); return; }
+
+    if (form.source_type === 'youtube') {
+      if (!form.youtube_url.trim()) { Alert.alert('Validation', 'YouTube URL is required'); return; }
+      const ytId = extractYouTubeId(form.youtube_url);
+      if (!ytId) { Alert.alert('Validation', 'Invalid YouTube URL. Please enter a valid YouTube link.'); return; }
+    } else {
+      if (!isEdit && !videoUri) { Alert.alert('Validation', 'Video file is required'); return; }
+    }
+
+    console.log('[AdminScreen] Saving video:', form.title, 'source_type:', form.source_type, 'isEdit:', isEdit);
     setSaving(true);
     try {
-      let videoUrl = form.video_url || '';
-      let thumbnailUrl = form.thumbnail_url || '';
+      let videoUrl = existingVideoUrl || '';
+      let thumbnailUrl = existingThumbnailUrl || '';
 
-      if (videoUri) {
-        console.log('[AdminScreen] Uploading video file...');
-        setUploadingVideo(true);
-        try {
-          videoUrl = await uploadToSupabase(videoUri, 'videos', videoMime);
-          console.log('[AdminScreen] Video uploaded:', videoUrl);
-        } finally {
-          setUploadingVideo(false);
+      if (form.source_type === 'upload') {
+        if (videoUri) {
+          console.log('[AdminScreen] Uploading video file...');
+          setUploadingVideo(true);
+          try {
+            videoUrl = await uploadToSupabase(videoUri, 'videos', videoMime);
+            console.log('[AdminScreen] Video uploaded:', videoUrl);
+          } finally {
+            setUploadingVideo(false);
+          }
+        }
+        if (thumbLocalUri) {
+          console.log('[AdminScreen] Uploading thumbnail...');
+          setUploadingThumb(true);
+          try {
+            thumbnailUrl = await uploadToSupabase(thumbLocalUri, 'video-thumbnails', thumbMime);
+            console.log('[AdminScreen] Thumbnail uploaded:', thumbnailUrl);
+          } finally {
+            setUploadingThumb(false);
+          }
         }
       }
 
-      if (thumbLocalUri) {
-        console.log('[AdminScreen] Uploading thumbnail...');
-        setUploadingThumb(true);
-        try {
-          thumbnailUrl = await uploadToSupabase(thumbLocalUri, 'video-thumbnails', thumbMime);
-          console.log('[AdminScreen] Thumbnail uploaded:', thumbnailUrl);
-        } finally {
-          setUploadingThumb(false);
-        }
+      const ytId = form.source_type === 'youtube' ? extractYouTubeId(form.youtube_url) : null;
+      const finalThumbnail = form.source_type === 'youtube' && ytId
+        ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
+        : thumbnailUrl;
+
+      const payload = {
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        video_url: form.source_type === 'youtube' ? form.youtube_url : videoUrl,
+        thumbnail_url: finalThumbnail || null,
+        is_published: form.is_published,
+        source_type: form.source_type,
+        youtube_url: form.source_type === 'youtube' ? form.youtube_url : null,
+        sort_order: initial.sort_order ?? 0,
+      };
+
+      console.log('[AdminScreen] Video payload:', JSON.stringify(payload));
+
+      let result: any;
+      if (isEdit && initial.id) {
+        result = await adminFetch<any>(`/videos/${initial.id}`, 'PUT', payload);
+      } else {
+        result = await adminFetch<any>('/videos', 'POST', payload);
       }
 
-      await onSave({
-        ...form,
-        video_url: videoUrl || undefined,
-        thumbnail_url: thumbnailUrl || undefined,
-      });
+      const saved = result.video ?? result;
+      Alert.alert('Success', isEdit ? 'Video updated!' : 'Video added!');
+      onSave(saved);
     } catch (e: any) {
       console.error('[VideoForm] Save error:', e);
       Alert.alert('Save Failed', e?.message ?? 'Unknown error. Check console for details.');
@@ -776,17 +861,18 @@ function VideoForm({
   };
 
   const isBusy = saving || uploadingVideo || uploadingThumb;
+  const ytThumbUri = ytPreviewId ? `https://img.youtube.com/vi/${ytPreviewId}/hqdefault.jpg` : undefined;
 
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.container}>
-      <Text style={formStyles.title}>{initial.id ? 'Edit Video' : 'New Video'}</Text>
+      <Text style={formStyles.title}>{isEdit ? 'Edit Video' : 'New Video'}</Text>
 
       <Text style={formStyles.label}>Title *</Text>
       <TextInput
         style={formStyles.input}
         placeholder="Video title"
         placeholderTextColor={colors.textTertiary}
-        value={form.title || ''}
+        value={form.title}
         onChangeText={(t) => setForm((f) => ({ ...f, title: t }))}
       />
 
@@ -795,33 +881,91 @@ function VideoForm({
         style={[formStyles.input, formStyles.textArea]}
         placeholder="Description (optional)"
         placeholderTextColor={colors.textTertiary}
-        value={form.description || ''}
+        value={form.description}
         onChangeText={(t) => setForm((f) => ({ ...f, description: t }))}
         multiline
         numberOfLines={3}
       />
 
-      <Text style={formStyles.label}>Video File {!initial.id ? '*' : ''}</Text>
-      <VideoPickerField
-        currentUrl={form.video_url}
-        selectedName={videoName}
-        uploading={uploadingVideo}
-        onPick={pickVideo}
-      />
+      {/* Source type toggle */}
+      <Text style={formStyles.label}>Source Type</Text>
+      <View style={formStyles.sourceToggleRow}>
+        <TouchableOpacity
+          style={[formStyles.sourceToggleBtn, form.source_type === 'upload' && formStyles.sourceToggleBtnActive]}
+          onPress={() => { console.log('[AdminScreen] Source type: upload'); setForm((f) => ({ ...f, source_type: 'upload' })); }}
+        >
+          <Text style={[formStyles.sourceToggleText, form.source_type === 'upload' && formStyles.sourceToggleTextActive]}>
+            Upload File
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[formStyles.sourceToggleBtn, form.source_type === 'youtube' && formStyles.sourceToggleBtnActive]}
+          onPress={() => { console.log('[AdminScreen] Source type: youtube'); setForm((f) => ({ ...f, source_type: 'youtube' })); }}
+        >
+          <Text style={[formStyles.sourceToggleText, form.source_type === 'youtube' && formStyles.sourceToggleTextActive]}>
+            YouTube URL
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-      <Text style={formStyles.label}>Thumbnail</Text>
-      <ImagePickerField
-        currentUrl={form.thumbnail_url}
-        localUri={thumbLocalUri}
-        uploading={uploadingThumb}
-        onPick={pickThumbnail}
-        label="Pick Thumbnail"
-      />
+      {form.source_type === 'upload' ? (
+        <>
+          <Text style={formStyles.label}>Video File {!isEdit ? '*' : ''}</Text>
+          <VideoPickerField
+            currentUrl={existingVideoUrl}
+            selectedName={videoName}
+            uploading={uploadingVideo}
+            onPick={pickVideo}
+          />
+
+          <Text style={formStyles.label}>Thumbnail</Text>
+          <ImagePickerField
+            currentUrl={existingThumbnailUrl}
+            localUri={thumbLocalUri}
+            uploading={uploadingThumb}
+            onPick={pickThumbnail}
+            label="Pick Thumbnail"
+          />
+        </>
+      ) : (
+        <>
+          <Text style={formStyles.label}>YouTube URL *</Text>
+          <View style={formStyles.ytRow}>
+            <TextInput
+              style={[formStyles.input, formStyles.ytInput]}
+              placeholder="https://www.youtube.com/watch?v=..."
+              placeholderTextColor={colors.textTertiary}
+              value={form.youtube_url}
+              onChangeText={(t) => {
+                setForm((f) => ({ ...f, youtube_url: t }));
+                setYtValidated(false);
+                setYtPreviewId(null);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+            <TouchableOpacity
+              style={formStyles.ytValidateBtn}
+              onPress={handleValidateYouTube}
+              disabled={!form.youtube_url.trim()}
+            >
+              <Text style={formStyles.ytValidateBtnText}>Validate</Text>
+            </TouchableOpacity>
+          </View>
+          {ytValidated && ytThumbUri ? (
+            <View style={formStyles.ytPreviewContainer}>
+              <Image source={resolveImageSource(ytThumbUri)} style={formStyles.preview} resizeMode="cover" />
+              <Text style={formStyles.ytValidatedText}>YouTube ID: {ytPreviewId}</Text>
+            </View>
+          ) : null}
+        </>
+      )}
 
       <View style={formStyles.switchRow}>
         <Text style={formStyles.switchLabel}>Published</Text>
         <Switch
-          value={!!form.is_published}
+          value={form.is_published}
           onValueChange={(v) => setForm((f) => ({ ...f, is_published: v }))}
           trackColor={{ false: colors.inactive, true: colors.primary }}
           thumbColor="#fff"
@@ -895,12 +1039,13 @@ export default function AdminScreen() {
   }, []);
 
   const fetchVideos = useCallback(async () => {
-    console.log('[AdminScreen] Fetching videos from /videos');
+    console.log('[AdminScreen] Fetching videos from /videos (admin — all including drafts)');
     setLoadingVideos(true);
     try {
-      const data = await adminFetch<{ videos: VideoItem[] }>('/videos', 'GET');
-      console.log('[AdminScreen] Videos received:', data?.videos?.length ?? 0);
-      setVideos((data?.videos ?? []).sort((a, b) => a.sort_order - b.sort_order));
+      const data = await adminFetch<any>('/videos', 'GET');
+      const list: VideoItem[] = Array.isArray(data) ? data : (data.videos ?? data.data ?? []);
+      console.log('[AdminScreen] Videos received:', list.length);
+      setVideos(list.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
     } catch (e: any) {
       console.error('[AdminScreen] Error fetching videos:', e);
       Alert.alert('Error', 'Failed to load videos');
@@ -1040,28 +1185,16 @@ export default function AdminScreen() {
 
   // ── Videos CRUD ────────────────────────────────────────────────────────────
 
-  const handleSaveVideo = async (data: Partial<VideoItem>) => {
-    try {
-      const payload = {
-        ...data,
-        is_published: data.is_published ?? true,
-        is_active: true,
-      };
-      if (data.id) {
-        console.log(`[AdminScreen] PUT /videos/${data.id}`, JSON.stringify(payload));
-        await adminFetch(`/videos/${data.id}`, 'PUT', payload);
-      } else {
-        console.log('[AdminScreen] POST /videos', JSON.stringify(payload));
-        await adminFetch('/videos', 'POST', payload);
-      }
-      Alert.alert('Success', `"${data.title}" saved successfully!`);
-      setFormVisible(false);
-      setEditingVideo(null);
-      await fetchVideos();
-    } catch (e: any) {
-      console.error('[AdminScreen] Video save error:', e);
-      Alert.alert('Save Failed', e.message || 'Failed to save video');
-    }
+  const handleSaveVideo = (saved: VideoItem) => {
+    console.log('[AdminScreen] Video saved successfully, id:', saved.id);
+    setVideos((prev) => {
+      const exists = prev.find((v) => v.id === saved.id);
+      if (exists) return prev.map((v) => v.id === saved.id ? saved : v);
+      return [saved, ...prev];
+    });
+    setFormVisible(false);
+    setEditingVideo(null);
+    fetchVideos();
   };
 
   const handleDeleteVideo = (id: string, title: string) => {
@@ -1394,11 +1527,13 @@ export default function AdminScreen() {
             ) : (
               videos.map((video, index) => {
                 const videoTitle = video.title;
+                const videoThumb = video.thumbnail_url ||
+                  (video.youtube_id ? `https://img.youtube.com/vi/${video.youtube_id}/hqdefault.jpg` : undefined);
                 return (
                   <View key={video.id} style={styles.listItem}>
                     <View style={styles.listItemLeft}>
-                      {video.thumbnail_url ? (
-                        <Image source={resolveImageSource(video.thumbnail_url)} style={styles.listItemThumb} resizeMode="cover" />
+                      {videoThumb ? (
+                        <Image source={resolveImageSource(videoThumb)} style={styles.listItemThumb} resizeMode="cover" />
                       ) : (
                         <View style={styles.listItemThumbPlaceholder}>
                           <Video size={16} color={colors.textSecondary} />
@@ -1849,5 +1984,62 @@ const formStyles = StyleSheet.create({
   },
   categoryBtnTextActive: {
     color: colors.background,
+  },
+  sourceToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  sourceToggleBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  sourceToggleBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  sourceToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  sourceToggleTextActive: {
+    color: colors.background,
+  },
+  ytRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  ytInput: {
+    flex: 1,
+  },
+  ytValidateBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ytValidateBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.background,
+  },
+  ytPreviewContainer: {
+    marginTop: 10,
+    gap: 6,
+  },
+  ytValidatedText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    paddingHorizontal: 4,
   },
 });

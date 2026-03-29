@@ -22,13 +22,16 @@ type Video = {
   id: string;
   title: string;
   description?: string;
-  video_url: string;
+  video_url?: string;
   thumbnail_url?: string;
   duration?: number;
   is_published: boolean;
   sort_order: number;
+  source_type?: 'upload' | 'youtube';
+  youtube_url?: string;
+  youtube_id?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 };
 
 function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
@@ -45,10 +48,23 @@ function formatDuration(seconds?: number): string {
   return `${m}:${sStr}`;
 }
 
+function getVideoThumbnail(video: Video): string | undefined {
+  if (video.thumbnail_url) return video.thumbnail_url;
+  if (video.youtube_id) return `https://img.youtube.com/vi/${video.youtube_id}/hqdefault.jpg`;
+  // Try to extract youtube_id from youtube_url if present
+  if (video.youtube_url) {
+    const match = video.youtube_url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+    if (match) return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+  }
+  return undefined;
+}
+
 function VideoCard({ video, onPress }: { video: Video; onPress: () => void }) {
-  const thumbSource = resolveImageSource(video.thumbnail_url);
+  const thumbUrl = getVideoThumbnail(video);
+  const thumbSource = resolveImageSource(thumbUrl);
   const durationText = formatDuration(video.duration);
-  const hasThumb = !!video.thumbnail_url;
+  const hasThumb = !!thumbUrl;
+  const isYouTube = video.source_type === 'youtube' || !!video.youtube_url;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
@@ -63,6 +79,11 @@ function VideoCard({ video, onPress }: { video: Video; onPress: () => void }) {
         <View style={styles.playButton}>
           <Play size={22} color="#fff" fill="#fff" />
         </View>
+        {isYouTube && (
+          <View style={styles.youtubeBadge}>
+            <Text style={styles.youtubeBadgeText}>YT</Text>
+          </View>
+        )}
         {durationText !== '' && (
           <View style={styles.durationBadge}>
             <Text style={styles.durationText}>{durationText}</Text>
@@ -90,7 +111,7 @@ export default function VideosScreen() {
     setError(null);
     try {
       const url = `${SUPABASE_FUNCTIONS_URL}/videos`;
-      console.log('[videos] Fetching videos from:', url);
+      console.log('[VideosScreen] Fetching videos from:', url);
 
       const res = await fetch(url, {
         headers: {
@@ -99,9 +120,9 @@ export default function VideosScreen() {
         },
       });
 
-      console.log('[videos] Response status:', res.status);
+      console.log('[VideosScreen] Response status:', res.status);
       const text = await res.text();
-      console.log('[videos] Response body:', text.substring(0, 300));
+      console.log('[VideosScreen] Response body:', text.substring(0, 300));
 
       if (!res.ok) {
         throw new Error(`Failed to load videos (${res.status})`);
@@ -109,10 +130,10 @@ export default function VideosScreen() {
 
       const data = JSON.parse(text);
       const videoList: Video[] = Array.isArray(data) ? data : (data.videos ?? data.data ?? []);
-      console.log('[videos] Loaded', videoList.length, 'videos');
+      console.log('[VideosScreen] Loaded', videoList.length, 'videos');
       setVideos(videoList);
     } catch (err: any) {
-      console.error('[videos] fetchVideos error:', err);
+      console.error('[VideosScreen] fetchVideos error:', err);
       setError(err.message ?? 'Failed to load videos');
     } finally {
       setLoading(false);
@@ -126,13 +147,15 @@ export default function VideosScreen() {
   );
 
   const handleVideoPress = (video: Video) => {
-    console.log(`[VideosScreen] Video pressed: ${video.title}`);
+    console.log(`[VideosScreen] Video pressed: ${video.title}, source_type: ${video.source_type}`);
+    const videoUrl = video.youtube_url || video.video_url || '';
     router.push({
       pathname: '/video-player',
       params: {
-        video_url: video.video_url,
+        video_url: videoUrl,
         title: video.title,
         description: video.description ?? '',
+        source_type: video.source_type ?? 'upload',
       },
     });
   };
@@ -292,6 +315,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.8)',
+  },
+  youtubeBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#FF0000',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  youtubeBadgeText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   durationBadge: {
     position: 'absolute',
