@@ -17,12 +17,14 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdmin } from '@/contexts/AdminContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { supabase, SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
+import { uploadToSupabase } from '@/utils/uploadToSupabase';
 import {
   Plus,
   Pencil,
@@ -36,6 +38,9 @@ import {
   Video,
   LogOut,
   X,
+  Upload,
+  FileAudio,
+  FileVideo,
 } from 'lucide-react-native';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -49,6 +54,8 @@ type Song = {
   category: SongCategory;
   file_url: string;
   cover_url?: string;
+  audio_url?: string;
+  cover_image_url?: string;
   price: number;
   is_active: boolean;
   is_published: boolean;
@@ -110,6 +117,113 @@ async function adminFetch<T>(path: string, method: string, body?: any): Promise<
   return res.json();
 }
 
+// ─── File Picker Subcomponents ────────────────────────────────────────────────
+
+type AudioPickerProps = {
+  currentUrl?: string;
+  selectedName?: string;
+  uploading: boolean;
+  onPick: () => void;
+};
+
+function AudioPickerField({ currentUrl, selectedName, uploading, onPick }: AudioPickerProps) {
+  const hasFile = !!selectedName || !!currentUrl;
+  const displayName = selectedName || (currentUrl ? currentUrl.split('/').pop() : undefined);
+  const labelText = uploading ? 'Uploading...' : hasFile ? 'Replace Audio File' : 'Pick Audio File';
+
+  return (
+    <View>
+      <TouchableOpacity
+        style={[formStyles.pickerBtn, uploading && formStyles.pickerBtnDisabled]}
+        onPress={() => { console.log('[AdminScreen] Pick audio file pressed'); onPick(); }}
+        disabled={uploading}
+      >
+        {uploading ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <FileAudio size={18} color={colors.primary} />
+        )}
+        <Text style={formStyles.pickerBtnText}>{labelText}</Text>
+      </TouchableOpacity>
+      {displayName ? (
+        <View style={formStyles.fileNameRow}>
+          <Music size={14} color={colors.textSecondary} />
+          <Text style={formStyles.fileName} numberOfLines={1}>{displayName}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+type VideoPickerProps = {
+  currentUrl?: string;
+  selectedName?: string;
+  uploading: boolean;
+  onPick: () => void;
+};
+
+function VideoPickerField({ currentUrl, selectedName, uploading, onPick }: VideoPickerProps) {
+  const hasFile = !!selectedName || !!currentUrl;
+  const displayName = selectedName || (currentUrl ? currentUrl.split('/').pop() : undefined);
+  const labelText = uploading ? 'Uploading...' : hasFile ? 'Replace Video File' : 'Pick Video File';
+
+  return (
+    <View>
+      <TouchableOpacity
+        style={[formStyles.pickerBtn, uploading && formStyles.pickerBtnDisabled]}
+        onPress={() => { console.log('[AdminScreen] Pick video file pressed'); onPick(); }}
+        disabled={uploading}
+      >
+        {uploading ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <FileVideo size={18} color={colors.primary} />
+        )}
+        <Text style={formStyles.pickerBtnText}>{labelText}</Text>
+      </TouchableOpacity>
+      {displayName ? (
+        <View style={formStyles.fileNameRow}>
+          <Video size={14} color={colors.textSecondary} />
+          <Text style={formStyles.fileName} numberOfLines={1}>{displayName}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+type ImagePickerFieldProps = {
+  currentUrl?: string;
+  localUri?: string;
+  uploading: boolean;
+  onPick: () => void;
+  label?: string;
+};
+
+function ImagePickerField({ currentUrl, localUri, uploading, onPick, label = 'Pick Image' }: ImagePickerFieldProps) {
+  const previewUri = localUri || currentUrl;
+  const btnLabel = uploading ? 'Uploading...' : previewUri ? 'Replace Image' : label;
+
+  return (
+    <View>
+      <TouchableOpacity
+        style={[formStyles.pickerBtn, uploading && formStyles.pickerBtnDisabled]}
+        onPress={() => { console.log('[AdminScreen] Pick image pressed'); onPick(); }}
+        disabled={uploading}
+      >
+        {uploading ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Upload size={18} color={colors.primary} />
+        )}
+        <Text style={formStyles.pickerBtnText}>{btnLabel}</Text>
+      </TouchableOpacity>
+      {previewUri ? (
+        <Image source={resolveImageSource(previewUri)} style={formStyles.preview} resizeMode="cover" />
+      ) : null}
+    </View>
+  );
+}
+
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
 function PublishedBadge({ published }: { published: boolean }) {
@@ -133,8 +247,6 @@ type SongFormState = {
   category: SongCategory;
   price: string;
   is_published: boolean;
-  file_url: string;
-  cover_url: string;
 };
 
 function SongForm({
@@ -153,28 +265,116 @@ function SongForm({
     category: initial.category || 'exclusive',
     price: initial.price !== undefined ? String(initial.price) : '0',
     is_published: initial.is_published ?? false,
-    file_url: initial.file_url || '',
-    cover_url: initial.cover_url || '',
   });
+
+  // Audio file state
+  const [audioUri, setAudioUri] = useState<string | undefined>(undefined);
+  const [audioName, setAudioName] = useState<string | undefined>(undefined);
+  const [audioMime, setAudioMime] = useState<string>('audio/mpeg');
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+
+  // Cover image state
+  const [coverLocalUri, setCoverLocalUri] = useState<string | undefined>(undefined);
+  const [coverMime, setCoverMime] = useState<string>('image/jpeg');
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  const existingAudioUrl = initial.audio_url || initial.file_url;
+  const existingCoverUrl = initial.cover_image_url || initial.cover_url;
+
   const [saving, setSaving] = useState(false);
+  const isUploading = uploadingAudio || uploadingCover;
+
+  const pickAudio = async () => {
+    console.log('[AdminScreen] Opening document picker for audio');
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) {
+        console.log('[AdminScreen] Audio picker cancelled');
+        return;
+      }
+      const asset = result.assets[0];
+      console.log('[AdminScreen] Audio selected:', asset.name, asset.mimeType);
+      setAudioUri(asset.uri);
+      setAudioName(asset.name);
+      setAudioMime(asset.mimeType || 'audio/mpeg');
+    } catch (e: any) {
+      console.error('[AdminScreen] Audio picker error:', e);
+      Alert.alert('Error', 'Failed to pick audio file');
+    }
+  };
+
+  const pickCover = async () => {
+    console.log('[AdminScreen] Opening image picker for song cover');
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.85,
+      });
+      if (result.canceled) {
+        console.log('[AdminScreen] Cover image picker cancelled');
+        return;
+      }
+      const asset = result.assets[0];
+      console.log('[AdminScreen] Cover image selected:', asset.uri);
+      setCoverLocalUri(asset.uri);
+      const ext = asset.uri.split('.').pop()?.toLowerCase();
+      setCoverMime(ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg');
+    } catch (e: any) {
+      console.error('[AdminScreen] Cover picker error:', e);
+      Alert.alert('Error', 'Failed to pick cover image');
+    }
+  };
 
   const handleSave = async () => {
     if (!form.title.trim()) { Alert.alert('Validation', 'Title is required'); return; }
     if (!form.artist.trim()) { Alert.alert('Validation', 'Artist is required'); return; }
-    if (!isEdit && !form.file_url.trim()) { Alert.alert('Validation', 'Audio file URL is required'); return; }
+    if (!isEdit && !audioUri) { Alert.alert('Validation', 'Audio file is required'); return; }
 
     console.log('[AdminScreen] Saving song:', form.title, 'isEdit:', isEdit);
     setSaving(true);
     try {
+      let audioUrl = existingAudioUrl || '';
+      let coverUrl = existingCoverUrl || '';
+
+      if (audioUri) {
+        console.log('[AdminScreen] Uploading audio file...');
+        setUploadingAudio(true);
+        try {
+          audioUrl = await uploadToSupabase(audioUri, 'songs', audioMime);
+          console.log('[AdminScreen] Audio uploaded:', audioUrl);
+        } finally {
+          setUploadingAudio(false);
+        }
+      }
+
+      if (coverLocalUri) {
+        console.log('[AdminScreen] Uploading cover image...');
+        setUploadingCover(true);
+        try {
+          coverUrl = await uploadToSupabase(coverLocalUri, 'song-covers', coverMime);
+          console.log('[AdminScreen] Cover uploaded:', coverUrl);
+        } finally {
+          setUploadingCover(false);
+        }
+      }
+
       const payload = {
         title: form.title,
         artist: form.artist,
         category: form.category,
         price: parseFloat(form.price) || 0,
         is_published: form.is_published,
-        file_url: form.file_url,
-        cover_url: form.cover_url || undefined,
+        audio_url: audioUrl || undefined,
+        cover_image_url: coverUrl || undefined,
+        // keep legacy fields in sync
+        file_url: audioUrl || undefined,
+        cover_url: coverUrl || undefined,
       };
+
       let result: Song;
       if (isEdit) {
         result = await adminFetch<Song>(`/songs/${initial.id}`, 'PUT', payload);
@@ -190,6 +390,8 @@ function SongForm({
       setSaving(false);
     }
   };
+
+  const isBusy = saving || isUploading;
 
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.container}>
@@ -217,6 +419,7 @@ function SongForm({
       <View style={formStyles.categoryRow}>
         {SONG_CATEGORIES.map((cat) => {
           const isActive = form.category === cat;
+          const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
           return (
             <TouchableOpacity
               key={cat}
@@ -224,7 +427,7 @@ function SongForm({
               onPress={() => { console.log('[AdminScreen] Category selected:', cat); setForm((f) => ({ ...f, category: cat })); }}
             >
               <Text style={[formStyles.categoryBtnText, isActive && formStyles.categoryBtnTextActive]}>
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {catLabel}
               </Text>
             </TouchableOpacity>
           );
@@ -241,31 +444,22 @@ function SongForm({
         keyboardType="decimal-pad"
       />
 
-      <Text style={formStyles.label}>Audio File URL {!isEdit ? '*' : ''}</Text>
-      <TextInput
-        style={formStyles.input}
-        placeholder="https://example.com/song.mp3"
-        placeholderTextColor={colors.textTertiary}
-        value={form.file_url}
-        onChangeText={(t) => setForm((f) => ({ ...f, file_url: t }))}
-        autoCapitalize="none"
-        keyboardType="url"
+      <Text style={formStyles.label}>Audio File {!isEdit ? '*' : ''}</Text>
+      <AudioPickerField
+        currentUrl={existingAudioUrl}
+        selectedName={audioName}
+        uploading={uploadingAudio}
+        onPick={pickAudio}
       />
 
-      <Text style={formStyles.label}>Cover Image URL</Text>
-      <TextInput
-        style={formStyles.input}
-        placeholder="https://example.com/cover.jpg"
-        placeholderTextColor={colors.textTertiary}
-        value={form.cover_url}
-        onChangeText={(t) => setForm((f) => ({ ...f, cover_url: t }))}
-        autoCapitalize="none"
-        keyboardType="url"
+      <Text style={formStyles.label}>Cover Image</Text>
+      <ImagePickerField
+        currentUrl={existingCoverUrl}
+        localUri={coverLocalUri}
+        uploading={uploadingCover}
+        onPick={pickCover}
+        label="Pick Cover Image"
       />
-
-      {form.cover_url ? (
-        <Image source={resolveImageSource(form.cover_url)} style={formStyles.preview} resizeMode="cover" />
-      ) : null}
 
       <View style={formStyles.switchRow}>
         <Text style={formStyles.switchLabel}>Published</Text>
@@ -278,10 +472,10 @@ function SongForm({
       </View>
 
       <View style={formStyles.actions}>
-        <TouchableOpacity style={formStyles.saveBtn} onPress={handleSave} disabled={saving}>
-          {saving ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
+        <TouchableOpacity style={[formStyles.saveBtn, isBusy && formStyles.saveBtnDisabled]} onPress={handleSave} disabled={isBusy}>
+          {isBusy ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
         </TouchableOpacity>
-        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel} disabled={saving}>
+        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel} disabled={isBusy}>
           <Text style={formStyles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
       </View>
@@ -303,19 +497,63 @@ function MerchForm({
   const [form, setForm] = useState<Partial<MerchItem>>(initial);
   const [saving, setSaving] = useState(false);
 
+  const [imageLocalUri, setImageLocalUri] = useState<string | undefined>(undefined);
+  const [imageMime, setImageMime] = useState<string>('image/jpeg');
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const pickImage = async () => {
+    console.log('[AdminScreen] Opening image picker for merch');
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.85,
+      });
+      if (result.canceled) {
+        console.log('[AdminScreen] Merch image picker cancelled');
+        return;
+      }
+      const asset = result.assets[0];
+      console.log('[AdminScreen] Merch image selected:', asset.uri);
+      setImageLocalUri(asset.uri);
+      const ext = asset.uri.split('.').pop()?.toLowerCase();
+      setImageMime(ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg');
+    } catch (e: any) {
+      console.error('[AdminScreen] Merch image picker error:', e);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
   const handleSave = async () => {
     if (!form.name?.trim()) { Alert.alert('Validation', 'Name is required'); return; }
     if (form.price === undefined || form.price === null) { Alert.alert('Validation', 'Price is required'); return; }
     console.log('[AdminScreen] Saving merch:', form.name);
     setSaving(true);
     try {
-      await onSave(form);
+      let imageUrl = form.image_url;
+
+      if (imageLocalUri) {
+        console.log('[AdminScreen] Uploading merch image...');
+        setUploadingImage(true);
+        try {
+          imageUrl = await uploadToSupabase(imageLocalUri, 'merch-images', imageMime);
+          console.log('[AdminScreen] Merch image uploaded:', imageUrl);
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+
+      await onSave({ ...form, image_url: imageUrl });
+    } catch (e: any) {
+      console.error('[AdminScreen] Merch save error:', e);
+      Alert.alert('Error', e.message || 'Failed to save merch');
     } finally {
       setSaving(false);
     }
   };
 
   const priceStr = form.price !== undefined ? String(form.price) : '';
+  const isBusy = saving || uploadingImage;
 
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.container}>
@@ -361,20 +599,14 @@ function MerchForm({
         keyboardType="number-pad"
       />
 
-      <Text style={formStyles.label}>Image URL</Text>
-      <TextInput
-        style={formStyles.input}
-        placeholder="https://example.com/image.jpg"
-        placeholderTextColor={colors.textTertiary}
-        value={form.image_url || ''}
-        onChangeText={(t) => setForm((f) => ({ ...f, image_url: t }))}
-        autoCapitalize="none"
-        keyboardType="url"
+      <Text style={formStyles.label}>Image</Text>
+      <ImagePickerField
+        currentUrl={form.image_url}
+        localUri={imageLocalUri}
+        uploading={uploadingImage}
+        onPick={pickImage}
+        label="Pick Merch Image"
       />
-
-      {form.image_url ? (
-        <Image source={resolveImageSource(form.image_url)} style={formStyles.preview} resizeMode="cover" />
-      ) : null}
 
       <View style={formStyles.switchRow}>
         <Text style={formStyles.switchLabel}>Published</Text>
@@ -387,10 +619,10 @@ function MerchForm({
       </View>
 
       <View style={formStyles.actions}>
-        <TouchableOpacity style={formStyles.saveBtn} onPress={handleSave} disabled={saving}>
-          {saving ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
+        <TouchableOpacity style={[formStyles.saveBtn, isBusy && formStyles.saveBtnDisabled]} onPress={handleSave} disabled={isBusy}>
+          {isBusy ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
         </TouchableOpacity>
-        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel}>
+        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel} disabled={isBusy}>
           <Text style={formStyles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
       </View>
@@ -412,17 +644,105 @@ function VideoForm({
   const [form, setForm] = useState<Partial<VideoItem>>(initial);
   const [saving, setSaving] = useState(false);
 
+  const [videoUri, setVideoUri] = useState<string | undefined>(undefined);
+  const [videoName, setVideoName] = useState<string | undefined>(undefined);
+  const [videoMime, setVideoMime] = useState<string>('video/mp4');
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+
+  const [thumbLocalUri, setThumbLocalUri] = useState<string | undefined>(undefined);
+  const [thumbMime, setThumbMime] = useState<string>('image/jpeg');
+  const [uploadingThumb, setUploadingThumb] = useState(false);
+
+  const pickVideo = async () => {
+    console.log('[AdminScreen] Opening document picker for video');
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'video/*',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) {
+        console.log('[AdminScreen] Video picker cancelled');
+        return;
+      }
+      const asset = result.assets[0];
+      console.log('[AdminScreen] Video selected:', asset.name, asset.mimeType);
+      setVideoUri(asset.uri);
+      setVideoName(asset.name);
+      setVideoMime(asset.mimeType || 'video/mp4');
+    } catch (e: any) {
+      console.error('[AdminScreen] Video picker error:', e);
+      Alert.alert('Error', 'Failed to pick video file');
+    }
+  };
+
+  const pickThumbnail = async () => {
+    console.log('[AdminScreen] Opening image picker for video thumbnail');
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.85,
+      });
+      if (result.canceled) {
+        console.log('[AdminScreen] Thumbnail picker cancelled');
+        return;
+      }
+      const asset = result.assets[0];
+      console.log('[AdminScreen] Thumbnail selected:', asset.uri);
+      setThumbLocalUri(asset.uri);
+      const ext = asset.uri.split('.').pop()?.toLowerCase();
+      setThumbMime(ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg');
+    } catch (e: any) {
+      console.error('[AdminScreen] Thumbnail picker error:', e);
+      Alert.alert('Error', 'Failed to pick thumbnail');
+    }
+  };
+
   const handleSave = async () => {
     if (!form.title?.trim()) { Alert.alert('Validation', 'Title is required'); return; }
-    if (!form.video_url?.trim() && !initial.id) { Alert.alert('Validation', 'Video URL is required'); return; }
+    if (!initial.id && !videoUri) { Alert.alert('Validation', 'Video file is required'); return; }
     console.log('[AdminScreen] Saving video:', form.title);
     setSaving(true);
     try {
-      await onSave(form);
+      let videoUrl = form.video_url || '';
+      let thumbnailUrl = form.thumbnail_url || '';
+
+      if (videoUri) {
+        console.log('[AdminScreen] Uploading video file...');
+        setUploadingVideo(true);
+        try {
+          videoUrl = await uploadToSupabase(videoUri, 'videos', videoMime);
+          console.log('[AdminScreen] Video uploaded:', videoUrl);
+        } finally {
+          setUploadingVideo(false);
+        }
+      }
+
+      if (thumbLocalUri) {
+        console.log('[AdminScreen] Uploading thumbnail...');
+        setUploadingThumb(true);
+        try {
+          thumbnailUrl = await uploadToSupabase(thumbLocalUri, 'video-thumbnails', thumbMime);
+          console.log('[AdminScreen] Thumbnail uploaded:', thumbnailUrl);
+        } finally {
+          setUploadingThumb(false);
+        }
+      }
+
+      await onSave({
+        ...form,
+        video_url: videoUrl || undefined,
+        thumbnail_url: thumbnailUrl || undefined,
+      });
+    } catch (e: any) {
+      console.error('[AdminScreen] Video save error:', e);
+      Alert.alert('Error', e.message || 'Failed to save video');
     } finally {
       setSaving(false);
     }
   };
+
+  const isBusy = saving || uploadingVideo || uploadingThumb;
 
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.container}>
@@ -448,31 +768,22 @@ function VideoForm({
         numberOfLines={3}
       />
 
-      <Text style={formStyles.label}>Video URL {!initial.id ? '*' : ''}</Text>
-      <TextInput
-        style={formStyles.input}
-        placeholder="https://example.com/video.mp4"
-        placeholderTextColor={colors.textTertiary}
-        value={form.video_url || ''}
-        onChangeText={(t) => setForm((f) => ({ ...f, video_url: t }))}
-        autoCapitalize="none"
-        keyboardType="url"
+      <Text style={formStyles.label}>Video File {!initial.id ? '*' : ''}</Text>
+      <VideoPickerField
+        currentUrl={form.video_url}
+        selectedName={videoName}
+        uploading={uploadingVideo}
+        onPick={pickVideo}
       />
 
-      <Text style={formStyles.label}>Thumbnail URL</Text>
-      <TextInput
-        style={formStyles.input}
-        placeholder="https://example.com/thumb.jpg"
-        placeholderTextColor={colors.textTertiary}
-        value={form.thumbnail_url || ''}
-        onChangeText={(t) => setForm((f) => ({ ...f, thumbnail_url: t }))}
-        autoCapitalize="none"
-        keyboardType="url"
+      <Text style={formStyles.label}>Thumbnail</Text>
+      <ImagePickerField
+        currentUrl={form.thumbnail_url}
+        localUri={thumbLocalUri}
+        uploading={uploadingThumb}
+        onPick={pickThumbnail}
+        label="Pick Thumbnail"
       />
-
-      {form.thumbnail_url ? (
-        <Image source={resolveImageSource(form.thumbnail_url)} style={formStyles.preview} resizeMode="cover" />
-      ) : null}
 
       <View style={formStyles.switchRow}>
         <Text style={formStyles.switchLabel}>Published</Text>
@@ -485,10 +796,10 @@ function VideoForm({
       </View>
 
       <View style={formStyles.actions}>
-        <TouchableOpacity style={formStyles.saveBtn} onPress={handleSave} disabled={saving}>
-          {saving ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
+        <TouchableOpacity style={[formStyles.saveBtn, isBusy && formStyles.saveBtnDisabled]} onPress={handleSave} disabled={isBusy}>
+          {isBusy ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={formStyles.saveBtnText}>Save</Text>}
         </TouchableOpacity>
-        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel}>
+        <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel} disabled={isBusy}>
           <Text style={formStyles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
       </View>
@@ -902,11 +1213,12 @@ export default function AdminScreen() {
               songs.map((song, index) => {
                 const songTitle = song.title;
                 const songArtist = song.artist;
+                const coverUri = song.cover_image_url || song.cover_url;
                 return (
                   <View key={song.id} style={styles.listItem}>
                     <View style={styles.listItemLeft}>
-                      {song.cover_url ? (
-                        <Image source={resolveImageSource(song.cover_url)} style={styles.listItemThumb} resizeMode="cover" />
+                      {coverUri ? (
+                        <Image source={resolveImageSource(coverUri)} style={styles.listItemThumb} resizeMode="cover" />
                       ) : (
                         <View style={styles.listItemThumbPlaceholder}>
                           <Music size={16} color={colors.textSecondary} />
@@ -1375,6 +1687,37 @@ const formStyles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
+  pickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  pickerBtnDisabled: {
+    opacity: 0.6,
+  },
+  pickerBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  fileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  fileName: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
   preview: {
     width: '100%',
     height: 160,
@@ -1406,6 +1749,9 @@ const formStyles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  saveBtnDisabled: {
+    opacity: 0.6,
   },
   saveBtnText: {
     fontSize: 16,
