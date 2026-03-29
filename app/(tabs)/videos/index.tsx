@@ -156,7 +156,7 @@ export default function VideosScreen() {
         <View style={styles.centered}>
           <VideoIcon size={48} color={colors.textSecondary} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchVideos}>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => { console.log('[VideosScreen] Retry pressed'); fetchVideos(); }}>
             <Text style={styles.retryBtnText}>Retry</Text>
           </TouchableOpacity>
         </View>

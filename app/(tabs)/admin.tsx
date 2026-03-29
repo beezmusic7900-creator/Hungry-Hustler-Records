@@ -406,8 +406,8 @@ function SongForm({
       Alert.alert('Success', `"${result.title}" saved successfully!`);
       onSave(result);
     } catch (e: any) {
-      console.error('[AdminScreen] Song save error:', e);
-      Alert.alert('Save Failed', e.message || 'Failed to save song');
+      console.error('[SongForm] Save error:', e);
+      Alert.alert('Save Failed', e?.message ?? 'Unknown error. Check console for details.');
     } finally {
       setSaving(false);
     }
@@ -578,8 +578,8 @@ function MerchForm({
 
       await onSave({ ...form, image_url: imageUrl });
     } catch (e: any) {
-      console.error('[AdminScreen] Merch save error:', e);
-      Alert.alert('Error', e.message || 'Failed to save merch');
+      console.error('[MerchForm] Save error:', e);
+      Alert.alert('Save Failed', e?.message ?? 'Unknown error. Check console for details.');
     } finally {
       setSaving(false);
     }
@@ -768,8 +768,8 @@ function VideoForm({
         thumbnail_url: thumbnailUrl || undefined,
       });
     } catch (e: any) {
-      console.error('[AdminScreen] Video save error:', e);
-      Alert.alert('Error', e.message || 'Failed to save video');
+      console.error('[VideoForm] Save error:', e);
+      Alert.alert('Save Failed', e?.message ?? 'Unknown error. Check console for details.');
     } finally {
       setSaving(false);
     }

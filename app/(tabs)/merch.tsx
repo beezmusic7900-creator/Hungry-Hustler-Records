@@ -244,8 +244,8 @@ export default function MerchScreen() {
             ) : error ? (
               <View style={styles.errorRow}>
                 <Text style={styles.errorText}>{error}</Text>
-                <TouchableOpacity onPress={fetchMerch}>
-                  <Text style={styles.retryText}>Retry</Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={() => { console.log('[MerchScreen] Retry pressed'); fetchMerch(); }}>
+                  <Text style={styles.retryBtnText}>Retry</Text>
                 </TouchableOpacity>
               </View>
             ) : apiMerch.length > 0 ? (
@@ -411,9 +411,15 @@ const styles = StyleSheet.create({
     color: colors.error,
     textAlign: 'center',
   },
-  retryText: {
+  retryBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  retryBtnText: {
     fontSize: 14,
-    color: colors.primary,
+    color: colors.background,
     fontWeight: '700',
   },
   apiGrid: {

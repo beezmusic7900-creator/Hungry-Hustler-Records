@@ -21,9 +21,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      setLoading(false);
+      try {
+        setSession(s);
+        setUser(s?.user ?? null);
+      } catch (e) {
+        console.warn('[AuthContext] State update error:', e);
+      } finally {
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
