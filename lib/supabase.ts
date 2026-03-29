@@ -51,6 +51,14 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
+const originalConsoleError = console.error;
+console.error = (...args: unknown[]) => {
+  if (typeof args[0] === 'string' && args[0].includes('auto refresh tick failed')) {
+    return;
+  }
+  originalConsoleError(...args);
+};
+
 let supabaseInstance: ReturnType<typeof createClient>;
 try {
   supabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
