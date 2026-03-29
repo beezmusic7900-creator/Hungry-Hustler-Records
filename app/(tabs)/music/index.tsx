@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,17 @@ import {
   ActivityIndicator,
   Image,
   Platform,
+  Linking,
+  Alert,
   ImageSourcePropType,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { Play, Pause, X, Music, Lock } from 'lucide-react-native';
+import { Play, Pause, X, Music, Lock, ShoppingCart, Download, CheckCircle } from 'lucide-react-native';
 import { colors } from '@/styles/commonStyles';
-import { SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
+import { supabase, SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
+import * as FileSystem from 'expo-file-system/legacy';
 
 type Song = {
   id: string;
@@ -35,7 +38,9 @@ type Song = {
   created_at?: string;
 };
 
-function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
+function resolveImageSource(
+  source: string | number | ImageSourcePropType | undefined
+): ImageSourcePropType {
   if (!source) return { uri: '' };
   if (typeof source === 'string') return { uri: source };
   return source as ImageSourcePropType;
@@ -49,42 +54,147 @@ function formatDuration(seconds?: number): string {
   return `${m}:${sStr}`;
 }
 
-function formatPrice(price: number): string {
-  const num = Number(price);
-  if (!num || num <= 0) return 'Free';
-  return `$${num.toFixed(2)}`;
+// ─── SongRow ────────────────────────────────────────────────────────────────
+
+function SongRow({
+  song,
+  isActive,
+  isPlaying,
+  isPurchased,
+  isPurchasing,
+  isDownloading,
+  onPress,
+  onDownload,
+}: {
+  song: Song;
+  isActive: boolean;
+  isPlaying: boolean;
+  isPurchased: boolean;
+  isPurchasing: boolean;
+  isDownloading: boolean;
+  onPress: () => void;
+  onDownload: () => void;
+}) {
+  const isPaid = Number(song.price) > 0;
+  const isLocked = isPaid && !isPurchased;
+  const coverUri = song.cover_image_url || song.cover_url;
+  const coverSource = resolveImageSource(coverUri);
+  const durationText = formatDuration(song.duration);
+  const priceText = `$${Number(song.price).toFixed(2)}`;
+
+  return (
+    <TouchableOpacity
+      style={[styles.songRow, isActive && styles.songRowActive]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.coverContainer}>
+        {coverUri ? (
+          <Image source={coverSource} style={styles.cover} resizeMode="cover" />
+        ) : (
+          <View style={styles.coverPlaceholder}>
+            <Music size={22} color={colors.primary} />
+          </View>
+        )}
+        {isActive && !isLocked && (
+          <View style={styles.playOverlay}>
+            {isPlaying ? (
+              <Pause size={18} color="#fff" fill="#fff" />
+            ) : (
+              <Play size={18} color="#fff" fill="#fff" />
+            )}
+          </View>
+        )}
+        {isLocked && (
+          <View style={styles.lockOverlay}>
+            <Lock size={16} color="#fff" />
+          </View>
+        )}
+      </View>
+
+      <View style={styles.songInfo}>
+        <View style={styles.titleRow}>
+          <Text
+            style={[styles.songTitle, isActive && !isLocked && styles.songTitleActive]}
+            numberOfLines={1}
+          >
+            {song.title}
+          </Text>
+          {isPurchased && isPaid && (
+            <CheckCircle size={12} color={colors.primary} />
+          )}
+        </View>
+        <Text style={styles.songArtist} numberOfLines={1}>
+          {song.artist}
+        </Text>
+      </View>
+
+      <View style={styles.rightCol}>
+        {isLocked ? (
+          <TouchableOpacity
+            style={styles.buyBtn}
+            onPress={onPress}
+            disabled={isPurchasing}
+          >
+            {isPurchasing ? (
+              <ActivityIndicator size="small" color={colors.background} />
+            ) : (
+              <>
+                <ShoppingCart size={12} color={colors.background} />
+                <Text style={styles.buyBtnText}>{priceText}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : isPaid && isPurchased ? (
+          <TouchableOpacity
+            style={styles.downloadBtn}
+            onPress={onDownload}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Download size={16} color={colors.primary} />
+            )}
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.freeTag}>Free</Text>
+        )}
+        <Text style={styles.duration}>{durationText}</Text>
+      </View>
+    </TouchableOpacity>
+  );
 }
+
+// ─── MiniPlayer ─────────────────────────────────────────────────────────────
 
 function MiniPlayer({
   song,
   player,
+  status,
   onClose,
 }: {
   song: Song;
   player: ReturnType<typeof useAudioPlayer>;
+  status: ReturnType<typeof useAudioPlayerStatus>;
   onClose: () => void;
 }) {
-  const status = useAudioPlayerStatus(player);
+  const coverUri = song.cover_image_url || song.cover_url;
+  const coverSource = resolveImageSource(coverUri);
   const isPlaying = status.playing;
 
   const handlePlayPause = () => {
-    console.log(`[ExclusiveSongs] MiniPlayer play/pause pressed: ${song.title}, isPlaying: ${isPlaying}`);
-    if (isPlaying) {
-      player.pause();
-    } else {
-      player.play();
+    console.log(`[MiniPlayer] play/pause pressed: "${song.title}", isPlaying=${isPlaying}, isLoaded=${status.isLoaded}`);
+    try {
+      if (isPlaying) {
+        player.pause();
+      } else if (status.isLoaded) {
+        player.play();
+      }
+    } catch (e) {
+      console.warn('[MiniPlayer] play/pause failed:', e);
     }
   };
-
-  const handleClose = () => {
-    console.log(`[ExclusiveSongs] MiniPlayer close pressed: ${song.title}`);
-    player.pause();
-    onClose();
-  };
-
-  const coverUri = song.cover_image_url || song.cover_url;
-  const coverSource = resolveImageSource(coverUri);
-  const priceLabel = formatPrice(song.price);
 
   return (
     <View style={miniStyles.container}>
@@ -98,11 +208,12 @@ function MiniPlayer({
         )}
       </View>
       <View style={miniStyles.info}>
-        <Text style={miniStyles.title} numberOfLines={1}>{song.title}</Text>
-        <View style={miniStyles.metaRow}>
-          <Text style={miniStyles.artist} numberOfLines={1}>{song.artist}</Text>
-          <Text style={miniStyles.price}>{priceLabel}</Text>
-        </View>
+        <Text style={miniStyles.title} numberOfLines={1}>
+          {song.title}
+        </Text>
+        <Text style={miniStyles.artist} numberOfLines={1}>
+          {song.artist}
+        </Text>
       </View>
       <TouchableOpacity style={miniStyles.actionBtn} onPress={handlePlayPause}>
         {isPlaying ? (
@@ -111,158 +222,282 @@ function MiniPlayer({
           <Play size={24} color={colors.primary} fill={colors.primary} />
         )}
       </TouchableOpacity>
-      <TouchableOpacity style={miniStyles.actionBtn} onPress={handleClose}>
+      <TouchableOpacity style={miniStyles.actionBtn} onPress={onClose}>
         <X size={22} color={colors.textSecondary} />
       </TouchableOpacity>
     </View>
   );
 }
 
-function SongRow({
-  song,
-  isActive,
-  isPlaying,
-  onPress,
-}: {
-  song: Song;
-  isActive: boolean;
-  isPlaying: boolean;
-  onPress: () => void;
-}) {
-  const durationText = formatDuration(song.duration);
-  const priceText = formatPrice(song.price);
-  const songCoverUri = song.cover_image_url || song.cover_url;
-  const coverSource = resolveImageSource(songCoverUri);
-  const isPaid = Number(song.price) > 0;
-
-  return (
-    <TouchableOpacity
-      style={[styles.songRow, isActive && styles.songRowActive]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.coverContainer}>
-        {songCoverUri ? (
-          <Image source={coverSource} style={styles.cover} resizeMode="cover" />
-        ) : (
-          <View style={styles.coverPlaceholder}>
-            <Music size={22} color={colors.primary} />
-          </View>
-        )}
-        {isActive && (
-          <View style={styles.playOverlay}>
-            {isPlaying ? (
-              <Pause size={18} color="#fff" fill="#fff" />
-            ) : (
-              <Play size={18} color="#fff" fill="#fff" />
-            )}
-          </View>
-        )}
-      </View>
-      <View style={styles.songInfo}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.songTitle, isActive && styles.songTitleActive]} numberOfLines={1}>
-            {song.title}
-          </Text>
-          {isPaid && <Lock size={12} color={colors.primary} style={styles.lockIcon} />}
-        </View>
-        <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
-      </View>
-      <View style={styles.rightCol}>
-        <Text style={[styles.priceTag, isPaid && styles.priceTagPaid]}>{priceText}</Text>
-        <Text style={styles.duration}>{durationText}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
+// ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function ExclusiveSongsScreen() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSong, setActiveSong] = useState<Song | null>(null);
-  const [miniPlayerVisible, setMiniPlayerVisible] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
+  const [purchasedIds, setPurchasedIds] = useState<Set<string>>(new Set());
+  const [purchasingId, setPurchasingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const activeSongAudioUrl = activeSong ? (activeSong.audio_url || activeSong.file_url || '') : '';
-  const player = useAudioPlayer(activeSong ? { uri: activeSongAudioUrl } : null);
+  const isMounted = useRef(true);
+  const pendingPlayRef = useRef(false);
+
+  // Stable audio source — only set after we have a confirmed non-empty URI
+  const audioUri = activeSong
+    ? activeSong.audio_url || activeSong.file_url || ''
+    : '';
+  const player = useAudioPlayer(audioUri ? { uri: audioUri } : null);
   const status = useAudioPlayerStatus(player);
 
+  // Unmount cleanup
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      try {
+        player.pause();
+      } catch (_) {}
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Watch for load completion and trigger pending play
+  useEffect(() => {
+    if (!pendingPlayRef.current) return;
+    if (status.isLoaded && !status.playing) {
+      console.log('[Audio] Track loaded, triggering pending play');
+      pendingPlayRef.current = false;
+      setPlayerReady(true);
+      try {
+        player.play();
+      } catch (e) {
+        console.warn('[Audio] play() after load failed:', e);
+      }
+    }
+  }, [status.isLoaded, status.playing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── fetchSongs ──────────────────────────────────────────────────────────
+
   const fetchSongs = useCallback(async () => {
+    if (!isMounted.current) return;
     setLoading(true);
     setError(null);
     try {
-      const url = `${SUPABASE_FUNCTIONS_URL}/songs`;
-      console.log('[music] Fetching songs from:', url);
-
-      const res = await fetch(url, {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('[music] Response status:', res.status);
-      const text = await res.text();
-      console.log('[music] Response body:', text.substring(0, 300));
-
-      if (!res.ok) {
-        throw new Error(`Failed to load songs (${res.status})`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+      };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const data = JSON.parse(text);
-      const songList: Song[] = Array.isArray(data) ? data : (data.songs ?? data.data ?? []);
-      console.log('[music] Loaded', songList.length, 'songs');
-      setSongs(songList);
+      console.log('[music] Fetching songs and purchases in parallel');
+
+      const [songsRes, purchasesRes] = await Promise.allSettled([
+        fetch(`${SUPABASE_FUNCTIONS_URL}/songs`, { headers }),
+        session
+          ? fetch(`${SUPABASE_FUNCTIONS_URL}/my-purchases`, { headers })
+          : Promise.resolve(null),
+      ]);
+
+      if (songsRes.status === 'fulfilled' && songsRes.value?.ok) {
+        const data = await songsRes.value.json();
+        const songList: Song[] = Array.isArray(data)
+          ? data
+          : data.songs ?? data.data ?? [];
+        console.log('[music] Loaded', songList.length, 'songs');
+        if (isMounted.current) setSongs(songList);
+      } else {
+        const errText =
+          songsRes.status === 'fulfilled'
+            ? await songsRes.value?.text()
+            : String((songsRes as PromiseRejectedResult).reason);
+        console.error('[music] Songs fetch failed:', errText);
+        throw new Error('Failed to load songs');
+      }
+
+      if (
+        purchasesRes.status === 'fulfilled' &&
+        purchasesRes.value &&
+        (purchasesRes.value as Response).ok
+      ) {
+        const pData = await (purchasesRes.value as Response).json();
+        const ids = new Set<string>(
+          (pData.purchases ?? []).map((p: { song_id: string }) => p.song_id)
+        );
+        console.log('[music] Loaded', ids.size, 'purchased song IDs');
+        if (isMounted.current) setPurchasedIds(ids);
+      }
     } catch (err: any) {
       console.error('[music] fetchSongs error:', err);
-      setError(err.message ?? 'Failed to load songs');
+      if (isMounted.current) setError(err.message ?? 'Failed to load songs');
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       fetchSongs();
+      return () => {
+        // Pause when leaving tab but keep state
+        try {
+          player.pause();
+        } catch (_) {}
+      };
     }, [fetchSongs])
   );
 
-  const handleSongPress = (song: Song) => {
-    console.log(`[ExclusiveSongs] Song pressed: ${song.title} by ${song.artist}`);
-    if (activeSong?.id === song.id) {
-      if (status.playing) {
-        player.pause();
-      } else {
-        player.play();
+  // ── handleSongPress ─────────────────────────────────────────────────────
+
+  const handleSongPress = useCallback(
+    (song: Song) => {
+      console.log(`[music] Song pressed: "${song.title}" (id=${song.id}, price=${song.price})`);
+      const isPaid = Number(song.price) > 0;
+      const isPurchased = purchasedIds.has(song.id);
+
+      if (isPaid && !isPurchased) {
+        console.log(`[music] Song is locked — opening purchase flow for "${song.title}"`);
+        handlePurchase(song);
+        return;
       }
-    } else {
-      setActiveSong(song);
-      setMiniPlayerVisible(true);
-      setTimeout(() => {
-        player.play();
-      }, 100);
-    }
-  };
 
-  const handleCloseMiniPlayer = () => {
-    console.log('[ExclusiveSongs] Mini player closed');
-    setMiniPlayerVisible(false);
+      const audioUrl = song.audio_url || song.file_url || '';
+      if (!audioUrl) {
+        Alert.alert('Unavailable', 'Audio file not available for this song.');
+        return;
+      }
+
+      if (activeSong?.id === song.id) {
+        // Toggle play/pause on current song
+        try {
+          if (status.playing) {
+            console.log(`[music] Pausing: "${song.title}"`);
+            player.pause();
+          } else if (status.isLoaded) {
+            console.log(`[music] Resuming: "${song.title}"`);
+            player.play();
+          } else {
+            console.log(`[music] Not loaded yet — setting pendingPlay for: "${song.title}"`);
+            pendingPlayRef.current = true;
+          }
+        } catch (e) {
+          console.warn('[music] toggle play/pause failed:', e);
+        }
+      } else {
+        // Switch to new song
+        console.log(`[music] Switching to new song: "${song.title}"`);
+        try {
+          player.pause();
+        } catch (_) {}
+        pendingPlayRef.current = true;
+        setPlayerReady(false);
+        setActiveSong(song);
+      }
+    },
+    [activeSong, status, player, purchasedIds] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  // ── handlePurchase ──────────────────────────────────────────────────────
+
+  const handlePurchase = useCallback(
+    async (song: Song) => {
+      if (purchasingId) return;
+      console.log(`[music] Purchase initiated for: "${song.title}" (id=${song.id})`);
+      setPurchasingId(song.id);
+      try {
+        const stripeBase = 'https://buy.stripe.com/00w9AV0Jf8JO9tX41v6Na0d';
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id ?? 'guest';
+        const stripeUrl = `${stripeBase}?client_reference_id=${userId}_${song.id}`;
+        console.log('[music] Opening Stripe URL:', stripeUrl);
+        const supported = await Linking.canOpenURL(stripeUrl);
+        if (supported) {
+          await Linking.openURL(stripeUrl);
+        } else {
+          Alert.alert('Error', 'Cannot open payment page.');
+        }
+      } catch (e: any) {
+        console.error('[music] handlePurchase error:', e);
+        Alert.alert('Error', e.message ?? 'Failed to open payment page.');
+      } finally {
+        if (isMounted.current) setPurchasingId(null);
+      }
+    },
+    [purchasingId]
+  );
+
+  // ── handleDownload ──────────────────────────────────────────────────────
+
+  const handleDownload = useCallback(
+    async (song: Song) => {
+      const audioUrl = song.audio_url || song.file_url || '';
+      if (!audioUrl) {
+        Alert.alert('Unavailable', 'No audio file available.');
+        return;
+      }
+      if (downloadingId) return;
+      console.log(`[music] Download initiated for: "${song.title}"`);
+      setDownloadingId(song.id);
+      try {
+        // Try expo-file-system download first, fall back to Linking
+        const filename = `${song.title.replace(/[^a-z0-9]/gi, '_')}.mp3`;
+        const fileUri = `${FileSystem.documentDirectory}${filename}`;
+        console.log('[music] Downloading to:', fileUri);
+        const { uri } = await FileSystem.downloadAsync(audioUrl, fileUri);
+        console.log('[music] Download complete:', uri);
+        // Open the file via Linking as a share fallback
+        const canOpen = await Linking.canOpenURL(uri);
+        if (canOpen) {
+          await Linking.openURL(uri);
+        } else {
+          Alert.alert('Downloaded', `Saved to: ${uri}`);
+        }
+      } catch (e: any) {
+        console.warn('[music] FileSystem download failed, falling back to Linking:', e.message);
+        // Fallback: open audio URL directly in browser
+        try {
+          await Linking.openURL(audioUrl);
+        } catch (linkErr: any) {
+          Alert.alert('Download Failed', linkErr.message ?? 'Could not download file.');
+        }
+      } finally {
+        if (isMounted.current) setDownloadingId(null);
+      }
+    },
+    [downloadingId]
+  );
+
+  // ── handleCloseMiniPlayer ───────────────────────────────────────────────
+
+  const handleCloseMiniPlayer = useCallback(() => {
+    console.log('[music] Mini player closed');
+    try {
+      player.pause();
+    } catch (_) {}
+    pendingPlayRef.current = false;
     setActiveSong(null);
-  };
+    setPlayerReady(false);
+  }, [player]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const renderSong = ({ item }: { item: Song }) => {
-    const isActive = activeSong?.id === item.id;
-    const isPlaying = isActive && status.playing;
-    return (
-      <SongRow
-        song={item}
-        isActive={isActive}
-        isPlaying={isPlaying}
-        onPress={() => handleSongPress(item)}
-      />
-    );
-  };
+  // ── renderSong ──────────────────────────────────────────────────────────
 
+  const renderSong = ({ item }: { item: Song }) => (
+    <SongRow
+      song={item}
+      isActive={activeSong?.id === item.id}
+      isPlaying={activeSong?.id === item.id && status.playing}
+      isPurchased={purchasedIds.has(item.id)}
+      isPurchasing={purchasingId === item.id}
+      isDownloading={downloadingId === item.id}
+      onPress={() => handleSongPress(item)}
+      onDownload={() => handleDownload(item)}
+    />
+  );
+
+  const miniPlayerVisible = activeSong !== null;
   const listFooter = <View style={{ height: miniPlayerVisible ? 160 : 100 }} />;
 
   return (
@@ -280,7 +515,13 @@ export default function ExclusiveSongsScreen() {
         <View style={styles.centered}>
           <Music size={48} color={colors.textSecondary} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => { console.log('[ExclusiveSongs] Retry pressed'); fetchSongs(); }}>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={() => {
+              console.log('[music] Retry pressed');
+              fetchSongs();
+            }}
+          >
             <Text style={styles.retryBtnText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -306,12 +547,15 @@ export default function ExclusiveSongsScreen() {
         <MiniPlayer
           song={activeSong}
           player={player}
+          status={status}
           onClose={handleCloseMiniPlayer}
         />
       )}
     </SafeAreaView>
   );
 }
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -413,6 +657,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 8,
   },
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
   songInfo: {
     flex: 1,
     marginLeft: 14,
@@ -433,9 +684,6 @@ const styles = StyleSheet.create({
   songTitleActive: {
     color: colors.primary,
   },
-  lockIcon: {
-    flexShrink: 0,
-  },
   songArtist: {
     fontSize: 13,
     color: colors.textSecondary,
@@ -444,15 +692,29 @@ const styles = StyleSheet.create({
   rightCol: {
     alignItems: 'flex-end',
     gap: 4,
-    minWidth: 48,
+    minWidth: 56,
   },
-  priceTag: {
+  buyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  buyBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.background,
+  },
+  downloadBtn: {
+    padding: 4,
+  },
+  freeTag: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textSecondary,
-  },
-  priceTagPaid: {
-    color: colors.primary,
   },
   duration: {
     fontSize: 12,
@@ -520,22 +782,10 @@ const miniStyles = StyleSheet.create({
     color: colors.text,
     marginBottom: 2,
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   artist: {
     fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '500',
-    flexShrink: 1,
-  },
-  price: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
-    flexShrink: 0,
   },
   actionBtn: {
     padding: 8,
