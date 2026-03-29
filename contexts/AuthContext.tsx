@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
+import { isBackendConfigured } from "@/utils/api";
 
 interface User {
   id: string;
@@ -82,19 +83,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // POLLING: Refresh session every 5 minutes to keep SecureStore token in sync
-    // This prevents 401 errors when the session token rotates
-    const intervalId = setInterval(() => {
-      console.log("Auto-refreshing user session to sync token...");
-      fetchUser();
-    }, 5 * 60 * 1000); // 5 minutes
+    // Only start polling if backend is configured — avoids repeated 404 errors
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    if (isBackendConfigured()) {
+      intervalId = setInterval(() => {
+        console.log("Auto-refreshing user session to sync token...");
+        fetchUser();
+      }, 5 * 60 * 1000); // 5 minutes
+    }
 
     return () => {
       subscription.remove();
-      clearInterval(intervalId);
+      if (intervalId !== undefined) clearInterval(intervalId);
     };
   }, []);
 
   const fetchUser = async () => {
+    if (!isBackendConfigured()) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const session = await authClient.getSession();
@@ -109,8 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearAuthTokens();
       }
     } catch (error) {
-      console.error("Failed to fetch user:", error);
+      // Silently handle backend unavailability (404, network errors, etc.)
+      console.log("Session fetch skipped (backend unavailable):", error);
       setUser(null);
+      await clearAuthTokens();
     } finally {
       setLoading(false);
     }

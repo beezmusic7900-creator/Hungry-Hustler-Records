@@ -81,6 +81,12 @@ export const apiCall = async <T = any>(
     if (!response.ok) {
       const text = await response.text();
       console.error("[API] Error response:", response.status, text);
+      if (
+        response.status === 404 &&
+        (text.includes("does not exist") || text.includes("Not found") || text.includes("not found"))
+      ) {
+        throw new Error("Backend unavailable");
+      }
       throw new Error(`API error: ${response.status} - ${text}`);
     }
 

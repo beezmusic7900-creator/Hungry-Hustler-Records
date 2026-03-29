@@ -9,13 +9,21 @@ const API_URL = Constants.expoConfig?.extra?.backendUrl || "";
 export const BEARER_TOKEN_KEY = "hungry-hustler_bearer_token";
 
 // Platform-specific storage: localStorage for web, SecureStore for native
-const storage = Platform.OS === "web"
-  ? {
-      getItem: (key: string) => localStorage.getItem(key),
-      setItem: (key: string, value: string) => localStorage.setItem(key, value),
-      deleteItem: (key: string) => localStorage.removeItem(key),
-    }
-  : SecureStore;
+// NOTE: Do NOT use AsyncStorage — its native module is not available in Expo Go
+const secureStorage = {
+  getItem: (key: string) => {
+    if (Platform.OS === "web") return Promise.resolve(localStorage.getItem(key));
+    return SecureStore.getItemAsync(key);
+  },
+  setItem: (key: string, value: string) => {
+    if (Platform.OS === "web") { localStorage.setItem(key, value); return Promise.resolve(); }
+    return SecureStore.setItemAsync(key, value);
+  },
+  removeItem: (key: string) => {
+    if (Platform.OS === "web") { localStorage.removeItem(key); return Promise.resolve(); }
+    return SecureStore.deleteItemAsync(key);
+  },
+};
 
 export const authClient = createAuthClient({
   baseURL: API_URL,
@@ -23,7 +31,7 @@ export const authClient = createAuthClient({
     expoClient({
       scheme: "hungry-hustler",
       storagePrefix: "hungry-hustler",
-      storage,
+      storage: secureStorage,
     }),
   ],
   // On web, use cookies (credentials: include) and fallback to bearer token

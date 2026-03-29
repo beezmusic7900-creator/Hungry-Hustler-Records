@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabasePost } from '@/utils/supabaseApi';
+import { isBackendConfigured } from '@/utils/api';
 
 interface AdminContextType {
   isAdmin: boolean;
@@ -17,6 +18,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const recheckAdmin = useCallback(async (): Promise<boolean> => {
     if (!user) {
+      setIsAdmin(false);
+      return false;
+    }
+    if (!isBackendConfigured()) {
       setIsAdmin(false);
       return false;
     }
