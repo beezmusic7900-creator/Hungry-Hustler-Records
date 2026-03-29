@@ -70,10 +70,7 @@ try {
     },
   });
 
-  // Suppress non-fatal auto-refresh errors
-  supabaseInstance.auth.onAuthStateChange((_event, _session) => {
-    // Silently handle auth state changes - prevents unhandled rejection warnings
-  });
+
 } catch (e: any) {
   console.warn('[Supabase] Client initialization error:', e?.message);
   // Fallback: create a client without storage to prevent crash

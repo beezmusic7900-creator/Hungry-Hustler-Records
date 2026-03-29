@@ -7,42 +7,12 @@ import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 const { width: screenWidth } = Dimensions.get('window');
 
 const TABS: TabBarItem[] = [
-  {
-    name: 'index',
-    route: '/(tabs)/',
-    icon: 'home',
-    label: 'Home',
-  },
-  {
-    name: 'artists',
-    route: '/(tabs)/artists',
-    icon: 'group',
-    label: 'Artists',
-  },
-  {
-    name: 'music',
-    route: '/(tabs)/music',
-    icon: 'music-note',
-    label: 'Music',
-  },
-  {
-    name: 'videos',
-    route: '/(tabs)/videos',
-    icon: 'play-circle',
-    label: 'Videos',
-  },
-  {
-    name: 'merch',
-    route: '/(tabs)/merch',
-    icon: 'shopping-bag',
-    label: 'Merch',
-  },
-  {
-    name: 'admin',
-    route: '/(tabs)/admin',
-    icon: 'shield',
-    label: 'Admin',
-  },
+  { name: 'index',   route: '/(tabs)/',        icon: 'home',         ios_icon: 'house',       label: 'Home'    },
+  { name: 'artists', route: '/(tabs)/artists',  icon: 'group',        ios_icon: 'person.2',    label: 'Artists' },
+  { name: 'music',   route: '/(tabs)/music',    icon: 'music-note',   ios_icon: 'music.note',  label: 'Music'   },
+  { name: 'videos',  route: '/(tabs)/videos',   icon: 'play-circle',  ios_icon: 'play.circle', label: 'Videos'  },
+  { name: 'merch',   route: '/(tabs)/merch',    icon: 'shopping-bag', ios_icon: 'bag',         label: 'Merch'   },
+  { name: 'admin',   route: '/(tabs)/admin',    icon: 'shield',       ios_icon: 'shield',      label: 'Admin'   },
 ];
 
 export default function TabLayout() {

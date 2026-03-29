@@ -25,14 +25,14 @@ const secureStorage = {
   },
 };
 
-let authClient: ReturnType<typeof createAuthClient> | null = null;
+export let authClient: ReturnType<typeof createAuthClient> | null = null;
 try {
   if (API_URL) {
     authClient = createAuthClient({
       baseURL: API_URL,
       plugins: [
         expoClient({
-          scheme: "hungry-hustler",
+          scheme: "hungryhustlerrecords",
           storagePrefix: "hungry-hustler",
           storage: secureStorage,
         }),
