@@ -51,6 +51,7 @@ type Song = {
   id: string;
   title: string;
   artist: string;
+  description?: string;
   category: SongCategory;
   file_url: string;
   cover_url?: string;
@@ -244,6 +245,7 @@ const SONG_CATEGORIES: SongCategory[] = ['exclusive', 'featured', 'new'];
 type SongFormState = {
   title: string;
   artist: string;
+  description: string;
   category: SongCategory;
   price: string;
   is_published: boolean;
@@ -262,6 +264,7 @@ function SongForm({
   const [form, setForm] = useState<SongFormState>({
     title: initial.title || '',
     artist: initial.artist || '',
+    description: initial.description || '',
     category: initial.category || 'exclusive',
     price: initial.price !== undefined ? String(initial.price) : '0',
     is_published: initial.is_published ?? false,
@@ -365,6 +368,7 @@ function SongForm({
       const payload = {
         title: form.title,
         artist: form.artist,
+        description: form.description || undefined,
         category: form.category,
         price: parseFloat(form.price) || 0,
         is_published: form.is_published,
@@ -413,6 +417,17 @@ function SongForm({
         placeholderTextColor={colors.textTertiary}
         value={form.artist}
         onChangeText={(t) => setForm((f) => ({ ...f, artist: t }))}
+      />
+
+      <Text style={formStyles.label}>Description</Text>
+      <TextInput
+        style={[formStyles.input, formStyles.textArea]}
+        placeholder="Description (optional)"
+        placeholderTextColor={colors.textTertiary}
+        value={form.description}
+        onChangeText={(t) => setForm((f) => ({ ...f, description: t }))}
+        multiline
+        numberOfLines={3}
       />
 
       <Text style={formStyles.label}>Category</Text>
