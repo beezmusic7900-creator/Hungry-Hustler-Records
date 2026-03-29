@@ -6,28 +6,28 @@ export async function uploadToSupabase(
   bucket: string,
   mimeType: string
 ): Promise<string> {
-  const filename = `${Date.now()}-${fileUri.split('/').pop()}`;
-  console.log(`[uploadToSupabase] Uploading to bucket="${bucket}" filename="${filename}" mimeType="${mimeType}"`);
+  const filename = `${Date.now()}-${fileUri.split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '_') ?? 'file'}`;
+
+  console.log(`[upload] Starting upload to bucket "${bucket}", file: ${filename}`);
 
   const base64 = await FileSystem.readAsStringAsync(fileUri, {
-    encoding: 'base64' as any,
+    encoding: FileSystem.EncodingType.Base64,
   });
-
   const bytes = decode(base64);
-  console.log(`[uploadToSupabase] File size: ${bytes.length} bytes`);
+  console.log(`[upload] File size: ${bytes.length} bytes`);
 
   const { data, error } = await supabase.storage
     .from(bucket)
     .upload(filename, bytes, { contentType: mimeType, upsert: false });
 
   if (error) {
-    console.error(`[uploadToSupabase] Upload error:`, error);
-    throw error;
+    console.error(`[upload] Storage upload failed for bucket "${bucket}":`, error);
+    throw new Error(`Upload failed: ${error.message}`);
   }
 
-  const publicUrl = `https://egmaxjskylfepliwaeme.supabase.co/storage/v1/object/public/${bucket}/${data.path}`;
-  console.log(`[uploadToSupabase] Upload success, public URL:`, publicUrl);
-  return publicUrl;
+  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(data.path);
+  console.log(`[upload] Success. Public URL: ${urlData.publicUrl}`);
+  return urlData.publicUrl;
 }
 
 function decode(base64: string): Uint8Array {

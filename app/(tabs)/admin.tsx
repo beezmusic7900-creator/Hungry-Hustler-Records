@@ -96,34 +96,40 @@ function resolveImageSource(source: string | number | ImageSourcePropType | unde
   return source as ImageSourcePropType;
 }
 
-async function adminFetch<T>(path: string, method: string, body?: any): Promise<T> {
-  let token: string | undefined;
+async function adminFetch<T>(path: string, method = 'GET', body?: any): Promise<T> {
+  let token: string | null = null;
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error) {
-      console.warn('[AdminScreen] getSession error (non-fatal):', error.message);
-    }
-    token = session?.access_token;
-  } catch (sessionErr: any) {
-    console.warn('[AdminScreen] getSession threw (non-fatal):', sessionErr?.message);
+    const { data: { session } } = await supabase.auth.getSession();
+    token = session?.access_token ?? null;
+  } catch (e) {
+    console.warn('[adminFetch] getSession failed:', e);
   }
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'apikey': SUPABASE_ANON_KEY,
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  console.log(`[AdminScreen] ${method} ${SUPABASE_FUNCTIONS_URL}${path}`);
-  const res = await fetch(`${SUPABASE_FUNCTIONS_URL}${path}`, {
+
+  if (!token) {
+    throw new Error('Not authenticated. Please sign in again.');
+  }
+
+  const url = `${SUPABASE_FUNCTIONS_URL}${path}`;
+  console.log(`[adminFetch] ${method} ${url}`);
+
+  const res = await fetch(url, {
     method,
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${token}`,
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
+
+  const text = await res.text();
+  console.log(`[adminFetch] Response ${res.status}: ${text.substring(0, 200)}`);
+
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[AdminScreen] API error ${res.status}:`, text);
     throw new Error(`API error ${res.status}: ${text}`);
   }
-  return res.json();
+
+  return JSON.parse(text) as T;
 }
 
 // ─── File Picker Subcomponents ────────────────────────────────────────────────
@@ -374,18 +380,21 @@ function SongForm({
       }
 
       const payload = {
-        title: form.title,
-        artist: form.artist,
+        title: form.title.trim(),
+        artist: form.artist.trim(),
         description: form.description || undefined,
-        category: form.category,
+        category: form.category || 'exclusive',
         price: parseFloat(form.price) || 0,
-        is_published: form.is_published,
-        audio_url: audioUrl || undefined,
-        cover_image_url: coverUrl || undefined,
-        // keep legacy fields in sync
+        is_published: form.is_published ?? true,
+        is_active: true,
         file_url: audioUrl || undefined,
+        audio_url: audioUrl || undefined,
         cover_url: coverUrl || undefined,
+        cover_image_url: coverUrl || undefined,
+        duration: null,
       };
+
+      console.log('[AdminScreen] Song payload:', JSON.stringify(payload));
 
       let result: Song;
       if (isEdit) {
@@ -394,10 +403,11 @@ function SongForm({
         result = await adminFetch<Song>('/songs', 'POST', payload);
       }
       if (!result?.id) throw new Error('Server did not return song with id');
+      Alert.alert('Success', `"${result.title}" saved successfully!`);
       onSave(result);
     } catch (e: any) {
       console.error('[AdminScreen] Song save error:', e);
-      Alert.alert('Error', e.message || 'Failed to save song');
+      Alert.alert('Save Failed', e.message || 'Failed to save song');
     } finally {
       setSaving(false);
     }
@@ -963,18 +973,25 @@ export default function AdminScreen() {
 
   const handleSaveMerch = async (data: Partial<MerchItem>) => {
     try {
+      const payload = {
+        ...data,
+        is_published: data.is_published ?? true,
+        is_active: true,
+      };
       if (data.id) {
-        console.log(`[AdminScreen] PUT /merch/${data.id}`);
-        await adminFetch(`/merch/${data.id}`, 'PUT', data);
+        console.log(`[AdminScreen] PUT /merch/${data.id}`, JSON.stringify(payload));
+        await adminFetch(`/merch/${data.id}`, 'PUT', payload);
       } else {
-        console.log('[AdminScreen] POST /merch');
-        await adminFetch('/merch', 'POST', data);
+        console.log('[AdminScreen] POST /merch', JSON.stringify(payload));
+        await adminFetch('/merch', 'POST', payload);
       }
+      Alert.alert('Success', `"${data.name}" saved successfully!`);
       setFormVisible(false);
       setEditingMerch(null);
       await fetchMerch();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save merch');
+      console.error('[AdminScreen] Merch save error:', e);
+      Alert.alert('Save Failed', e.message || 'Failed to save merch');
     }
   };
 
@@ -1025,18 +1042,25 @@ export default function AdminScreen() {
 
   const handleSaveVideo = async (data: Partial<VideoItem>) => {
     try {
+      const payload = {
+        ...data,
+        is_published: data.is_published ?? true,
+        is_active: true,
+      };
       if (data.id) {
-        console.log(`[AdminScreen] PUT /videos/${data.id}`);
-        await adminFetch(`/videos/${data.id}`, 'PUT', data);
+        console.log(`[AdminScreen] PUT /videos/${data.id}`, JSON.stringify(payload));
+        await adminFetch(`/videos/${data.id}`, 'PUT', payload);
       } else {
-        console.log('[AdminScreen] POST /videos');
-        await adminFetch('/videos', 'POST', data);
+        console.log('[AdminScreen] POST /videos', JSON.stringify(payload));
+        await adminFetch('/videos', 'POST', payload);
       }
+      Alert.alert('Success', `"${data.title}" saved successfully!`);
       setFormVisible(false);
       setEditingVideo(null);
       await fetchVideos();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save video');
+      console.error('[AdminScreen] Video save error:', e);
+      Alert.alert('Save Failed', e.message || 'Failed to save video');
     }
   };
 
@@ -1102,7 +1126,11 @@ export default function AdminScreen() {
 
   const openNewSong = () => {
     console.log('[AdminScreen] Open new song form');
-    setEditingSong({ is_published: true, category: 'exclusive' });
+    setEditingSong({
+      title: '', artist: '', description: '', category: 'exclusive',
+      file_url: '', audio_url: '', cover_url: '', cover_image_url: '',
+      price: 0, is_active: true, is_published: true, duration: undefined,
+    });
     setFormVisible(true);
   };
 

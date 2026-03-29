@@ -170,23 +170,36 @@ export default function MerchScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchMerch = useCallback(async () => {
-    console.log('[MerchScreen] Fetching merch from /merch');
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/merch`, {
-        headers: { 'apikey': SUPABASE_ANON_KEY },
+      const url = `${SUPABASE_FUNCTIONS_URL}/merch`;
+      console.log('[merch] Fetching merch from:', url);
+
+      const res = await fetch(url, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
       });
+
+      console.log('[merch] Response status:', res.status);
+      const text = await res.text();
+      console.log('[merch] Response body:', text.substring(0, 300));
+
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Error ${res.status}: ${text}`);
+        throw new Error(`Failed to load merch (${res.status})`);
       }
-      const data = await res.json();
-      console.log('[MerchScreen] Merch received:', data?.merch?.length ?? 0);
-      setApiMerch(data?.merch ?? []);
+
+      const data = JSON.parse(text);
+      const merchList: MerchItem[] = Array.isArray(data)
+        ? data
+        : (data.merch ?? data.items ?? data.data ?? []);
+      console.log('[merch] Loaded', merchList.length, 'items');
+      setApiMerch(merchList);
     } catch (err: any) {
-      console.error('[MerchScreen] Error fetching merch:', err);
-      setError('Failed to load content. Pull to refresh.');
+      console.error('[merch] fetchMerch error:', err);
+      setError(err.message ?? 'Failed to load merch');
     } finally {
       setLoading(false);
     }

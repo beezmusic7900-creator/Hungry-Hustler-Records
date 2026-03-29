@@ -86,23 +86,34 @@ export default function VideosScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchVideos = useCallback(async () => {
-    console.log('[VideosScreen] Fetching videos from /videos');
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/videos`, {
-        headers: { 'apikey': SUPABASE_ANON_KEY },
+      const url = `${SUPABASE_FUNCTIONS_URL}/videos`;
+      console.log('[videos] Fetching videos from:', url);
+
+      const res = await fetch(url, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
       });
+
+      console.log('[videos] Response status:', res.status);
+      const text = await res.text();
+      console.log('[videos] Response body:', text.substring(0, 300));
+
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Error ${res.status}: ${text}`);
+        throw new Error(`Failed to load videos (${res.status})`);
       }
-      const data = await res.json();
-      console.log('[VideosScreen] Videos received:', data?.videos?.length ?? 0);
-      setVideos(data?.videos ?? []);
+
+      const data = JSON.parse(text);
+      const videoList: Video[] = Array.isArray(data) ? data : (data.videos ?? data.data ?? []);
+      console.log('[videos] Loaded', videoList.length, 'videos');
+      setVideos(videoList);
     } catch (err: any) {
-      console.error('[VideosScreen] Error fetching videos:', err);
-      setError('Failed to load content. Pull to refresh.');
+      console.error('[videos] fetchVideos error:', err);
+      setError(err.message ?? 'Failed to load videos');
     } finally {
       setLoading(false);
     }

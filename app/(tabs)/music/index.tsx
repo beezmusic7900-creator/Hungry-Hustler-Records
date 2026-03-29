@@ -22,17 +22,17 @@ type Song = {
   id: string;
   title: string;
   artist: string;
-  category: string;
-  // backend may return either field name — support both
+  description?: string;
+  category?: string;
   file_url?: string;
   audio_url?: string;
   cover_url?: string;
   cover_image_url?: string;
-  price: number;
-  is_active: boolean;
-  is_published: boolean;
+  price?: number;
+  is_active?: boolean;
+  is_published?: boolean;
   duration?: number;
-  created_at: string;
+  created_at?: string;
 };
 
 function resolveImageSource(source: string | number | ImageSourcePropType | undefined): ImageSourcePropType {
@@ -188,23 +188,34 @@ export default function ExclusiveSongsScreen() {
   const status = useAudioPlayerStatus(player);
 
   const fetchSongs = useCallback(async () => {
-    console.log('[ExclusiveSongs] Fetching songs from /songs');
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/songs`, {
-        headers: { 'apikey': SUPABASE_ANON_KEY },
+      const url = `${SUPABASE_FUNCTIONS_URL}/songs`;
+      console.log('[music] Fetching songs from:', url);
+
+      const res = await fetch(url, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
       });
+
+      console.log('[music] Response status:', res.status);
+      const text = await res.text();
+      console.log('[music] Response body:', text.substring(0, 300));
+
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Error ${res.status}: ${text}`);
+        throw new Error(`Failed to load songs (${res.status})`);
       }
-      const data = await res.json();
-      console.log('[ExclusiveSongs] Songs received:', data?.songs?.length ?? 0);
-      setSongs(data?.songs ?? []);
+
+      const data = JSON.parse(text);
+      const songList: Song[] = Array.isArray(data) ? data : (data.songs ?? data.data ?? []);
+      console.log('[music] Loaded', songList.length, 'songs');
+      setSongs(songList);
     } catch (err: any) {
-      console.error('[ExclusiveSongs] Error fetching songs:', err);
-      setError('Failed to load content. Pull to refresh.');
+      console.error('[music] fetchSongs error:', err);
+      setError(err.message ?? 'Failed to load songs');
     } finally {
       setLoading(false);
     }
