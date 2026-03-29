@@ -102,7 +102,7 @@ export default function VideosScreen() {
       setVideos(data?.videos ?? []);
     } catch (err: any) {
       console.error('[VideosScreen] Error fetching videos:', err);
-      setError('Failed to load videos. Please try again.');
+      setError('Failed to load content. Pull to refresh.');
     } finally {
       setLoading(false);
     }
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 15,
-    color: colors.textSecondary,
+    color: colors.error,
     textAlign: 'center',
     lineHeight: 22,
   },

@@ -186,7 +186,7 @@ export default function MerchScreen() {
       setApiMerch(data?.merch ?? []);
     } catch (err: any) {
       console.error('[MerchScreen] Error fetching merch:', err);
-      setError('Failed to load merch. Please try again.');
+      setError('Failed to load content. Pull to refresh.');
     } finally {
       setLoading(false);
     }
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.error,
     textAlign: 'center',
   },
   retryText: {

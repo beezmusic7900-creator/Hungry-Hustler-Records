@@ -23,8 +23,11 @@ type Song = {
   title: string;
   artist: string;
   category: string;
-  file_url: string;
+  // backend may return either field name — support both
+  file_url?: string;
+  audio_url?: string;
   cover_url?: string;
+  cover_image_url?: string;
   price: number;
   is_active: boolean;
   is_published: boolean;
@@ -79,13 +82,14 @@ function MiniPlayer({
     onClose();
   };
 
-  const coverSource = resolveImageSource(song.cover_url);
+  const coverUri = song.cover_image_url || song.cover_url;
+  const coverSource = resolveImageSource(coverUri);
   const priceLabel = formatPrice(song.price);
 
   return (
     <View style={miniStyles.container}>
       <View style={miniStyles.coverWrapper}>
-        {song.cover_url ? (
+        {coverUri ? (
           <Image source={coverSource} style={miniStyles.cover} resizeMode="cover" />
         ) : (
           <View style={miniStyles.coverPlaceholder}>
@@ -127,7 +131,8 @@ function SongRow({
 }) {
   const durationText = formatDuration(song.duration);
   const priceText = formatPrice(song.price);
-  const coverSource = resolveImageSource(song.cover_url);
+  const songCoverUri = song.cover_image_url || song.cover_url;
+  const coverSource = resolveImageSource(songCoverUri);
   const isPaid = Number(song.price) > 0;
 
   return (
@@ -137,7 +142,7 @@ function SongRow({
       activeOpacity={0.7}
     >
       <View style={styles.coverContainer}>
-        {song.cover_url ? (
+        {songCoverUri ? (
           <Image source={coverSource} style={styles.cover} resizeMode="cover" />
         ) : (
           <View style={styles.coverPlaceholder}>
@@ -178,15 +183,16 @@ export default function ExclusiveSongsScreen() {
   const [activeSong, setActiveSong] = useState<Song | null>(null);
   const [miniPlayerVisible, setMiniPlayerVisible] = useState(false);
 
-  const player = useAudioPlayer(activeSong ? { uri: activeSong.file_url } : null);
+  const activeSongAudioUrl = activeSong ? (activeSong.audio_url || activeSong.file_url || '') : '';
+  const player = useAudioPlayer(activeSong ? { uri: activeSongAudioUrl } : null);
   const status = useAudioPlayerStatus(player);
 
   const fetchSongs = useCallback(async () => {
-    console.log('[ExclusiveSongs] Fetching songs from /songs?category=exclusive');
+    console.log('[ExclusiveSongs] Fetching songs from /songs');
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/songs?category=exclusive`, {
+      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/songs`, {
         headers: { 'apikey': SUPABASE_ANON_KEY },
       });
       if (!res.ok) {
@@ -198,7 +204,7 @@ export default function ExclusiveSongsScreen() {
       setSongs(data?.songs ?? []);
     } catch (err: any) {
       console.error('[ExclusiveSongs] Error fetching songs:', err);
-      setError('Failed to load exclusive songs. Please try again.');
+      setError('Failed to load content. Pull to refresh.');
     } finally {
       setLoading(false);
     }
@@ -330,7 +336,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 15,
-    color: colors.textSecondary,
+    color: colors.error,
     textAlign: 'center',
     lineHeight: 22,
   },

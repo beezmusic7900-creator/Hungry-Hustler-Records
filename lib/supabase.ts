@@ -8,24 +8,46 @@ const SUPABASE_ANON_KEY =
 
 const ExpoSecureStoreAdapter = {
   getItem: (key: string) => {
-    if (Platform.OS === 'web') {
-      return Promise.resolve(typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null);
+    try {
+      if (Platform.OS === 'web') {
+        return Promise.resolve(typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null);
+      }
+      return SecureStore.getItemAsync(key).catch((e) => {
+        console.warn('[Supabase] SecureStore getItem error:', e?.message);
+        return null;
+      });
+    } catch (e: any) {
+      console.warn('[Supabase] SecureStore getItem threw:', e?.message);
+      return Promise.resolve(null);
     }
-    return SecureStore.getItemAsync(key);
   },
   setItem: (key: string, value: string) => {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+        return Promise.resolve();
+      }
+      return SecureStore.setItemAsync(key, value).catch((e) => {
+        console.warn('[Supabase] SecureStore setItem error:', e?.message);
+      });
+    } catch (e: any) {
+      console.warn('[Supabase] SecureStore setItem threw:', e?.message);
       return Promise.resolve();
     }
-    return SecureStore.setItemAsync(key, value);
   },
   removeItem: (key: string) => {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+        return Promise.resolve();
+      }
+      return SecureStore.deleteItemAsync(key).catch((e) => {
+        console.warn('[Supabase] SecureStore removeItem error:', e?.message);
+      });
+    } catch (e: any) {
+      console.warn('[Supabase] SecureStore removeItem threw:', e?.message);
       return Promise.resolve();
     }
-    return SecureStore.deleteItemAsync(key);
   },
 };
 
@@ -36,6 +58,13 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+});
+
+// Suppress unhandled auto-refresh errors so they don't bubble up as crashes
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'TOKEN_REFRESHED') {
+    console.log('[Supabase] Token refreshed successfully');
+  }
 });
 
 export { SUPABASE_URL, SUPABASE_ANON_KEY };

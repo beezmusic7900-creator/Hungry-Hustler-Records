@@ -97,8 +97,16 @@ function resolveImageSource(source: string | number | ImageSourcePropType | unde
 }
 
 async function adminFetch<T>(path: string, method: string, body?: any): Promise<T> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
+  let token: string | undefined;
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.warn('[AdminScreen] getSession error (non-fatal):', error.message);
+    }
+    token = session?.access_token;
+  } catch (sessionErr: any) {
+    console.warn('[AdminScreen] getSession threw (non-fatal):', sessionErr?.message);
+  }
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'apikey': SUPABASE_ANON_KEY,
@@ -267,7 +275,7 @@ function SongForm({
     description: initial.description || '',
     category: initial.category || 'exclusive',
     price: initial.price !== undefined ? String(initial.price) : '0',
-    is_published: initial.is_published ?? false,
+    is_published: initial.is_published ?? true,
   });
 
   // Audio file state
@@ -1094,7 +1102,7 @@ export default function AdminScreen() {
 
   const openNewSong = () => {
     console.log('[AdminScreen] Open new song form');
-    setEditingSong({ is_published: false });
+    setEditingSong({ is_published: true, category: 'exclusive' });
     setFormVisible(true);
   };
 
@@ -1106,7 +1114,7 @@ export default function AdminScreen() {
 
   const openNewMerch = () => {
     console.log('[AdminScreen] Open new merch form');
-    setEditingMerch({ is_published: false, stock: 0, price: 0 });
+    setEditingMerch({ is_published: true, stock: 0, price: 0 });
     setFormVisible(true);
   };
 
@@ -1118,7 +1126,7 @@ export default function AdminScreen() {
 
   const openNewVideo = () => {
     console.log('[AdminScreen] Open new video form');
-    setEditingVideo({ is_published: false });
+    setEditingVideo({ is_published: true });
     setFormVisible(true);
   };
 
