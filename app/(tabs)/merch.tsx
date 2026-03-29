@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ShoppingBag } from 'lucide-react-native';
 import { colors } from '@/styles/commonStyles';
-import { apiGet } from '@/utils/api';
+import { SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 
 const STRIPE_URL = 'https://buy.stripe.com/3cIfZjajP3pu35z8hL6Na08';
 const HOODIE_STRIPE_URL = 'https://buy.stripe.com/cNiaEZ9fLf8c9tXapT6Na0b';
@@ -170,11 +170,18 @@ export default function MerchScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchMerch = useCallback(async () => {
-    console.log('[MerchScreen] Fetching merch from /api/merch');
+    console.log('[MerchScreen] Fetching merch from /merch');
     try {
       setLoading(true);
       setError(null);
-      const data = await apiGet<{ merch: MerchItem[] }>('/api/merch');
+      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/merch`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Error ${res.status}: ${text}`);
+      }
+      const data = await res.json();
       console.log('[MerchScreen] Merch received:', data?.merch?.length ?? 0);
       setApiMerch(data?.merch ?? []);
     } catch (err: any) {

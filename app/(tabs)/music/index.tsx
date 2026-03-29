@@ -16,7 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Play, Pause, X, Music, Lock } from 'lucide-react-native';
 import { colors } from '@/styles/commonStyles';
-import { supabaseGet } from '@/utils/supabaseApi';
+import { SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 
 type Song = {
   id: string;
@@ -182,11 +182,18 @@ export default function ExclusiveSongsScreen() {
   const status = useAudioPlayerStatus(player);
 
   const fetchSongs = useCallback(async () => {
-    console.log('[ExclusiveSongs] Fetching songs from /api/songs?category=exclusive');
+    console.log('[ExclusiveSongs] Fetching songs from /songs?category=exclusive');
     try {
       setLoading(true);
       setError(null);
-      const data = await supabaseGet<{ songs: Song[] }>('/api/songs?category=exclusive');
+      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/songs?category=exclusive`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Error ${res.status}: ${text}`);
+      }
+      const data = await res.json();
       console.log('[ExclusiveSongs] Songs received:', data?.songs?.length ?? 0);
       setSongs(data?.songs ?? []);
     } catch (err: any) {

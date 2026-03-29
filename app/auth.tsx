@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,114 +6,48 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Platform,
   KeyboardAvoidingView,
+  Platform,
   ScrollView,
-} from "react-native";
-import { useAuth } from "@/contexts/AuthContext";
-import { useAdmin } from "@/contexts/AdminContext";
-import { useRouter } from "expo-router";
-import Modal from "@/components/ui/Modal";
-import { colors } from "@/styles/commonStyles";
-
-type Mode = "signin" | "signup";
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAdmin } from '@/contexts/AdminContext';
+import { Lock } from 'lucide-react-native';
 
 export default function AuthScreen() {
   const router = useRouter();
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple, signInWithGitHub, loading: authLoading, user } =
-    useAuth();
+  const { signInWithEmail } = useAuth();
   const { recheckAdmin } = useAdmin();
-
-  const [mode, setMode] = useState<Mode>("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalConfig, setModalConfig] = useState({
-    title: '',
-    message: '',
-    type: 'info' as 'info' | 'error' | 'success',
-  });
+  const [error, setError] = useState('');
 
-  const showModal = (title: string, message: string, type: 'info' | 'error' | 'success' = 'info') => {
-    setModalConfig({ title, message, type });
-    setModalVisible(true);
-  };
-
-  if (authLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  const checkAdminAndRedirect = async () => {
-    try {
-      console.log('[AuthScreen] Starting admin check after login');
-      const isAdmin = await recheckAdmin();
-      if (isAdmin) {
-        console.log('[AuthScreen] User IS admin, redirecting to admin panel');
-        router.replace('/(tabs)/admin');
-      } else {
-        console.log('[AuthScreen] User is NOT admin, redirecting to home');
-        router.replace('/(tabs)');
-      }
-    } catch (error) {
-      console.error('[AuthScreen] Error checking admin status:', error);
-      router.replace('/(tabs)');
-    }
-  };
-
-  const handleEmailAuth = async () => {
-    if (!email || !password) {
-      showModal("Error", "Please enter email and password", "error");
+  const handleSignIn = async () => {
+    console.log('[AuthScreen] Sign in pressed, email:', email);
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter your email and password.');
       return;
     }
-
     setLoading(true);
+    setError('');
     try {
-      console.log('[AuthScreen] Attempting authentication:', mode, email);
-      if (mode === "signin") {
-        await signInWithEmail(email, password);
-        console.log('[AuthScreen] Sign in successful, checking admin status');
-        await checkAdminAndRedirect();
+      await signInWithEmail(email.trim(), password);
+      console.log('[AuthScreen] Sign in successful, checking admin status');
+      const isAdmin = await recheckAdmin();
+      if (isAdmin) {
+        console.log('[AuthScreen] User is admin, redirecting to admin panel');
+        router.replace('/(tabs)/admin');
       } else {
-        await signUpWithEmail(email, password, name);
-        console.log('[AuthScreen] Sign up successful');
-        showModal(
-          "Success",
-          "Account created! Please check your email to verify your account.",
-          "success"
-        );
-        router.replace("/(tabs)");
+        console.log('[AuthScreen] User is not admin, denying access');
+        setError('Access denied. This login is for admins only.');
+        const { supabase } = await import('@/lib/supabase');
+        await supabase.auth.signOut();
       }
-    } catch (error: any) {
-      console.error('[AuthScreen] Authentication error:', error);
-      showModal("Error", error.message || "Authentication failed", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSocialAuth = async (provider: "google" | "apple" | "github") => {
-    setLoading(true);
-    try {
-      console.log('[AuthScreen] Attempting social auth:', provider);
-      if (provider === "google") {
-        await signInWithGoogle();
-      } else if (provider === "apple") {
-        await signInWithApple();
-      } else if (provider === "github") {
-        await signInWithGitHub();
-      }
-      console.log('[AuthScreen] Social auth successful, checking admin status');
-      await checkAdminAndRedirect();
-    } catch (error: any) {
-      console.error('[AuthScreen] Social auth error:', error);
-      showModal("Error", error.message || "Authentication failed", "error");
+    } catch (e: any) {
+      console.error('[AuthScreen] Sign in error:', e);
+      setError(e.message || 'Sign in failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -123,265 +56,170 @@ export default function AuthScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.content}>
-          <Text style={styles.title}>
-            {mode === "signin" ? "Sign In" : "Sign Up"}
-          </Text>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.iconWrap}>
+          <Lock size={40} color="#E8B84B" />
+        </View>
 
-          {mode === "signup" && (
-            <TextInput
-              style={styles.input}
-              placeholder="Name (optional)"
-              placeholderTextColor={colors.textSecondary}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-            />
-          )}
+        <Text style={styles.title}>Admin Portal</Text>
+        <Text style={styles.subtitle}>Hungry Hustler Records</Text>
 
+        <View style={styles.card}>
+          <Text style={styles.label}>Email</Text>
           <TextInput
             style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={colors.textSecondary}
+            placeholder="admin@example.com"
+            placeholderTextColor="#555"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            editable={!loading}
           />
 
+          <Text style={styles.label}>Password</Text>
           <TextInput
             style={styles.input}
-            placeholder="Password"
-            placeholderTextColor={colors.textSecondary}
+            placeholder="••••••••"
+            placeholderTextColor="#555"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
+            editable={!loading}
           />
 
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
           <TouchableOpacity
-            style={[styles.primaryButton, loading && styles.buttonDisabled]}
-            onPress={handleEmailAuth}
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleSignIn}
             disabled={loading}
+            activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator color={colors.background} />
+              <ActivityIndicator color="#000" />
             ) : (
-              <Text style={styles.primaryButtonText}>
-                {mode === "signin" ? "Sign In" : "Sign Up"}
-              </Text>
+              <Text style={styles.buttonText}>Sign In</Text>
             )}
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.switchModeButton}
-            onPress={() => setMode(mode === "signin" ? "signup" : "signin")}
-          >
-            <Text style={styles.switchModeText}>
-              {mode === "signin"
-                ? "Don't have an account? Sign Up"
-                : "Already have an account? Sign In"}
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity
-            style={styles.socialButton}
-            onPress={() => handleSocialAuth("google")}
-            disabled={loading}
-          >
-            <Text style={styles.socialButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
-
-          {Platform.OS === "ios" && (
-            <TouchableOpacity
-              style={[styles.socialButton, styles.appleButton]}
-              onPress={() => handleSocialAuth("apple")}
-              disabled={loading}
-            >
-              <Text style={[styles.socialButtonText, styles.appleButtonText]}>
-                Continue with Apple
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={styles.adminSetupContainer}>
-            <Text style={styles.adminSetupText}>First time admin setup?</Text>
-            <TouchableOpacity onPress={() => router.push('/admin-setup')}>
-              <Text style={styles.adminSetupLink}>Set up admin account</Text>
-            </TouchableOpacity>
-          </View>
-
-          {mode === 'signin' && (
-            <View style={styles.credentialsHint}>
-              <Text style={styles.credentialsHintTitle}>Admin Login:</Text>
-              <Text style={styles.credentialsHintText}>hungry.hustler@yahoo.com</Text>
-              <Text style={styles.credentialsHintText}>Afroman420!</Text>
-            </View>
-          )}
         </View>
-      </ScrollView>
 
-      <Modal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        title={modalConfig.title}
-        type={modalConfig.type}
-      >
-        <Text style={styles.modalMessage}>{modalConfig.message}</Text>
-      </Modal>
+        <View style={styles.credentialsHint}>
+          <Text style={styles.credentialsHintTitle}>Admin Login</Text>
+          <Text style={styles.credentialsHintText}>hungry.hustler@yahoo.com</Text>
+          <Text style={styles.credentialsHintText}>Afroman420!</Text>
+        </View>
+
+        <TouchableOpacity onPress={() => { console.log('[AuthScreen] Back to app pressed'); router.back(); }} style={styles.backBtn}>
+          <Text style={styles.backText}>← Back to App</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-    justifyContent: "center",
+  container: { flex: 1, backgroundColor: '#000' },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  iconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 2,
+    borderColor: '#E8B84B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 24,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "900",
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#E8B84B',
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
     marginBottom: 32,
-    textAlign: "center",
-    color: colors.primary,
-    letterSpacing: 2,
+    marginTop: 4,
+  },
+  card: {
+    backgroundColor: '#111',
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#888',
+    marginBottom: 6,
+    marginTop: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
-    height: 50,
+    backgroundColor: '#1A1A1A',
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
+    borderColor: '#333',
+    borderRadius: 10,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    marginBottom: 16,
+    color: '#FFF',
     fontSize: 16,
-    backgroundColor: colors.card,
-    color: colors.text,
   },
-  primaryButton: {
-    height: 50,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 8,
-  },
-  primaryButtonText: {
-    color: colors.background,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  switchModeButton: {
-    marginTop: 16,
-    alignItems: "center",
-  },
-  switchModeText: {
-    color: colors.primary,
+  errorText: {
+    color: '#FF3B30',
     fontSize: 14,
+    marginTop: 12,
+    textAlign: 'center',
   },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    color: colors.textSecondary,
-    fontSize: 14,
-  },
-  socialButton: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-    backgroundColor: colors.card,
-  },
-  socialButtonText: {
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: "500",
-  },
-  appleButton: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-  },
-  appleButtonText: {
-    color: colors.text,
-  },
-  adminSetupContainer: {
-    marginTop: 32,
+  button: {
+    backgroundColor: '#E8B84B',
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
-    gap: 8,
+    marginTop: 24,
   },
-  adminSetupText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  adminSetupLink: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   credentialsHint: {
-    marginTop: 16,
+    marginTop: 24,
     padding: 16,
-    backgroundColor: colors.card,
-    borderRadius: 8,
+    backgroundColor: '#111',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#222',
     alignItems: 'center',
     gap: 4,
   },
   credentialsHintTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.textSecondary,
+    color: '#555',
     letterSpacing: 1,
+    textTransform: 'uppercase',
     marginBottom: 4,
   },
   credentialsHintText: {
     fontSize: 13,
-    color: colors.primary,
+    color: '#E8B84B',
     fontWeight: '600',
   },
-  modalMessage: {
-    fontSize: 15,
-    color: colors.text,
-    lineHeight: 22,
-  },
+  backBtn: { alignItems: 'center', marginTop: 24 },
+  backText: { color: '#555', fontSize: 14 },
 });

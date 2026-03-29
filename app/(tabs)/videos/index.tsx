@@ -16,7 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Play, Video as VideoIcon } from 'lucide-react-native';
 import { colors } from '@/styles/commonStyles';
-import { supabaseGet } from '@/utils/supabaseApi';
+import { SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 
 type Video = {
   id: string;
@@ -86,11 +86,18 @@ export default function VideosScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchVideos = useCallback(async () => {
-    console.log('[VideosScreen] Fetching videos from /api/videos');
+    console.log('[VideosScreen] Fetching videos from /videos');
     try {
       setLoading(true);
       setError(null);
-      const data = await supabaseGet<{ videos: Video[] }>('/api/videos');
+      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/videos`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Error ${res.status}: ${text}`);
+      }
+      const data = await res.json();
       console.log('[VideosScreen] Videos received:', data?.videos?.length ?? 0);
       setVideos(data?.videos ?? []);
     } catch (err: any) {

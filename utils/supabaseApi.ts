@@ -1,71 +1,53 @@
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { BEARER_TOKEN_KEY } from '@/lib/auth';
+import { supabase, SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
 
-const SUPABASE_FUNCTIONS_URL = 'https://egmaxjskylfepliwaeme.supabase.co/functions/v1';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbWF4anNreWxmZXBsaXdhZW1lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MDgyMDUsImV4cCI6MjA4OTk4NDIwNX0.RUE1ybaqHAGEGOY-XVt4lLM_WHkOeHZbG2zKKPIP5CI';
-
-async function getBearerToken(): Promise<string | null> {
-  try {
-    if (Platform.OS === 'web') {
-      return typeof localStorage !== 'undefined' ? localStorage.getItem(BEARER_TOKEN_KEY) : null;
-    }
-    return await SecureStore.getItemAsync(BEARER_TOKEN_KEY);
-  } catch {
-    return null;
-  }
+async function getAccessToken(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
 }
 
-function resolveEdgeFunctionUrl(endpoint: string): string {
-  // Strip /api prefix and map to edge function name
-  const path = endpoint.replace(/^\/api/, '');
-
-  if (path.startsWith('/admin')) return `${SUPABASE_FUNCTIONS_URL}/admin${path.replace('/admin', '')}`;
-  if (path.startsWith('/artists')) return `${SUPABASE_FUNCTIONS_URL}/artists${path.replace('/artists', '')}`;
-  if (path.startsWith('/releases')) return `${SUPABASE_FUNCTIONS_URL}/releases${path.replace('/releases', '')}`;
-  if (path.startsWith('/videos')) return `${SUPABASE_FUNCTIONS_URL}/videos${path.replace('/videos', '')}`;
-  if (path.startsWith('/events')) return `${SUPABASE_FUNCTIONS_URL}/events${path.replace('/events', '')}`;
-  if (path.startsWith('/news')) return `${SUPABASE_FUNCTIONS_URL}/news${path.replace('/news', '')}`;
-
-  throw new Error(`No Supabase Edge Function mapped for endpoint: ${endpoint}`);
-}
-
-export async function supabaseApiCall<T = any>(
-  endpoint: string,
-  options?: RequestInit
+export async function callEdgeFunction<T = any>(
+  functionName: string,
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+  body?: any,
+  queryParams?: Record<string, string>
 ): Promise<T> {
-  const url = resolveEdgeFunctionUrl(endpoint);
-  console.log(`[supabaseApi] ${options?.method ?? 'GET'} ${url}`);
+  const token = await getAccessToken();
+  let url = `${SUPABASE_FUNCTIONS_URL}/${functionName}`;
+  if (queryParams) {
+    const params = new URLSearchParams(queryParams);
+    url += `?${params.toString()}`;
+  }
 
-  const token = await getBearerToken();
+  console.log(`[supabaseApi] ${method} ${url}`);
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    apikey: SUPABASE_ANON_KEY,
-    ...((options?.headers as Record<string, string>) ?? {}),
+    'apikey': SUPABASE_ANON_KEY,
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(url, { ...options, headers });
+  const options: RequestInit = { method, headers };
+  if (body && method !== 'GET') options.body = JSON.stringify(body);
+
+  const res = await fetch(url, options);
   if (!res.ok) {
     const text = await res.text();
     console.error(`[supabaseApi] Error ${res.status} for ${url}:`, text);
-    throw new Error(`Supabase API error ${res.status}: ${text}`);
+    throw new Error(`Edge function error ${res.status}: ${text}`);
   }
   const json = await res.json();
   console.log(`[supabaseApi] Response from ${url}:`, json);
   return json;
 }
 
-export const supabaseGet = <T = any>(endpoint: string) =>
-  supabaseApiCall<T>(endpoint, { method: 'GET' });
+export const supabaseGet = <T = any>(fn: string, params?: Record<string, string>) =>
+  callEdgeFunction<T>(fn, 'GET', undefined, params);
 
-export const supabasePost = <T = any>(endpoint: string, data?: any) =>
-  supabaseApiCall<T>(endpoint, { method: 'POST', body: JSON.stringify(data ?? {}) });
+export const supabasePost = <T = any>(fn: string, data?: any) =>
+  callEdgeFunction<T>(fn, 'POST', data);
 
-export const supabasePut = <T = any>(endpoint: string, data?: any) =>
-  supabaseApiCall<T>(endpoint, { method: 'PUT', body: JSON.stringify(data ?? {}) });
+export const supabasePut = <T = any>(fn: string, data?: any) =>
+  callEdgeFunction<T>(fn, 'PUT', data);
 
-export const supabaseDelete = <T = any>(endpoint: string) =>
-  supabaseApiCall<T>(endpoint, { method: 'DELETE' });
+export const supabaseDelete = <T = any>(fn: string) =>
+  callEdgeFunction<T>(fn, 'DELETE');

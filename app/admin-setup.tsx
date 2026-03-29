@@ -35,10 +35,21 @@ export default function AdminSetupScreen() {
   const handleSetup = async () => {
     setLoading(true);
     try {
-      console.log('[AdminSetup] Calling admin setup endpoint');
-      const { supabasePost } = await import('@/utils/supabaseApi');
-      const response = await supabasePost<{ success: boolean; message: string }>('/api/admin/setup', {});
-      
+      console.log('[AdminSetup] Calling admin-setup edge function');
+      const { SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } = await import('@/lib/supabase');
+      const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/admin-setup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Setup failed ${res.status}: ${text}`);
+      }
+      const response = await res.json();
       console.log('[AdminSetup] Setup response:', response);
       
       if (response.success) {
