@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -70,59 +71,70 @@ export default function HomeScreen() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const { apiGet } = await import('@/utils/api');
+      const { supabaseGet } = await import('@/utils/supabaseApi');
 
-      // Fetch homepage content
-      console.log('[HomeScreen] Fetching homepage content from /api/homepage');
-      const rawData = await apiGet<any>('/api/homepage');
-      console.log('[HomeScreen] Homepage content received:', rawData);
-      // Normalize camelCase/snake_case fields from API
-      const data: HomepageContent = {
-        hero_banner_url: rawData?.heroBannerUrl || rawData?.hero_banner_url,
-        heroBannerUrl: rawData?.heroBannerUrl || rawData?.hero_banner_url,
-        featured_artist: rawData?.featuredArtist || rawData?.featured_artist
-          ? {
-              id: (rawData?.featuredArtist || rawData?.featured_artist)?.id,
-              name: (rawData?.featuredArtist || rawData?.featured_artist)?.name,
-              photo_url: (rawData?.featuredArtist || rawData?.featured_artist)?.photoUrl ||
-                         (rawData?.featuredArtist || rawData?.featured_artist)?.photo_url,
-              bio: (rawData?.featuredArtist || rawData?.featured_artist)?.bio,
-            }
-          : undefined,
-        featured_merch: rawData?.featuredMerch || rawData?.featured_merch
-          ? {
-              id: (rawData?.featuredMerch || rawData?.featured_merch)?.id,
-              name: (rawData?.featuredMerch || rawData?.featured_merch)?.name,
-              price: parseFloat((rawData?.featuredMerch || rawData?.featured_merch)?.price) || 0,
-              image_url: (rawData?.featuredMerch || rawData?.featured_merch)?.imageUrl ||
-                         (rawData?.featuredMerch || rawData?.featured_merch)?.image_url,
-            }
-          : undefined,
-        latest_release_title: rawData?.latestReleaseTitle || rawData?.latest_release_title,
-        latest_release_url: rawData?.latestReleaseUrl || rawData?.latest_release_url,
-      };
-      setContent(data);
+      // Fetch homepage content and videos in parallel
+      console.log('[HomeScreen] Fetching homepage content and videos');
+      const [homepageResult, videosResult] = await Promise.allSettled([
+        supabaseGet('homepage'),
+        supabaseGet('videos'),
+      ]);
 
-      // Fetch exclusive videos for Home tab
-      try {
-        console.log('[HomeScreen] Fetching exclusive videos from /api/videos/exclusive');
-        const videosData = await apiGet<ExclusiveVideo[]>('/api/videos/exclusive');
-        console.log('[HomeScreen] Exclusive videos received:', videosData);
-        setExclusiveVideos((videosData || []).map((v: any) => ({
+      // Handle homepage content
+      if (homepageResult.status === 'fulfilled') {
+        const rawData = homepageResult.value as any;
+        console.log('[HomeScreen] Homepage content received:', rawData);
+        const featuredArtistRaw = rawData?.featuredArtist || rawData?.featured_artist;
+        const featuredMerchRaw = rawData?.featuredMerch || rawData?.featured_merch;
+        const data: HomepageContent = {
+          hero_banner_url: rawData?.heroBannerUrl || rawData?.hero_banner_url,
+          heroBannerUrl: rawData?.heroBannerUrl || rawData?.hero_banner_url,
+          featured_artist: featuredArtistRaw
+            ? {
+                id: featuredArtistRaw.id,
+                name: featuredArtistRaw.name,
+                photo_url: featuredArtistRaw.photoUrl || featuredArtistRaw.photo_url,
+                bio: featuredArtistRaw.bio,
+              }
+            : undefined,
+          featured_merch: featuredMerchRaw
+            ? {
+                id: featuredMerchRaw.id,
+                name: featuredMerchRaw.name,
+                price: parseFloat(featuredMerchRaw.price) || 0,
+                image_url: featuredMerchRaw.imageUrl || featuredMerchRaw.image_url,
+              }
+            : undefined,
+          latest_release_title: rawData?.latestReleaseTitle || rawData?.latest_release_title,
+          latest_release_url: rawData?.latestReleaseUrl || rawData?.latest_release_url,
+        };
+        setContent(data);
+      } else {
+        console.log('[HomeScreen] Could not fetch homepage content:', homepageResult.reason);
+        setContent(null);
+      }
+
+      // Handle exclusive videos
+      if (videosResult.status === 'fulfilled') {
+        const videosData = videosResult.value as any;
+        console.log('[HomeScreen] Videos data received:', videosData);
+        const allVideos: any[] = videosData?.videos || videosData?.data || (Array.isArray(videosData) ? videosData : []);
+        const mapped: ExclusiveVideo[] = allVideos.slice(0, 4).map((v: any) => ({
           id: v.id,
           title: v.title,
-          artistId: v.artistId || v.artist_id,
-          videoUrl: v.videoUrl || v.video_url,
-          thumbnailUrl: v.thumbnailUrl || v.thumbnail_url,
-          isExclusive: v.isExclusive ?? v.is_exclusive ?? true,
-          releaseDate: v.releaseDate || v.release_date,
-        })));
-      } catch (videoError) {
-        console.log('[HomeScreen] Could not fetch exclusive videos:', videoError);
+          videoUrl: v.video_url || v.youtube_url || '',
+          thumbnailUrl: v.thumbnail_url || (v.youtube_id ? `https://img.youtube.com/vi/${v.youtube_id}/hqdefault.jpg` : ''),
+          isExclusive: true,
+          releaseDate: v.created_at,
+        }));
+        console.log('[HomeScreen] Mapped exclusive videos:', mapped.length);
+        setExclusiveVideos(mapped);
+      } else {
+        console.log('[HomeScreen] Could not fetch videos:', videosResult.reason);
         setExclusiveVideos([]);
       }
     } catch (error) {
-      console.error('[HomeScreen] Error fetching homepage content:', error);
+      console.error('[HomeScreen] Error in fetchData:', error);
       setContent(null);
     } finally {
       setLoading(false);
@@ -321,10 +333,16 @@ export default function HomeScreen() {
                       style={styles.watchButton}
                       onPress={() => {
                         const url = video.videoUrl;
-                        if (url) {
-                          console.log('[HomeScreen] Opening video:', url);
-                          Linking.openURL(url);
-                        }
+                        if (!url || url.trim() === '') return;
+                        console.log('[HomeScreen] Watch Now pressed:', url);
+                        router.push({
+                          pathname: '/video-player',
+                          params: {
+                            video_url: url,
+                            title: video.title,
+                            source_type: url.includes('youtube') ? 'youtube' : 'upload',
+                          },
+                        });
                       }}
                     >
                       <IconSymbol

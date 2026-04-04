@@ -10,6 +10,7 @@ import {
   Image,
   Platform,
   ImageSourcePropType,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -128,10 +129,21 @@ export default function VideosScreen() {
         throw new Error(`Failed to load videos (${res.status})`);
       }
 
-      const data = JSON.parse(text);
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('[VideosScreen] JSON parse error, body was:', text.substring(0, 200));
+        throw new Error('Failed to parse server response');
+      }
       const videoList: Video[] = Array.isArray(data) ? data : (data.videos ?? data.data ?? []);
       console.log('[VideosScreen] Loaded', videoList.length, 'videos');
-      setVideos(videoList);
+      const playableVideos = videoList.filter(v => {
+        if (v.source_type === 'youtube' || v.youtube_url) return true;
+        return !!(v.video_url && v.video_url.trim() !== '');
+      });
+      console.log('[VideosScreen] Playable videos after filter:', playableVideos.length);
+      setVideos(playableVideos);
     } catch (err: any) {
       console.error('[VideosScreen] fetchVideos error:', err);
       setError(err.message ?? 'Failed to load videos');
@@ -148,14 +160,27 @@ export default function VideosScreen() {
 
   const handleVideoPress = (video: Video) => {
     console.log(`[VideosScreen] Video pressed: ${video.title}, source_type: ${video.source_type}`);
-    const videoUrl = video.youtube_url || video.video_url || '';
+    const playUrl = video.source_type === 'youtube'
+      ? (video.youtube_url || video.video_url || '')
+      : (video.video_url || '');
+
+    if (!playUrl || playUrl.trim() === '') {
+      console.warn('[VideosScreen] No playable URL for video:', video.title);
+      Alert.alert('Video Unavailable', 'This video is not available for playback.');
+      return;
+    }
+
+    const resolvedSourceType = video.source_type || (
+      playUrl.includes('youtube.com') || playUrl.includes('youtu.be') ? 'youtube' : 'upload'
+    );
+
     router.push({
       pathname: '/video-player',
       params: {
-        video_url: videoUrl,
+        video_url: playUrl,
         title: video.title,
         description: video.description ?? '',
-        source_type: video.source_type ?? 'upload',
+        source_type: resolvedSourceType,
       },
     });
   };

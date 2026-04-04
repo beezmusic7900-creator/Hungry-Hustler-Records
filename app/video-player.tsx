@@ -1,10 +1,11 @@
 
-import React, { useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
   Platform,
   ScrollView,
   Dimensions,
@@ -20,14 +21,18 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const VIDEO_HEIGHT = Math.round(SCREEN_WIDTH * (9 / 16));
 
 function extractYouTubeId(url: string): string | null {
+  if (!url) return null;
   const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+    /[?&]v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /\/embed\/([a-zA-Z0-9_-]{11})/,
+    /\/shorts\/([a-zA-Z0-9_-]{11})/,
   ];
   for (const pattern of patterns) {
     const match = url.match(pattern);
     if (match) return match[1];
   }
+  if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
   return null;
 }
 
@@ -35,14 +40,44 @@ function isYouTubeUrl(url: string): boolean {
   return url.includes('youtube.com') || url.includes('youtu.be');
 }
 
+// ─── YouTube Player ───────────────────────────────────────────────────────────
+
 function YouTubePlayer({ videoId, title, description }: { videoId: string; title: string; description: string }) {
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-  console.log(`[VideoPlayer] Rendering YouTube embed for ID: ${videoId}, url: ${embedUrl}`);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
+  console.log(`[VideoPlayer] YouTubePlayer rendering, id: ${videoId}, embedUrl: ${embedUrl}`);
+
+  const retry = useCallback(() => {
+    console.log('[VideoPlayer] YouTubePlayer retry pressed');
+    setError(false);
+    setLoading(true);
+    setRetryKey(k => k + 1);
+  }, []);
+
+  if (error) {
+    return (
+      <View style={[styles.videoContainer, { height: VIDEO_HEIGHT }, styles.errorContainer]}>
+        <Text style={styles.errorText}>Video unavailable. Please try again.</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={retry}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} bounces={false}>
       <View style={[styles.videoContainer, { height: VIDEO_HEIGHT }]}>
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        )}
         <WebView
+          key={retryKey}
           source={{ uri: embedUrl }}
           style={styles.webview}
           allowsFullscreenVideo
@@ -50,7 +85,10 @@ function YouTubePlayer({ videoId, title, description }: { videoId: string; title
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
           domStorageEnabled
-          startInLoadingState
+          startInLoadingState={false}
+          onLoad={() => { console.log('[VideoPlayer] WebView loaded'); setLoading(false); }}
+          onError={() => { console.warn('[VideoPlayer] WebView error'); setLoading(false); setError(true); }}
+          onHttpError={(e) => { console.warn('[VideoPlayer] WebView HTTP error:', e.nativeEvent.statusCode); setLoading(false); setError(true); }}
         />
       </View>
       <View style={styles.infoContainer}>
@@ -63,17 +101,71 @@ function YouTubePlayer({ videoId, title, description }: { videoId: string; title
   );
 }
 
-function UploadedVideoPlayer({ videoUrl, title, description }: { videoUrl: string; title: string; description: string }) {
-  console.log(`[VideoPlayer] Rendering uploaded video player for url: ${videoUrl}`);
+// ─── Uploaded Video Player (inner — owns the player instance) ─────────────────
 
-  const player = useVideoPlayer(videoUrl, (p) => {
+function UploadedVideoPlayerInner({
+  url,
+  title,
+  description,
+  onError,
+  onReady,
+  playerStatus,
+  onRetry,
+}: {
+  url: string;
+  title: string;
+  description: string;
+  onError: () => void;
+  onReady: () => void;
+  playerStatus: 'loading' | 'ready' | 'error';
+  onRetry: () => void;
+}) {
+  const player = useVideoPlayer(url, (p) => {
     p.loop = false;
-    p.play();
   });
+
+  React.useEffect(() => {
+    if (!player) {
+      console.warn('[VideoPlayer] useVideoPlayer returned null for url:', url);
+      onError();
+      return;
+    }
+    console.log('[VideoPlayer] Attaching statusChange listener for url:', url);
+    const sub = player.addListener('statusChange', (event) => {
+      console.log('[VideoPlayer] statusChange event:', event.status);
+      if (event.status === 'readyToPlay') {
+        onReady();
+        try { player.play(); } catch (e) { console.warn('[VideoPlayer] play() error:', e); }
+      } else if (event.status === 'error') {
+        console.warn('[VideoPlayer] Player error event');
+        onError();
+      }
+    });
+    return () => {
+      try { sub?.remove(); } catch (e) { /* ignore */ }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player]);
+
+  if (playerStatus === 'error') {
+    return (
+      <View style={[styles.videoContainer, { height: VIDEO_HEIGHT }, styles.errorContainer]}>
+        <Text style={styles.errorText}>Video unavailable. Please try again.</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} bounces={false}>
       <View style={[styles.videoContainer, { height: VIDEO_HEIGHT }]}>
+        {playerStatus === 'loading' && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        )}
         <VideoView
           player={player}
           style={styles.video}
@@ -91,6 +183,45 @@ function UploadedVideoPlayer({ videoUrl, title, description }: { videoUrl: strin
     </ScrollView>
   );
 }
+
+// ─── Uploaded Video Player (outer — guards URL, manages retry key) ────────────
+
+function UploadedVideoPlayer({ videoUrl, title, description }: { videoUrl: string; title: string; description: string }) {
+  const [playerStatus, setPlayerStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [retryKey, setRetryKey] = useState(0);
+
+  console.log(`[VideoPlayer] UploadedVideoPlayer url: ${videoUrl}`);
+
+  if (!videoUrl || videoUrl.trim() === '') {
+    console.warn('[VideoPlayer] No video URL provided, showing error state');
+    return (
+      <View style={[styles.videoContainer, { height: VIDEO_HEIGHT }, styles.errorContainer]}>
+        <Text style={styles.errorText}>Video unavailable.</Text>
+      </View>
+    );
+  }
+
+  const handleRetry = () => {
+    console.log('[VideoPlayer] UploadedVideoPlayer retry pressed');
+    setPlayerStatus('loading');
+    setRetryKey(k => k + 1);
+  };
+
+  return (
+    <UploadedVideoPlayerInner
+      key={retryKey}
+      url={videoUrl}
+      title={title}
+      description={description}
+      onError={() => setPlayerStatus('error')}
+      onReady={() => setPlayerStatus('ready')}
+      playerStatus={playerStatus}
+      onRetry={handleRetry}
+    />
+  );
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function VideoPlayerScreen() {
   const router = useRouter();
@@ -130,8 +261,14 @@ export default function VideoPlayerScreen() {
       </View>
 
       {/* Player */}
-      {isYouTube && youtubeId ? (
-        <YouTubePlayer videoId={youtubeId} title={title} description={description} />
+      {isYouTube ? (
+        youtubeId ? (
+          <YouTubePlayer videoId={youtubeId} title={title} description={description} />
+        ) : (
+          <View style={[styles.videoContainer, { height: VIDEO_HEIGHT }, styles.errorContainer]}>
+            <Text style={styles.errorText}>Invalid YouTube URL.</Text>
+          </View>
+        )
       ) : (
         <UploadedVideoPlayer videoUrl={videoUrl} title={title} description={description} />
       )}
@@ -183,6 +320,37 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+    zIndex: 10,
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#111111',
+  },
+  errorText: {
+    color: '#cccccc',
+    fontSize: 14,
+    marginTop: 12,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: colors.background,
+    fontSize: 14,
+    fontWeight: '600',
   },
   infoContainer: {
     padding: 20,
