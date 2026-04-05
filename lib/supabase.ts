@@ -1,76 +1,60 @@
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 const SUPABASE_URL = 'https://egmaxjskylfepliwaeme.supabase.co';
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbWF4anNreWxmZXBsaXdhZW1lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MDgyMDUsImV4cCI6MjA4OTk4NDIwNX0.RUE1ybaqHAGEGOY-XVt4lLM_WHkOeHZbG2zKKPIP5CI';
 
-const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => {
+// Use AsyncStorage on native (no 2 KB size limit unlike SecureStore) and
+// localStorage on web. This prevents "auto refresh tick failed" errors caused
+// by Supabase session tokens exceeding SecureStore's per-value size limit.
+const StorageAdapter = {
+  getItem: async (key: string): Promise<string | null> => {
     try {
       if (Platform.OS === 'web') {
-        return Promise.resolve(typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null);
+        return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
       }
-      return SecureStore.getItemAsync(key).catch((e) => {
-        console.warn('[Supabase] SecureStore getItem error:', e?.message);
-        return null;
-      });
+      return await AsyncStorage.getItem(key);
     } catch (e: any) {
-      console.warn('[Supabase] SecureStore getItem threw:', e?.message);
-      return Promise.resolve(null);
+      console.warn('[Supabase] StorageAdapter getItem error:', e?.message);
+      return null;
     }
   },
-  setItem: (key: string, value: string) => {
+  setItem: async (key: string, value: string): Promise<void> => {
     try {
       if (Platform.OS === 'web') {
         if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
-        return Promise.resolve();
+        return;
       }
-      return SecureStore.setItemAsync(key, value).catch((e) => {
-        console.warn('[Supabase] SecureStore setItem error:', e?.message);
-      });
+      await AsyncStorage.setItem(key, value);
     } catch (e: any) {
-      console.warn('[Supabase] SecureStore setItem threw:', e?.message);
-      return Promise.resolve();
+      console.warn('[Supabase] StorageAdapter setItem error:', e?.message);
     }
   },
-  removeItem: (key: string) => {
+  removeItem: async (key: string): Promise<void> => {
     try {
       if (Platform.OS === 'web') {
         if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
-        return Promise.resolve();
+        return;
       }
-      return SecureStore.deleteItemAsync(key).catch((e) => {
-        console.warn('[Supabase] SecureStore removeItem error:', e?.message);
-      });
+      await AsyncStorage.removeItem(key);
     } catch (e: any) {
-      console.warn('[Supabase] SecureStore removeItem threw:', e?.message);
-      return Promise.resolve();
+      console.warn('[Supabase] StorageAdapter removeItem error:', e?.message);
     }
   },
-};
-
-const originalConsoleError = console.error;
-console.error = (...args: unknown[]) => {
-  if (typeof args[0] === 'string' && args[0].includes('auto refresh tick failed')) {
-    return;
-  }
-  originalConsoleError(...args);
 };
 
 let supabaseInstance: ReturnType<typeof createClient>;
 try {
   supabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
-      storage: ExpoSecureStoreAdapter,
+      storage: StorageAdapter,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
     },
   });
-
-
 } catch (e: any) {
   console.warn('[Supabase] Client initialization error:', e?.message);
   // Fallback: create a client without storage to prevent crash

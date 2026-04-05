@@ -120,8 +120,12 @@ function UploadedVideoPlayerInner({
   playerStatus: 'loading' | 'ready' | 'error';
   onRetry: () => void;
 }) {
-  const player = useVideoPlayer(url, (p) => {
+  // Pass a VideoSource object so expo-video can unambiguously resolve the URI.
+  const videoSource = React.useMemo(() => ({ uri: url }), [url]);
+
+  const player = useVideoPlayer(videoSource, (p) => {
     p.loop = false;
+    // Do NOT call p.play() here — wait for readyToPlay status before playing.
   });
 
   React.useEffect(() => {
@@ -131,13 +135,15 @@ function UploadedVideoPlayerInner({
       return;
     }
     console.log('[VideoPlayer] Attaching statusChange listener for url:', url);
-    const sub = player.addListener('statusChange', (event) => {
-      console.log('[VideoPlayer] statusChange event:', event.status);
-      if (event.status === 'readyToPlay') {
+    // In expo-video 3.x the listener receives the StatusChangeEventPayload
+    // directly: { status, error, oldStatus }
+    const sub = player.addListener('statusChange', ({ status, error }) => {
+      console.log('[VideoPlayer] statusChange:', status, error ?? '');
+      if (status === 'readyToPlay') {
         onReady();
         try { player.play(); } catch (e) { console.warn('[VideoPlayer] play() error:', e); }
-      } else if (event.status === 'error') {
-        console.warn('[VideoPlayer] Player error event');
+      } else if (status === 'error') {
+        console.warn('[VideoPlayer] Player error:', error?.message);
         onError();
       }
     });
@@ -172,6 +178,7 @@ function UploadedVideoPlayerInner({
           allowsFullscreen
           allowsPictureInPicture
           contentFit="contain"
+          nativeControls
         />
       </View>
       <View style={styles.infoContainer}>
