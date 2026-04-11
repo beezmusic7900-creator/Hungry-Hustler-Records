@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Image,
   Platform,
-  Linking,
   Alert,
   ImageSourcePropType,
 } from 'react-native';
@@ -18,8 +17,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Play, Pause, X, Music, Lock, ShoppingCart, Download, CheckCircle } from 'lucide-react-native';
 import { colors } from '@/styles/commonStyles';
-import { supabase, SUPABASE_FUNCTIONS_URL, SUPABASE_ANON_KEY } from '@/lib/supabase';
+import { supabase, SUPABASE_ANON_KEY } from '@/lib/supabase';
+import { useMusicPurchase } from '@/contexts/MusicPurchaseContext';
 import * as FileSystem from 'expo-file-system/legacy';
+
+const MUSIC_CATALOG_URL = 'https://egmaxjskylfepliwaeme.supabase.co/functions/v1/music-catalog';
 
 type Song = {
   id: string;
@@ -34,6 +36,9 @@ type Song = {
   price?: number;
   is_active?: boolean;
   is_published?: boolean;
+  is_premium?: boolean;
+  apple_product_id?: string;
+  purchase_type?: string;
   duration?: number;
   created_at?: string;
 };
@@ -75,7 +80,8 @@ function SongRow({
   onPress: () => void;
   onDownload: () => void;
 }) {
-  const isPaid = Number(song.price) > 0;
+  const isPremium = song.is_premium === true;
+  const isPaid = isPremium || Number(song.price) > 0;
   const isLocked = isPaid && !isPurchased;
   const coverUri = song.cover_image_url || song.cover_url;
   const coverSource = resolveImageSource(coverUri);
@@ -237,9 +243,10 @@ export default function ExclusiveSongsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [activeSong, setActiveSong] = useState<Song | null>(null);
   const [playerReady, setPlayerReady] = useState(false);
-  const [purchasedIds, setPurchasedIds] = useState<Set<string>>(new Set());
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const { isSongPurchased, purchaseSong, refreshEntitlements } = useMusicPurchase();
 
   const isMounted = useRef(true);
   const pendingPlayRef = useRef(false);
@@ -293,43 +300,21 @@ export default function ExclusiveSongsScreen() {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      console.log('[music] Fetching songs and purchases in parallel');
+      console.log('[music] Fetching songs from music-catalog');
+      const res = await fetch(`${MUSIC_CATALOG_URL}/songs`, { headers });
 
-      const [songsRes, purchasesRes] = await Promise.allSettled([
-        fetch(`${SUPABASE_FUNCTIONS_URL}/songs`, { headers }),
-        session
-          ? fetch(`${SUPABASE_FUNCTIONS_URL}/my-purchases`, { headers })
-          : Promise.resolve(null),
-      ]);
-
-      if (songsRes.status === 'fulfilled' && songsRes.value?.ok) {
-        const data = await songsRes.value.json();
-        const songList: Song[] = Array.isArray(data)
-          ? data
-          : data.songs ?? data.data ?? [];
-        console.log('[music] Loaded', songList.length, 'songs');
-        if (isMounted.current) setSongs(songList);
-      } else {
-        const errText =
-          songsRes.status === 'fulfilled'
-            ? await songsRes.value?.text()
-            : String((songsRes as PromiseRejectedResult).reason);
-        console.error('[music] Songs fetch failed:', errText);
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('[music] Songs fetch failed:', res.status, errText);
         throw new Error('Failed to load songs');
       }
 
-      if (
-        purchasesRes.status === 'fulfilled' &&
-        purchasesRes.value &&
-        (purchasesRes.value as Response).ok
-      ) {
-        const pData = await (purchasesRes.value as Response).json();
-        const ids = new Set<string>(
-          (pData.purchases ?? []).map((p: { song_id: string }) => p.song_id)
-        );
-        console.log('[music] Loaded', ids.size, 'purchased song IDs');
-        if (isMounted.current) setPurchasedIds(ids);
-      }
+      const data = await res.json();
+      const songList: Song[] = Array.isArray(data)
+        ? data
+        : data.songs ?? data.data ?? [];
+      console.log('[music] Loaded', songList.length, 'songs');
+      if (isMounted.current) setSongs(songList);
     } catch (err: any) {
       console.error('[music] fetchSongs error:', err);
       if (isMounted.current) setError(err.message ?? 'Failed to load songs');
@@ -341,25 +326,27 @@ export default function ExclusiveSongsScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchSongs();
+      refreshEntitlements();
       return () => {
         // Pause when leaving tab but keep state
         try {
           player.pause();
         } catch (_) {}
       };
-    }, [fetchSongs])
+    }, [fetchSongs, refreshEntitlements])
   );
 
   // ── handleSongPress ─────────────────────────────────────────────────────
 
   const handleSongPress = useCallback(
     (song: Song) => {
-      console.log(`[music] Song pressed: "${song.title}" (id=${song.id}, price=${song.price})`);
-      const isPaid = Number(song.price) > 0;
-      const isPurchased = purchasedIds.has(song.id);
+      console.log(`[music] Song pressed: "${song.title}" (id=${song.id}, is_premium=${song.is_premium})`);
+      const isPremium = song.is_premium === true;
+      const isPaid = isPremium || Number(song.price) > 0;
+      const isPurchased = isSongPurchased(song.id);
 
       if (isPaid && !isPurchased) {
-        console.log(`[music] Song is locked — opening purchase flow for "${song.title}"`);
+        console.log(`[music] Song is locked — opening IAP purchase flow for "${song.title}"`);
         handlePurchase(song);
         return;
       }
@@ -397,7 +384,7 @@ export default function ExclusiveSongsScreen() {
         setActiveSong(song);
       }
     },
-    [activeSong, status, player, purchasedIds] // eslint-disable-line react-hooks/exhaustive-deps
+    [activeSong, status, player, isSongPurchased] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // ── handlePurchase ──────────────────────────────────────────────────────
@@ -405,28 +392,33 @@ export default function ExclusiveSongsScreen() {
   const handlePurchase = useCallback(
     async (song: Song) => {
       if (purchasingId) return;
-      console.log(`[music] Purchase initiated for: "${song.title}" (id=${song.id})`);
+      if (!song.apple_product_id) {
+        Alert.alert('Not Available', 'This song is not available for purchase yet.');
+        return;
+      }
+      console.log(`[music] IAP purchase initiated for: "${song.title}" (productId=${song.apple_product_id})`);
       setPurchasingId(song.id);
       try {
-        const stripeBase = 'https://buy.stripe.com/00w9AV0Jf8JO9tX41v6Na0d';
-        const { data: { session } } = await supabase.auth.getSession();
-        const userId = session?.user?.id ?? 'guest';
-        const stripeUrl = `${stripeBase}?client_reference_id=${userId}_${song.id}`;
-        console.log('[music] Opening Stripe URL:', stripeUrl);
-        const supported = await Linking.canOpenURL(stripeUrl);
-        if (supported) {
-          await Linking.openURL(stripeUrl);
-        } else {
-          Alert.alert('Error', 'Cannot open payment page.');
+        const success = await purchaseSong({
+          id: song.id,
+          apple_product_id: song.apple_product_id,
+        });
+        if (success) {
+          console.log(`[music] Purchase successful for: "${song.title}"`);
+          // Entitlements updated optimistically in context; play the song
+          const audioUrl = song.audio_url || song.file_url || '';
+          if (audioUrl) {
+            try { player.pause(); } catch (_) {}
+            pendingPlayRef.current = true;
+            setPlayerReady(false);
+            setActiveSong(song);
+          }
         }
-      } catch (e: any) {
-        console.error('[music] handlePurchase error:', e);
-        Alert.alert('Error', e.message ?? 'Failed to open payment page.');
       } finally {
         if (isMounted.current) setPurchasingId(null);
       }
     },
-    [purchasingId]
+    [purchasingId, purchaseSong, player]
   );
 
   // ── handleDownload ──────────────────────────────────────────────────────
@@ -442,27 +434,15 @@ export default function ExclusiveSongsScreen() {
       console.log(`[music] Download initiated for: "${song.title}"`);
       setDownloadingId(song.id);
       try {
-        // Try expo-file-system download first, fall back to Linking
         const filename = `${song.title.replace(/[^a-z0-9]/gi, '_')}.mp3`;
         const fileUri = `${FileSystem.documentDirectory}${filename}`;
         console.log('[music] Downloading to:', fileUri);
         const { uri } = await FileSystem.downloadAsync(audioUrl, fileUri);
         console.log('[music] Download complete:', uri);
-        // Open the file via Linking as a share fallback
-        const canOpen = await Linking.canOpenURL(uri);
-        if (canOpen) {
-          await Linking.openURL(uri);
-        } else {
-          Alert.alert('Downloaded', `Saved to: ${uri}`);
-        }
+        Alert.alert('Downloaded', `Saved to: ${uri}`);
       } catch (e: any) {
-        console.warn('[music] FileSystem download failed, falling back to Linking:', e.message);
-        // Fallback: open audio URL directly in browser
-        try {
-          await Linking.openURL(audioUrl);
-        } catch (linkErr: any) {
-          Alert.alert('Download Failed', linkErr.message ?? 'Could not download file.');
-        }
+        console.warn('[music] Download failed:', e.message);
+        Alert.alert('Download Failed', e.message ?? 'Could not download file.');
       } finally {
         if (isMounted.current) setDownloadingId(null);
       }
@@ -489,7 +469,7 @@ export default function ExclusiveSongsScreen() {
       song={item}
       isActive={activeSong?.id === item.id}
       isPlaying={activeSong?.id === item.id && status.playing}
-      isPurchased={purchasedIds.has(item.id)}
+      isPurchased={isSongPurchased(item.id)}
       isPurchasing={purchasingId === item.id}
       isDownloading={downloadingId === item.id}
       onPress={() => handleSongPress(item)}

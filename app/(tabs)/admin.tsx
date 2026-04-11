@@ -266,6 +266,8 @@ type SongFormState = {
   category: SongCategory;
   price: string;
   is_published: boolean;
+  apple_product_id: string;
+  is_premium: boolean;
 };
 
 function SongForm({
@@ -285,7 +287,10 @@ function SongForm({
     category: initial.category || 'exclusive',
     price: initial.price !== undefined ? String(initial.price) : '0',
     is_published: initial.is_published ?? true,
+    apple_product_id: (initial as any).apple_product_id || '',
+    is_premium: (initial as any).is_premium ?? false,
   });
+  const [appleProductIdError, setAppleProductIdError] = useState<string | null>(null);
 
   // Audio file state
   const [audioUri, setAudioUri] = useState<string | undefined>(undefined);
@@ -354,7 +359,14 @@ function SongForm({
     if (!form.artist.trim()) { Alert.alert('Validation', 'Artist is required'); return; }
     if (!isEdit && !audioUri) { Alert.alert('Validation', 'Audio file is required'); return; }
 
-    console.log('[AdminScreen] Saving song:', form.title, 'isEdit:', isEdit);
+    // IAP validation: if is_premium is on, apple_product_id is required
+    if (form.is_premium && !form.apple_product_id.trim()) {
+      setAppleProductIdError('Apple Product ID is required when Is Premium is enabled');
+      return;
+    }
+    setAppleProductIdError(null);
+
+    console.log('[AdminScreen] Saving song:', form.title, 'isEdit:', isEdit, 'is_premium:', form.is_premium);
     setSaving(true);
     try {
       let audioUrl = existingAudioUrl || '';
@@ -382,7 +394,7 @@ function SongForm({
         }
       }
 
-      const payload = {
+      const payload: Record<string, any> = {
         title: form.title.trim(),
         artist: form.artist.trim(),
         description: form.description || undefined,
@@ -395,13 +407,17 @@ function SongForm({
         cover_url: coverUrl || undefined,
         cover_image_url: coverUrl || undefined,
         duration: null,
+        is_premium: form.is_premium,
+        apple_product_id: form.apple_product_id.trim() || null,
+        purchase_type: 'non_consumable',
       };
 
       console.log('[AdminScreen] Song payload:', JSON.stringify(payload));
 
       let result: Song;
       if (isEdit) {
-        result = await adminFetch<Song>(`/songs/${initial.id}`, 'PUT', payload);
+        // Use admin catalog endpoint for IAP fields
+        result = await adminFetch<Song>(`/music-catalog/admin/songs/${initial.id}`, 'PATCH', payload);
       } else {
         result = await adminFetch<Song>('/songs', 'POST', payload);
       }
@@ -505,6 +521,43 @@ function SongForm({
           trackColor={{ false: colors.inactive, true: colors.primary }}
           thumbColor="#fff"
         />
+      </View>
+
+      {/* ── IAP Fields ── */}
+      <View style={formStyles.switchRow}>
+        <Text style={formStyles.switchLabel}>Is Premium</Text>
+        <Switch
+          value={form.is_premium}
+          onValueChange={(v) => {
+            console.log('[AdminScreen] Is Premium toggled:', v);
+            setForm((f) => ({ ...f, is_premium: v }));
+            if (!v) setAppleProductIdError(null);
+          }}
+          trackColor={{ false: colors.inactive, true: colors.primary }}
+          thumbColor="#fff"
+        />
+      </View>
+
+      <Text style={formStyles.label}>Apple Product ID</Text>
+      <TextInput
+        style={[formStyles.input, appleProductIdError ? formStyles.inputError : null]}
+        placeholder="com.hungryhustlerrecords.song.trackname"
+        placeholderTextColor={colors.textTertiary}
+        value={form.apple_product_id}
+        onChangeText={(t) => {
+          setForm((f) => ({ ...f, apple_product_id: t }));
+          if (appleProductIdError) setAppleProductIdError(null);
+        }}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      {appleProductIdError ? (
+        <Text style={formStyles.fieldError}>{appleProductIdError}</Text>
+      ) : null}
+
+      <Text style={formStyles.label}>Purchase Type</Text>
+      <View style={formStyles.readOnlyField}>
+        <Text style={formStyles.readOnlyText}>Non-Consumable</Text>
       </View>
 
       <View style={formStyles.actions}>
@@ -1958,6 +2011,27 @@ const formStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+  },
+  inputError: {
+    borderColor: colors.error,
+  },
+  fieldError: {
+    fontSize: 12,
+    color: colors.error,
+    marginTop: 4,
+    paddingHorizontal: 4,
+  },
+  readOnlyField: {
+    backgroundColor: colors.secondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  readOnlyText: {
+    fontSize: 15,
+    color: colors.textSecondary,
   },
   categoryRow: {
     flexDirection: 'row',
