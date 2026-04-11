@@ -1,6 +1,6 @@
 import { createAuthClient } from "better-auth/react";
 import { expoClient } from "@better-auth/expo/client";
-import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 
@@ -8,20 +8,43 @@ const API_URL = Constants.expoConfig?.extra?.backendUrl || "";
 
 export const BEARER_TOKEN_KEY = "hungry-hustler_bearer_token";
 
-// Platform-specific storage: localStorage for web, SecureStore for native
-// NOTE: Do NOT use AsyncStorage — its native module is not available in Expo Go
+// Use AsyncStorage on native — SecureStore has a ~2 KB per-value limit which
+// is easily exceeded by full session objects, causing AsyncStorageError and
+// cascading "auto refresh tick failed" errors from Supabase.
+// AsyncStorage has no meaningful size limit for auth tokens.
 const secureStorage = {
-  getItem: (key: string) => {
-    if (Platform.OS === "web") return Promise.resolve(localStorage.getItem(key));
-    return SecureStore.getItemAsync(key);
+  getItem: async (key: string): Promise<string | null> => {
+    try {
+      if (Platform.OS === "web") {
+        return typeof localStorage !== "undefined" ? localStorage.getItem(key) : null;
+      }
+      return await AsyncStorage.getItem(key);
+    } catch (e: any) {
+      console.warn("[auth] storage getItem error:", e?.message);
+      return null;
+    }
   },
-  setItem: (key: string, value: string) => {
-    if (Platform.OS === "web") { localStorage.setItem(key, value); return Promise.resolve(); }
-    return SecureStore.setItemAsync(key, value);
+  setItem: async (key: string, value: string): Promise<void> => {
+    try {
+      if (Platform.OS === "web") {
+        if (typeof localStorage !== "undefined") localStorage.setItem(key, value);
+        return;
+      }
+      await AsyncStorage.setItem(key, value);
+    } catch (e: any) {
+      console.warn("[auth] storage setItem error:", e?.message);
+    }
   },
-  removeItem: (key: string) => {
-    if (Platform.OS === "web") { localStorage.removeItem(key); return Promise.resolve(); }
-    return SecureStore.deleteItemAsync(key);
+  removeItem: async (key: string): Promise<void> => {
+    try {
+      if (Platform.OS === "web") {
+        if (typeof localStorage !== "undefined") localStorage.removeItem(key);
+        return;
+      }
+      await AsyncStorage.removeItem(key);
+    } catch (e: any) {
+      console.warn("[auth] storage removeItem error:", e?.message);
+    }
   },
 };
 
@@ -56,18 +79,28 @@ try {
 }
 
 export async function setBearerToken(token: string) {
-  if (Platform.OS === "web") {
-    localStorage.setItem(BEARER_TOKEN_KEY, token);
-  } else {
-    await SecureStore.setItemAsync(BEARER_TOKEN_KEY, token);
+  console.log("[auth] setBearerToken");
+  try {
+    if (Platform.OS === "web") {
+      if (typeof localStorage !== "undefined") localStorage.setItem(BEARER_TOKEN_KEY, token);
+    } else {
+      await AsyncStorage.setItem(BEARER_TOKEN_KEY, token);
+    }
+  } catch (e: any) {
+    console.warn("[auth] setBearerToken error:", e?.message);
   }
 }
 
 export async function clearAuthTokens() {
-  if (Platform.OS === "web") {
-    localStorage.removeItem(BEARER_TOKEN_KEY);
-  } else {
-    await SecureStore.deleteItemAsync(BEARER_TOKEN_KEY);
+  console.log("[auth] clearAuthTokens");
+  try {
+    if (Platform.OS === "web") {
+      if (typeof localStorage !== "undefined") localStorage.removeItem(BEARER_TOKEN_KEY);
+    } else {
+      await AsyncStorage.removeItem(BEARER_TOKEN_KEY);
+    }
+  } catch (e: any) {
+    console.warn("[auth] clearAuthTokens error:", e?.message);
   }
 }
 

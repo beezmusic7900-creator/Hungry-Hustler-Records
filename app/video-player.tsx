@@ -22,6 +22,9 @@ const VIDEO_HEIGHT = Math.round(SCREEN_WIDTH * (9 / 16));
 
 function extractYouTubeId(url: string): string | null {
   if (!url) return null;
+  // Strip tracking/share params (e.g. ?si=...) before matching so they don't
+  // bleed into the captured ID group.
+  const cleanUrl = url.split('?')[0] + (url.includes('?v=') ? '?' + url.split('?')[1] : '');
   const patterns = [
     /[?&]v=([a-zA-Z0-9_-]{11})/,
     /youtu\.be\/([a-zA-Z0-9_-]{11})/,
@@ -29,8 +32,16 @@ function extractYouTubeId(url: string): string | null {
     /\/shorts\/([a-zA-Z0-9_-]{11})/,
   ];
   for (const pattern of patterns) {
-    const match = url.match(pattern);
+    const match = cleanUrl.match(pattern);
     if (match) return match[1];
+  }
+  // Also try the original URL in case the clean version missed something
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) {
+      // Trim to exactly 11 chars in case a tracking param was appended without separator
+      return match[1].substring(0, 11);
+    }
   }
   if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
   return null;
@@ -82,12 +93,14 @@ function YouTubePlayer({ videoId, title, description }: { videoId: string; title
           key={retryKey}
           source={{ uri: embedUrl }}
           style={styles.webview}
+          originWhitelist={['*']}
           allowsFullscreenVideo
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
           domStorageEnabled
           startInLoadingState={false}
+          setSupportMultipleWindows={false}
           onLoad={() => { console.log('[VideoPlayer] WebView loaded'); setLoading(false); }}
           onError={(e) => { console.warn('[VideoPlayer] WebView error:', e.nativeEvent.description); setLoading(false); setError(true); }}
           onHttpError={(e) => {
