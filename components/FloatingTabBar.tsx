@@ -49,39 +49,45 @@ export default function FloatingTabBar({
   const pathname = usePathname();
   const animatedValue = useSharedValue(0);
 
-  // Improved active tab detection with better path matching
+  // Active tab detection: find the tab whose route best matches the current pathname.
   const activeTabIndex = React.useMemo(() => {
-    // Find the best matching tab based on the current pathname
     let bestMatch = -1;
-    let bestMatchScore = 0;
+    let bestMatchLength = -1;
 
     tabs.forEach((tab, index) => {
-      let score = 0;
+      // Normalise route to a plain string — Href can be a string or an object.
+      const routeStr = typeof tab.route === 'string'
+        ? tab.route
+        : (tab.route as any)?.pathname ?? '';
 
-      // Exact route match gets highest score
-      if (pathname === tab.route) {
-        score = 100;
-      }
-      // Check if pathname starts with tab route (for nested routes)
-      else if (pathname.startsWith(tab.route as string)) {
-        score = 80;
-      }
-      // Check if pathname contains the tab name
-      else if (pathname.includes(tab.name)) {
-        score = 60;
-      }
-      // Check for partial matches in the route
-      else if (tab.route.includes('/(tabs)/') && pathname.includes(tab.route.split('/(tabs)/')[1])) {
-        score = 40;
-      }
+      if (!routeStr) return;
 
-      if (score > bestMatchScore) {
-        bestMatchScore = score;
+      // Strip trailing slash for comparison (except bare '/').
+      const normalRoute = routeStr.length > 1 ? routeStr.replace(/\/$/, '') : routeStr;
+      const normalPath  = pathname.length  > 1 ? pathname.replace(/\/$/, '')  : pathname;
+
+      // Exact match wins immediately.
+      if (normalPath === normalRoute) {
         bestMatch = index;
+        bestMatchLength = Infinity;
+        return;
+      }
+
+      // Prefix match: the route must be a proper path prefix of the current pathname
+      // (i.e. followed by '/' or end of string) to avoid '/(tabs)/' matching everything.
+      if (
+        normalRoute.length > 1 &&
+        normalPath.startsWith(normalRoute + '/')
+      ) {
+        // Prefer the longest (most specific) prefix.
+        if (normalRoute.length > bestMatchLength) {
+          bestMatchLength = normalRoute.length;
+          bestMatch = index;
+        }
       }
     });
 
-    // Default to first tab if no match found
+    // Default to first tab if no match found.
     return bestMatch >= 0 ? bestMatch : 0;
   }, [pathname, tabs]);
 

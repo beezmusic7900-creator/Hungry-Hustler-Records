@@ -1,11 +1,20 @@
 import * as React from "react";
 import { createContext, useCallback, useContext } from "react";
-import { ExtensionStorage } from "@bacons/apple-targets";
+import { Platform } from "react-native";
 
-// Initialize storage with your group ID
-const storage = new ExtensionStorage(
-  "group.com.<user_name>.<app_name>"
-);
+// ExtensionStorage is iOS-only — only import on iOS to avoid crashes on
+// Android/web where the native module does not exist.
+// We use a lazy getter so Metro doesn't evaluate the module on other platforms.
+function getExtensionStorage(): any {
+  if (Platform.OS !== "ios") return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("@bacons/apple-targets").ExtensionStorage;
+  } catch (e) {
+    console.warn("[WidgetContext] @bacons/apple-targets not available:", e);
+    return null;
+  }
+}
 
 type WidgetContextType = {
   refreshWidget: () => void;
@@ -14,17 +23,26 @@ type WidgetContextType = {
 const WidgetContext = createContext<WidgetContextType | null>(null);
 
 export function WidgetProvider({ children }: { children: React.ReactNode }) {
-  // Update widget state whenever what we want to show changes
   React.useEffect(() => {
-    // set widget_state to null if we want to reset the widget
-    // storage.set("widget_state", null);
-
-    // Refresh widget
-    ExtensionStorage.reloadWidget();
+    const ES = getExtensionStorage();
+    if (ES) {
+      try {
+        ES.reloadWidget();
+      } catch (e) {
+        console.warn("[WidgetContext] reloadWidget error:", e);
+      }
+    }
   }, []);
 
   const refreshWidget = useCallback(() => {
-    ExtensionStorage.reloadWidget();
+    const ES = getExtensionStorage();
+    if (ES) {
+      try {
+        ES.reloadWidget();
+      } catch (e) {
+        console.warn("[WidgetContext] refreshWidget error:", e);
+      }
+    }
   }, []);
 
   return (

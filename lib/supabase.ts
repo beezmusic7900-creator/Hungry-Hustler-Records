@@ -1,21 +1,74 @@
 import { createClient } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const SUPABASE_URL = 'https://egmaxjskylfepliwaeme.supabase.co';
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbWF4anNreWxmZXBsaXdhZW1lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MDgyMDUsImV4cCI6MjA4OTk4NDIwNX0.RUE1ybaqHAGEGOY-XVt4lLM_WHkOeHZbG2zKKPIP5CI';
 
-// Use AsyncStorage on native (no 2 KB size limit unlike SecureStore) and
-// localStorage on web. This prevents "auto refresh tick failed" errors caused
-// by Supabase session tokens exceeding SecureStore's per-value size limit.
+// SecureStore has a 2 KB per-value limit. Supabase session tokens can exceed
+// this, so we chunk large values across multiple keys.
+const CHUNK_SIZE = 1800; // bytes, safely under the 2048 limit
+
+function chunkKey(key: string, index: number) {
+  return `${key}_chunk_${index}`;
+}
+
+async function secureSetItem(key: string, value: string): Promise<void> {
+  // Remove any previous chunks first
+  let i = 0;
+  while (true) {
+    const existing = await SecureStore.getItemAsync(chunkKey(key, i));
+    if (existing === null) break;
+    await SecureStore.deleteItemAsync(chunkKey(key, i));
+    i++;
+  }
+  // Write new chunks
+  const chunks = Math.ceil(value.length / CHUNK_SIZE);
+  for (let c = 0; c < chunks; c++) {
+    await SecureStore.setItemAsync(chunkKey(key, c), value.slice(c * CHUNK_SIZE, (c + 1) * CHUNK_SIZE));
+  }
+  // Store chunk count
+  await SecureStore.setItemAsync(`${key}_chunks`, String(chunks));
+}
+
+async function secureGetItem(key: string): Promise<string | null> {
+  const countStr = await SecureStore.getItemAsync(`${key}_chunks`);
+  if (countStr === null) {
+    // Fallback: try reading as a single (unchunked) value for backwards compat
+    return SecureStore.getItemAsync(key);
+  }
+  const count = parseInt(countStr, 10);
+  const parts: string[] = [];
+  for (let c = 0; c < count; c++) {
+    const part = await SecureStore.getItemAsync(chunkKey(key, c));
+    if (part === null) return null;
+    parts.push(part);
+  }
+  return parts.join('');
+}
+
+async function secureRemoveItem(key: string): Promise<void> {
+  const countStr = await SecureStore.getItemAsync(`${key}_chunks`);
+  if (countStr !== null) {
+    const count = parseInt(countStr, 10);
+    for (let c = 0; c < count; c++) {
+      await SecureStore.deleteItemAsync(chunkKey(key, c));
+    }
+    await SecureStore.deleteItemAsync(`${key}_chunks`);
+  } else {
+    await SecureStore.deleteItemAsync(key);
+  }
+}
+
+// Use SecureStore on native and localStorage on web.
 const StorageAdapter = {
   getItem: async (key: string): Promise<string | null> => {
     try {
       if (Platform.OS === 'web') {
         return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
       }
-      return await AsyncStorage.getItem(key);
+      return await secureGetItem(key);
     } catch (e: any) {
       console.warn('[Supabase] StorageAdapter getItem error:', e?.message);
       return null;
@@ -27,7 +80,7 @@ const StorageAdapter = {
         if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
         return;
       }
-      await AsyncStorage.setItem(key, value);
+      await secureSetItem(key, value);
     } catch (e: any) {
       console.warn('[Supabase] StorageAdapter setItem error:', e?.message);
     }
@@ -38,7 +91,7 @@ const StorageAdapter = {
         if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
         return;
       }
-      await AsyncStorage.removeItem(key);
+      await secureRemoveItem(key);
     } catch (e: any) {
       console.warn('[Supabase] StorageAdapter removeItem error:', e?.message);
     }
@@ -87,7 +140,6 @@ if (typeof global !== 'undefined') {
 }
 
 export const supabase = supabaseInstance;
-
 
 export { SUPABASE_URL, SUPABASE_ANON_KEY };
 export const SUPABASE_FUNCTIONS_URL = 'https://egmaxjskylfepliwaeme.supabase.co/functions/v1';

@@ -33,6 +33,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({}),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        console.warn('[AdminContext] Admin check HTTP error:', res.status, text.slice(0, 200));
+        setIsAdmin(false);
+        return false;
+      }
       const data = await res.json();
       console.log('[AdminContext] Admin check result:', data);
       const result = data.isAdmin === true;
@@ -53,6 +59,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     } else {
       setIsAdmin(false);
     }
+  // recheckAdmin is stable (wrapped in useCallback) — including it would cause
+  // an infinite loop because recheckAdmin depends on session.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   return (
