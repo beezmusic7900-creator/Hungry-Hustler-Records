@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { WebView } from 'react-native-webview';
+import YoutubePlayer from 'react-native-youtube-iframe';
 import { ArrowLeft } from 'lucide-react-native';
 import { colors } from '@/styles/commonStyles';
 
@@ -56,25 +56,36 @@ function isYouTubeUrl(url: string): boolean {
 function YouTubePlayer({ videoId, title, description }: { videoId: string; title: string; description: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [retryKey, setRetryKey] = useState(0);
 
-  // playsinline=1 is required for iOS inline playback inside WebView.
-  // autoplay=0 avoids YouTube blocking the embed due to missing user gesture.
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?playsinline=1&rel=0&modestbranding=1&autoplay=0`;
-  console.log(`[VideoPlayer] YouTubePlayer rendering, id: ${videoId}, embedUrl: ${embedUrl}`);
+  console.log(`[VideoPlayer] YouTubePlayer rendering, id: ${videoId}`);
 
-  const retry = useCallback(() => {
-    console.log('[VideoPlayer] YouTubePlayer retry pressed');
-    setError(false);
-    setLoading(true);
-    setRetryKey(k => k + 1);
+  const handleReady = useCallback(() => {
+    console.log('[VideoPlayer] YoutubePlayer ready, id:', videoId);
+    setLoading(false);
+  }, [videoId]);
+
+  const handleError = useCallback((e: string) => {
+    console.warn('[VideoPlayer] YoutubePlayer error:', e, 'id:', videoId);
+    setLoading(false);
+    setError(true);
+  }, [videoId]);
+
+  const handleChangeState = useCallback((state: string) => {
+    console.log('[VideoPlayer] YoutubePlayer state changed:', state);
   }, []);
 
   if (error) {
     return (
       <View style={[styles.videoContainer, { height: VIDEO_HEIGHT }, styles.errorContainer]}>
         <Text style={styles.errorText}>Video unavailable. Please try again.</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={retry}>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => {
+            console.log('[VideoPlayer] YouTubePlayer retry pressed');
+            setError(false);
+            setLoading(true);
+          }}
+        >
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -89,25 +100,22 @@ function YouTubePlayer({ videoId, title, description }: { videoId: string; title
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         )}
-        <WebView
-          key={retryKey}
-          source={{ uri: embedUrl }}
-          style={styles.webview}
-          originWhitelist={['*']}
-          allowsFullscreenVideo
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          javaScriptEnabled
-          domStorageEnabled
-          startInLoadingState={false}
-          setSupportMultipleWindows={false}
-          onLoad={() => { console.log('[VideoPlayer] WebView loaded'); setLoading(false); }}
-          onError={(e) => { console.warn('[VideoPlayer] WebView error:', e.nativeEvent.description); setLoading(false); setError(true); }}
-          onHttpError={(e) => {
-            const code = e.nativeEvent.statusCode;
-            console.warn('[VideoPlayer] WebView HTTP error:', code);
-            // YouTube uses 3xx redirects internally — only treat 4xx/5xx as real errors
-            if (code >= 400) { setLoading(false); setError(true); }
+        <YoutubePlayer
+          height={VIDEO_HEIGHT}
+          videoId={videoId}
+          play={false}
+          onReady={handleReady}
+          onError={handleError}
+          onChangeState={handleChangeState}
+          webViewProps={{
+            allowsFullscreenVideo: true,
+            allowsInlineMediaPlayback: true,
+          }}
+          initialPlayerParams={{
+            preventFullScreen: false,
+            controls: true,
+            modestbranding: true,
+            rel: false,
           }}
         />
       </View>
@@ -343,10 +351,6 @@ const styles = StyleSheet.create({
   video: {
     width: '100%',
     height: '100%',
-  },
-  webview: {
-    flex: 1,
-    backgroundColor: '#000',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
