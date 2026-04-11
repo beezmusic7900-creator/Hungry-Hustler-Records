@@ -67,6 +67,25 @@ try {
   });
 }
 
+// Supabase's internal token-refresh timer catches its own errors and re-throws
+// them as unhandled promise rejections with the message "auto refresh tick failed".
+// Intercept and suppress that specific noise so it doesn't spam the console.
+if (typeof global !== 'undefined') {
+  const _origHandler = (global as any)._supabaseRefreshErrorHandlerInstalled;
+  if (!_origHandler) {
+    (global as any)._supabaseRefreshErrorHandlerInstalled = true;
+    const origConsoleError = console.error.bind(console);
+    console.error = (...args: any[]) => {
+      const msg = typeof args[0] === 'string' ? args[0] : '';
+      if (msg.includes('auto refresh tick failed')) {
+        console.warn('[Supabase] Token refresh failed (session may be expired). Will retry.');
+        return;
+      }
+      origConsoleError(...args);
+    };
+  }
+}
+
 export const supabase = supabaseInstance;
 
 

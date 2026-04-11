@@ -47,7 +47,9 @@ function YouTubePlayer({ videoId, title, description }: { videoId: string; title
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
+  // playsinline=1 is required for iOS inline playback inside WebView.
+  // autoplay=0 avoids YouTube blocking the embed due to missing user gesture.
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?playsinline=1&rel=0&modestbranding=1&autoplay=0`;
   console.log(`[VideoPlayer] YouTubePlayer rendering, id: ${videoId}, embedUrl: ${embedUrl}`);
 
   const retry = useCallback(() => {
@@ -87,8 +89,13 @@ function YouTubePlayer({ videoId, title, description }: { videoId: string; title
           domStorageEnabled
           startInLoadingState={false}
           onLoad={() => { console.log('[VideoPlayer] WebView loaded'); setLoading(false); }}
-          onError={() => { console.warn('[VideoPlayer] WebView error'); setLoading(false); setError(true); }}
-          onHttpError={(e) => { console.warn('[VideoPlayer] WebView HTTP error:', e.nativeEvent.statusCode); setLoading(false); setError(true); }}
+          onError={(e) => { console.warn('[VideoPlayer] WebView error:', e.nativeEvent.description); setLoading(false); setError(true); }}
+          onHttpError={(e) => {
+            const code = e.nativeEvent.statusCode;
+            console.warn('[VideoPlayer] WebView HTTP error:', code);
+            // YouTube uses 3xx redirects internally — only treat 4xx/5xx as real errors
+            if (code >= 400) { setLoading(false); setError(true); }
+          }}
         />
       </View>
       <View style={styles.infoContainer}>
