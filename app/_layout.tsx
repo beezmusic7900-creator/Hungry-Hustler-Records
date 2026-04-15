@@ -34,12 +34,11 @@ function SubscriptionRedirect() {
 
   useEffect(() => {
     if (loading || authLoading) return;
+    // Do not auto-redirect to auth — user must tap a login button explicitly
+    if (!user) return;
+
     const onAuthScreen = pathname === "/auth";
     if (onAuthScreen) return;
-    if (!user) {
-      router.replace("/auth");
-      return;
-    }
     const onOnboarding = pathname.startsWith("/onboarding");
     if (onOnboarding) return;
 
