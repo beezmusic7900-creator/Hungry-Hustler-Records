@@ -426,7 +426,13 @@ export default function HomeScreen() {
                     {content.featured_artist.bio}
                   </Text>
                 )}
-                <TouchableOpacity style={styles.featuredArtistButton}>
+                <TouchableOpacity
+                  style={styles.featuredArtistButton}
+                  onPress={() => {
+                    console.log('[HomeScreen iOS] EXPLORE artist pressed:', content.featured_artist?.name);
+                    router.push('/(tabs)/artists');
+                  }}
+                >
                   <Text style={styles.featuredArtistButtonText}>EXPLORE</Text>
                   <IconSymbol
                     ios_icon_name="arrow.right"
@@ -501,7 +507,13 @@ export default function HomeScreen() {
                 <Text style={styles.merchName}>{content.featured_merch.name}</Text>
                 <View style={styles.merchPriceContainer}>
                   <Text style={styles.merchPrice}>${content.featured_merch.price.toFixed(2)}</Text>
-                  <TouchableOpacity style={styles.merchButton}>
+                  <TouchableOpacity
+                    style={styles.merchButton}
+                    onPress={() => {
+                      console.log('[HomeScreen iOS] SHOP NOW pressed for:', content.featured_merch?.name);
+                      router.push('/(tabs)/merch');
+                    }}
+                  >
                     <Text style={styles.merchButtonText}>SHOP NOW</Text>
                   </TouchableOpacity>
                 </View>

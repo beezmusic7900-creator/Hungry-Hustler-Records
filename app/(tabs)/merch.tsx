@@ -129,7 +129,9 @@ function ApiMerchCard({ item }: { item: MerchItem }) {
   const imageSource = resolveImageSource(item.image_url);
 
   const handleAddToCart = () => {
-    console.log(`[MerchScreen] Add to cart pressed for: ${item.name}`);
+    console.log(`[MerchScreen] Add to cart pressed for: ${item.name} ($${Number(item.price).toFixed(2)})`);
+    // API merch items link to the label's general store page
+    Linking.openURL('https://buy.stripe.com/3cIfZjajP3pu35z8hL6Na08');
   };
 
   return (

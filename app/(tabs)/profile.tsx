@@ -4,11 +4,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/IconSymbol";
 import { GlassView } from "expo-glass-effect";
 import { useTheme } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { useMusicPurchase } from "@/contexts/MusicPurchaseContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 
 export default function ProfileScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const { restorePurchases } = useMusicPurchase();
+  const { isSubscribed } = useSubscription();
   const [restoring, setRestoring] = useState(false);
 
   const handleRestorePurchases = async () => {
@@ -63,6 +67,19 @@ export default function ProfileScreen() {
             <Text style={[styles.infoText, { color: theme.colors.text }]}>San Francisco, CA</Text>
           </View>
         </GlassView>
+
+        {!isSubscribed && (
+          <TouchableOpacity
+            style={styles.goProBtn}
+            onPress={() => {
+              console.log('[Profile] Go Pro pressed');
+              router.push('/paywall');
+            }}
+          >
+            <Text style={styles.goProBtnText}>⭐ Go Pro</Text>
+            <Text style={styles.goProBtnSub}>Unlock exclusive music, videos & more</Text>
+          </TouchableOpacity>
+        )}
 
         <GlassView style={[
           styles.section,
@@ -138,5 +155,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-
+  goProBtn: {
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#C8A84B',
+  },
+  goProBtnText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  goProBtnSub: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+  },
 });

@@ -272,10 +272,15 @@ export default function ArtistsScreen() {
                     {/* Action Buttons */}
                     <View style={styles.actionButtons}>
                       <TouchableOpacity
-                        style={styles.secondaryButton}
+                        style={[styles.secondaryButton, !listenNowUrl && !artist.spotify_url && !artist.apple_music_url && styles.secondaryButtonDisabled]}
                         onPress={() => {
-                          console.log('ArtistsScreen: Listen Now pressed for', artistName, '- URL:', listenNowUrl);
-                          handleOpenLink(listenNowUrl);
+                          const url = listenNowUrl || artist.spotify_url || artist.apple_music_url || artist.youtube_url || artist.soundcloud_url;
+                          console.log('ArtistsScreen: Listen Now pressed for', artistName, '- URL:', url);
+                          if (url) {
+                            handleOpenLink(url);
+                          } else {
+                            console.log('ArtistsScreen: No streaming URL available for', artistName);
+                          }
                         }}
                       >
                         <IconSymbol
@@ -605,6 +610,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
     letterSpacing: 0.3,
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.5,
   },
   linksSection: {
     marginTop: 20,

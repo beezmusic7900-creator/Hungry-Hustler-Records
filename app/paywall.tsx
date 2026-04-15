@@ -282,6 +282,11 @@ export default function PaywallScreen() {
         <View style={[styles.floatingOrb, styles.orb3]} />
 
         <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+          {/* Close button — always visible in main paywall view */}
+          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
@@ -780,6 +785,25 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.6)",
     textAlign: "center",
     lineHeight: 16,
+  },
+
+  // Close button for main paywall view
+  closeButton: {
+    position: "absolute",
+    top: 16,
+    right: 20,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: "#fff",
+    fontWeight: "600",
   },
 
   // Web mock purchase dialog (View-based, since Alert.alert with multiple buttons fails on web)
