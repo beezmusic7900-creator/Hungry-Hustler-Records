@@ -1,27 +1,6 @@
-import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "expo-router";
-import { useSubscription } from "@/contexts/SubscriptionContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { isOnboardingComplete } from "@/utils/onboardingStorage";
-
+// Paywall is triggered only by explicit user action (e.g. tapping a buy button),
+// not automatically on subscription state. This hook is kept as a no-op stub
+// so existing imports continue to compile without changes.
 export function useSubscriptionGuard() {
-  const { isSubscribed, loading } = useSubscription();
-  const { user } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    isOnboardingComplete()
-      .then(setOnboardingDone)
-      .catch(() => setOnboardingDone(true));
-  }, [pathname]);
-
-  useEffect(() => {
-    if (loading || onboardingDone === null || !onboardingDone) return;
-    if (!user) return;
-    if (!isSubscribed) {
-      router.replace("/paywall");
-    }
-  }, [isSubscribed, loading, onboardingDone, user, router]);
+  // intentionally empty — no automatic paywall redirect
 }

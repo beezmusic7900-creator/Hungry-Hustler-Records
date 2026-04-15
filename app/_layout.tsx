@@ -16,7 +16,7 @@ import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { MusicPurchaseProvider } from "@/contexts/MusicPurchaseContext";
-import { SubscriptionProvider, useSubscription } from "@/contexts/SubscriptionContext";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { colors } from "@/styles/commonStyles";
 import { isOnboardingComplete } from "@/utils/onboardingStorage";
 
@@ -27,13 +27,12 @@ export const unstable_settings = {
 };
 
 function SubscriptionRedirect() {
-  const { isSubscribed, loading } = useSubscription();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (loading || authLoading) return;
+    if (authLoading) return;
     // Do not auto-redirect to auth — user must tap a login button explicitly
     if (!user) return;
 
@@ -47,23 +46,12 @@ function SubscriptionRedirect() {
       if (cancelled) return;
       if (!done) {
         router.replace("/onboarding");
-        return;
-      }
-      const onPaywall = pathname === "/paywall";
-      if (onPaywall) return;
-      if (!isSubscribed) {
-        router.replace("/paywall");
       }
     }).catch(() => {
-      if (cancelled) return;
-      const onPaywall = pathname === "/paywall";
-      if (onPaywall) return;
-      if (!isSubscribed) {
-        router.replace("/paywall");
-      }
+      // ignore — stay on current screen
     });
     return () => { cancelled = true; };
-  }, [isSubscribed, loading, authLoading, pathname, user, router]);
+  }, [authLoading, pathname, user, router]);
 
   return null;
 }
