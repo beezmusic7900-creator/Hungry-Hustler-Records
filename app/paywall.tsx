@@ -30,24 +30,24 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 // Premium features for the paywall
 const FEATURES = [
   {
-    icon: "🎵",
-    title: "Exclusive Music",
-    description: "Unlock full albums and exclusive tracks from Hungry Hustler Records artists",
+    icon: "♾",
+    title: "Own It Forever",
+    description: "One-time purchase — yours to keep, no subscription needed",
   },
   {
-    icon: "🎬",
-    title: "Premium Videos",
-    description: "Watch exclusive music videos, behind-the-scenes content, and live performances",
+    icon: "⬇",
+    title: "Download & Keep",
+    description: "Save tracks to your library and listen anytime",
   },
   {
-    icon: "👕",
-    title: "Merch Discounts",
-    description: "Get early access and exclusive discounts on official Hungry Hustler merch",
+    icon: "🎤",
+    title: "Support the Artist",
+    description: "Your purchase goes directly to supporting Hungry Hustler Records artists",
   },
   {
-    icon: "⭐",
-    title: "Artist Access",
-    description: "Direct updates, exclusive content, and early releases from your favorite artists",
+    icon: "📶",
+    title: "Offline Listening",
+    description: "Play your purchased tracks without an internet connection",
   },
 ];
 
@@ -95,8 +95,9 @@ export default function PaywallScreen() {
       setPurchasing(true);
       const success = await purchasePackage(selectedPackage);
       if (success) {
-        Alert.alert("Welcome!", "Thank you for your purchase.", [
-          { text: "OK", onPress: () => router.replace("/(tabs)/(home)") },
+        console.log("[Paywall] Purchase successful:", selectedPackage?.identifier);
+      Alert.alert("Track Purchased!", "It's yours to keep. Enjoy the music!", [
+          { text: "Let's Go", onPress: () => router.replace("/(tabs)/(home)") },
         ]);
       }
     } catch (error: any) {
@@ -110,15 +111,17 @@ export default function PaywallScreen() {
   const handleRestore = async () => {
     try {
       setRestoring(true);
+      console.log("[Paywall] Restore purchases tapped");
       const restored = await restorePurchases();
       if (restored) {
-        Alert.alert("Restored!", "Your subscription has been restored.", [
+        console.log("[Paywall] Restore successful");
+        Alert.alert("Restored!", "Your purchased tracks have been restored.", [
           { text: "OK", onPress: () => router.replace("/(tabs)/(home)") },
         ]);
       } else {
         Alert.alert(
           "No Purchases Found",
-          "We couldn't find any previous purchases."
+          "We couldn't find any previous purchases to restore."
         );
       }
     } catch (error: any) {
@@ -189,15 +192,15 @@ export default function PaywallScreen() {
                 <Text style={styles.celebrationIcon}>🎉</Text>
               </View>
 
-              {/* PRO MEMBER badge */}
+              {/* TRACK OWNED badge */}
               <View style={styles.proMemberBadge}>
-                <Text style={styles.proMemberText}>PRO MEMBER</Text>
+                <Text style={styles.proMemberText}>TRACK OWNED</Text>
               </View>
 
               {/* Title */}
               <Text style={styles.subscribedTitle}>You're All Set!</Text>
               <Text style={styles.subscribedSubtitle}>
-                Welcome to the premium experience
+                This track is yours to keep forever
               </Text>
 
               {/* Features card */}
@@ -283,11 +286,11 @@ export default function PaywallScreen() {
             <View style={styles.header}>
               {/* Premium badge */}
               <View style={styles.premiumBadge}>
-                <Text style={styles.premiumBadgeText}>PREMIUM</Text>
+                <Text style={styles.premiumBadgeText}>MUSIC STORE</Text>
               </View>
-              <Text style={styles.title}>Upgrade to Premium</Text>
+              <Text style={styles.title}>Own Your Music</Text>
               <Text style={styles.subtitle}>
-                Unlock all features and get the most out of the app
+                Buy tracks once and keep them forever — no subscription required
               </Text>
             </View>
 
@@ -395,9 +398,9 @@ export default function PaywallScreen() {
                     <Text style={styles.primaryButtonText}>
                       {selectedPackage
                         ? selectedPackage.product.priceString
-                          ? `Subscribe for ${selectedPackage.product.priceString}`
-                          : "Subscribe"
-                        : "Select a plan"}
+                          ? `Buy for ${selectedPackage.product.priceString}`
+                          : "Buy Now"
+                        : "Select a track"}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -420,13 +423,16 @@ export default function PaywallScreen() {
               </>
             ) : (
               <>
-                {/* Native: Subscribe Button */}
+                {/* Native: Buy Button */}
                 <TouchableOpacity
                   style={[
                     styles.primaryButton,
                     (!selectedPackage || purchasing) && styles.buttonDisabled,
                   ]}
-                  onPress={handlePurchase}
+                  onPress={() => {
+                    console.log("[Paywall] Buy button pressed:", selectedPackage?.identifier, selectedPackage?.product.priceString);
+                    handlePurchase();
+                  }}
                   disabled={!selectedPackage || purchasing}
                 >
                   {purchasing ? (
@@ -435,9 +441,9 @@ export default function PaywallScreen() {
                     <Text style={styles.primaryButtonText}>
                       {selectedPackage
                         ? (selectedPackage.product.priceString
-                            ? `Subscribe for ${selectedPackage.product.priceString}`
-                            : "Subscribe")
-                        : "Select a plan"}
+                            ? `Buy for ${selectedPackage.product.priceString}`
+                            : "Buy Now")
+                        : "Select a track"}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -459,8 +465,7 @@ export default function PaywallScreen() {
                 <Text style={styles.legalText}>
                   Payment will be charged to your{" "}
                   {Platform.OS === "ios" ? "Apple ID" : "Google Play"} account.
-                  Subscription automatically renews unless canceled at least 24 hours
-                  before the end of the current period.
+                  This is a one-time purchase. No subscription or recurring charges.
                 </Text>
               </>
             )}
