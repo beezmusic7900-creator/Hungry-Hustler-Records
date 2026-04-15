@@ -122,6 +122,42 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   useEffect(() => {
     let customerInfoListener: { remove: () => void } | null = null;
 
+    // Local helpers defined inside the effect so they are available immediately
+    // (avoids ReferenceError from calling const-declared functions before their
+    // declaration in the component body).
+    const _fetchOfferings = async () => {
+      if (isWeb) return;
+      try {
+        const fetchedOfferings = await Purchases.getOfferings();
+        setOfferings(fetchedOfferings);
+        if (fetchedOfferings.current) {
+          setCurrentOffering(fetchedOfferings.current);
+          setPackages(fetchedOfferings.current.availablePackages);
+        }
+      } catch (error) {
+        console.error("[RevenueCat] Failed to fetch offerings:", error);
+      }
+    };
+
+    const _checkSubscription = async () => {
+      if (isWeb) return;
+      try {
+        const customerInfo = await Purchases.getCustomerInfo();
+        const hasEntitlement =
+          typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== "undefined";
+        if (hasEntitlement || !__DEV__) {
+          setIsSubscribed(hasEntitlement);
+        }
+        if (hasEntitlement) {
+          await SecureStore.setItemAsync(NATIVE_PURCHASE_KEY, "true").catch(() => {});
+        } else if (!__DEV__) {
+          await SecureStore.setItemAsync(NATIVE_PURCHASE_KEY, "false").catch(() => {});
+        }
+      } catch (error) {
+        console.error("[RevenueCat] Failed to check subscription:", error);
+      }
+    };
+
     const initRevenueCat = async () => {
       try {
         // Web platform: SDK doesn't work, use REST API for basic info
@@ -203,10 +239,10 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         );
 
         // Fetch available products/packages
-        await fetchOfferings();
+        await _fetchOfferings();
 
         // Check initial subscription status
-        await checkSubscription();
+        await _checkSubscription();
       } catch (error) {
         console.error("[RevenueCat] Failed to initialize:", error);
       } finally {

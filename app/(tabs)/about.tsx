@@ -46,8 +46,8 @@ export default function AboutScreen() {
       setLoading(true);
       console.log('[AboutScreen] Fetching about content from /api/about');
       
-      const { apiGet } = await import('@/utils/api');
-      const rawData = await apiGet<any>('/api/about');
+      const { supabaseGet } = await import('@/utils/supabaseApi');
+      const rawData = await supabaseGet<any>('about');
       
       console.log('[AboutScreen] About content received:', rawData);
       // Normalize camelCase/snake_case fields from API

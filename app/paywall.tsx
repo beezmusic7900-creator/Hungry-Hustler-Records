@@ -97,7 +97,7 @@ export default function PaywallScreen() {
       if (success) {
         console.log("[Paywall] Purchase successful:", selectedPackage?.identifier);
       Alert.alert("Track Purchased!", "It's yours to keep. Enjoy the music!", [
-          { text: "Let's Go", onPress: () => router.replace("/(tabs)/(home)") },
+          { text: "Let's Go", onPress: () => router.replace("/(tabs)/") },
         ]);
       }
     } catch (error: any) {
@@ -116,7 +116,7 @@ export default function PaywallScreen() {
       if (restored) {
         console.log("[Paywall] Restore successful");
         Alert.alert("Restored!", "Your purchased tracks have been restored.", [
-          { text: "OK", onPress: () => router.replace("/(tabs)/(home)") },
+          { text: "OK", onPress: () => router.replace("/(tabs)/") },
         ]);
       } else {
         Alert.alert(
@@ -513,7 +513,7 @@ Price: ${selectedPackage?.product.priceString || "N/A"}`}
                   onPress={() => {
                     setWebMockDialogState("hidden");
                     mockWebPurchase();
-                    router.replace("/(tabs)/(home)");
+                    router.replace("/(tabs)/");
                   }}
                 >
                   <Text style={[styles.webDialogButtonText, { color: "#007AFF" }]}>
