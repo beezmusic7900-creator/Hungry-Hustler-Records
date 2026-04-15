@@ -333,7 +333,7 @@ export default function ExclusiveSongsScreen() {
           player.pause();
         } catch (_) {}
       };
-    }, [fetchSongs, refreshEntitlements])
+    }, [fetchSongs, refreshEntitlements, player])
   );
 
   // ── handleSongPress ─────────────────────────────────────────────────────

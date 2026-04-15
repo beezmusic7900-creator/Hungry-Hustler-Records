@@ -54,7 +54,7 @@ export default function ArtistsScreen() {
   useEffect(() => {
     console.log('ArtistsScreen: Fetching artists');
     fetchArtists();
-  }, []);
+  }, [fetchArtists]);
 
   const parseSpecialties = (specialties: string[] | string | null | undefined): string[] => {
     if (!specialties) return [];
