@@ -3,7 +3,6 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Dimensions } from 'react-native';
 import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -17,8 +16,6 @@ const TABS: TabBarItem[] = [
 ];
 
 export default function TabLayout() {
-  useSubscriptionGuard();
-
   const tabBarWidth = Math.min(screenWidth - 32, 500);
 
   return (
