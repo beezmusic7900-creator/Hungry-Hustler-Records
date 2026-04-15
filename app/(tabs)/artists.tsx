@@ -54,7 +54,8 @@ export default function ArtistsScreen() {
   useEffect(() => {
     console.log('ArtistsScreen: Fetching artists');
     fetchArtists();
-  }, [fetchArtists]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const parseSpecialties = (specialties: string[] | string | null | undefined): string[] => {
     if (!specialties) return [];
@@ -116,7 +117,7 @@ export default function ArtistsScreen() {
       console.log('[ArtistsScreen] Fetching artists from /api/artists');
       
       const { supabaseGet } = await import('@/utils/supabaseApi');
-      const data = await supabaseGet<any[]>('/api/artists');
+      const data = await supabaseGet<any[]>('artists');
       
       console.log('[ArtistsScreen] Artists received:', data);
       const normalized = (data || []).map(normalizeArtist);
