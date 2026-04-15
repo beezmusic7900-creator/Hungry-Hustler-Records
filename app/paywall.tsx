@@ -132,7 +132,12 @@ export default function PaywallScreen() {
   };
 
   const handleClose = () => {
-    router.replace("/(tabs)/(home)");
+    console.log("[Paywall] Go Back to App pressed, canGoBack:", router.canGoBack());
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
   };
 
   // Handle web mock purchase (replicates RevenueCat test store flow for web preview)
