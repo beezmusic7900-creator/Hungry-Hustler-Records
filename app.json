@@ -64,9 +64,12 @@
       "supabaseUrl": "https://egmaxjskylfepliwaeme.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbWF4anNreWxmZXBsaXdhZW1lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MDgyMDUsImV4cCI6MjA4OTk4NDIwNX0.RUE1ybaqHAGEGOY-XVt4lLM_WHkOeHZbG2zKKPIP5CI",
       "backendUrl": "https://wrdj46vx87gb6xau8kr2hsjrhyn82upz.app.specular.dev",
-      "revenueCatTestApiKeyIos": "test_CEaBgMOTkLxnEhLmhQQwXrIvgRE",
-      "revenueCatTestApiKeyAndroid": "test_CEaBgMOTkLxnEhLmhQQwXrIvgRE",
+      "revenueCatTestApiKeyIos": "test_wEkIGlvWCRgUmodYuYUmFtROJxN",
+      "revenueCatTestApiKeyAndroid": "test_wEkIGlvWCRgUmodYuYUmFtROJxN",
+      "revenueCatApiKeyIos": "test_wEkIGlvWCRgUmodYuYUmFtROJxN",
+      "revenueCatApiKeyAndroid": "test_wEkIGlvWCRgUmodYuYUmFtROJxN",
       "revenueCatEntitlementId": "pro",
+      "revenueCatMusicEntitlementId": "music_purchase",
       "nativelyProjectId": "e6f7a075-2ed0-4f03-bcbc-37c67737a41d"
     }
   }

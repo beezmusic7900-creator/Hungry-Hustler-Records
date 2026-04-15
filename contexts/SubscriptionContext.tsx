@@ -35,11 +35,12 @@ import * as SecureStore from "expo-secure-store";
 import { useAuth } from "./AuthContext";
 
 // Read API keys from app.json (expo.extra)
+// Hardcoded fallback ensures the correct key is always used even if app.json extra is stale
 const extra = Constants.expoConfig?.extra || {};
-const IOS_API_KEY = extra.revenueCatApiKeyIos || "";
-const ANDROID_API_KEY = extra.revenueCatApiKeyAndroid || "";
-const TEST_IOS_API_KEY = extra.revenueCatTestApiKeyIos || "";
-const TEST_ANDROID_API_KEY = extra.revenueCatTestApiKeyAndroid || "";
+const IOS_API_KEY = extra.revenueCatApiKeyIos || "test_wEkIGlvWCRgUmodYuYUmFtROJxN";
+const ANDROID_API_KEY = extra.revenueCatApiKeyAndroid || "test_wEkIGlvWCRgUmodYuYUmFtROJxN";
+const TEST_IOS_API_KEY = extra.revenueCatTestApiKeyIos || "test_wEkIGlvWCRgUmodYuYUmFtROJxN";
+const TEST_ANDROID_API_KEY = extra.revenueCatTestApiKeyAndroid || "test_wEkIGlvWCRgUmodYuYUmFtROJxN";
 const ENTITLEMENT_ID = extra.revenueCatEntitlementId || "pro";
 
 // Check if running on web

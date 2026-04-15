@@ -3,6 +3,45 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { Alert, Platform } from 'react-native';
 import { useAuth } from './AuthContext';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
+import Constants from 'expo-constants';
+
+// ─── RevenueCat config ────────────────────────────────────────────────────────
+
+const _extra = Constants.expoConfig?.extra || {};
+// Hardcoded fallback ensures the correct key is always used even if app.json extra is stale
+const RC_API_KEY: string =
+  _extra.revenueCatTestApiKeyIos ||
+  _extra.revenueCatApiKeyIos ||
+  'test_wEkIGlvWCRgUmodYuYUmFtROJxN';
+const MUSIC_ENTITLEMENT_ID: string =
+  _extra.revenueCatMusicEntitlementId || 'music_purchase';
+
+// Product ID pattern for non-consumable track purchases:
+// com.hungryhustlerrecords.song.<trackname>
+// e.g. com.hungryhustlerrecords.song.trackname
+
+let _rcConfigured = false;
+
+async function ensureRCConfigured(): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+  try {
+    const Purchases = (await import('react-native-purchases')).default;
+    if (typeof Purchases?.configure !== 'function') {
+      console.warn('[MusicPurchase] react-native-purchases native module not available (Expo Go)');
+      return false;
+    }
+    if (!_rcConfigured) {
+      console.log('[MusicPurchase] Initializing RevenueCat SDK with key:', RC_API_KEY.substring(0, 14) + '...');
+      await Purchases.configure({ apiKey: RC_API_KEY });
+      _rcConfigured = true;
+      console.log('[MusicPurchase] RevenueCat SDK initialized, entitlement:', MUSIC_ENTITLEMENT_ID);
+    }
+    return true;
+  } catch (e) {
+    console.error('[MusicPurchase] ensureRCConfigured error:', e);
+    return false;
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,7 +138,11 @@ export function MusicPurchaseProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Dynamically import to avoid web crashes
+      const ready = await ensureRCConfigured();
+      if (!ready) {
+        Alert.alert('Not Available', 'In-app purchases require a custom dev build or production build.');
+        return false;
+      }
       const Purchases = (await import('react-native-purchases')).default;
 
       let transactionId: string | undefined;
@@ -191,6 +234,11 @@ export function MusicPurchaseProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      const ready = await ensureRCConfigured();
+      if (!ready) {
+        Alert.alert('Not Available', 'In-app purchases require a custom dev build or production build.');
+        return false;
+      }
       const Purchases = (await import('react-native-purchases')).default;
 
       let transactionId: string | undefined;
@@ -281,6 +329,11 @@ export function MusicPurchaseProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      const ready = await ensureRCConfigured();
+      if (!ready) {
+        Alert.alert('Not Available', 'Restore purchases require a custom dev build or production build.');
+        return { restored_count: 0 };
+      }
       const Purchases = (await import('react-native-purchases')).default;
 
       console.log('[MusicPurchase] Calling Purchases.restorePurchases()');
