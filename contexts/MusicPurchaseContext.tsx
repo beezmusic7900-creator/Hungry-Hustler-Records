@@ -8,7 +8,19 @@ import Constants from 'expo-constants';
 // ─── RevenueCat config ────────────────────────────────────────────────────────
 
 const _extra = Constants.expoConfig?.extra || {};
-// Hardcoded fallback ensures the correct key is always used even if app.json extra is stale
+
+// Expo Go does not include the RevenueCat native module — calling configure() there
+// throws "Invalid API key" because the native runtime is absent.
+// Constants.appOwnership === 'expo' reliably identifies Expo Go.
+const _isExpoGo = Constants.appOwnership === 'expo';
+
+if (_isExpoGo) {
+  console.log(
+    '[MusicPurchase] Running in Expo Go — RevenueCat initialization skipped. ' +
+    'Use a development build (npx expo run:ios / run:android) to test purchases.'
+  );
+}
+
 // Use platform-appropriate production key; fall back to test key in dev
 const RC_API_KEY: string =
   (Platform.OS === 'android'
@@ -36,10 +48,15 @@ let _rcConfigured = false;
 
 async function ensureRCConfigured(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
+  // Hard-skip in Expo Go — native module is not linked, configure() throws "Invalid API key"
+  if (_isExpoGo) {
+    console.log('[MusicPurchase] Expo Go detected — skipping RevenueCat initialization');
+    return false;
+  }
   try {
     const Purchases = (await import('react-native-purchases')).default;
     if (typeof Purchases?.configure !== 'function') {
-      console.warn('[MusicPurchase] react-native-purchases native module not available (Expo Go)');
+      console.warn('[MusicPurchase] react-native-purchases native module not available');
       return false;
     }
     if (!_rcConfigured) {

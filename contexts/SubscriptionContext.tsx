@@ -53,25 +53,37 @@ if (_activeKey === "test_wEkIGlvWCRgUmodYuYUmFtROJxN") {
 
 // Check if running on web
 const isWeb = Platform.OS === "web";
+// Expo Go does not include the RevenueCat native module — attempting to initialize
+// it there throws "Invalid API key" because the native runtime is absent.
+// Constants.appOwnership === 'expo' reliably identifies Expo Go.
+const isExpoGo = Constants.appOwnership === "expo";
 const _PROJECT_SCOPE = Constants.expoConfig?.extra?.nativelyProjectId || Constants.expoConfig?.slug || "app";
 const MOCK_PURCHASE_KEY = `rc_mock_purchased_${_PROJECT_SCOPE}`;
 const MOCK_NATIVE_KEY = `rc_dev_native_${_PROJECT_SCOPE}`;
 const NATIVE_PURCHASE_KEY = `rc_subscribed_${_PROJECT_SCOPE}`;
 
+if (isExpoGo) {
+  console.log(
+    "[RevenueCat] Running in Expo Go — RevenueCat initialization skipped. " +
+    "Use a development build (npx expo run:ios / run:android) to test purchases."
+  );
+}
+
 // ─── Dynamic RC loader ────────────────────────────────────────────────────────
 // react-native-purchases requires a native module that is NOT present in Expo Go.
-// We load it dynamically and check for the native module before calling any SDK methods.
-// This prevents the app from crashing in Expo Go.
+// We skip loading entirely in Expo Go to avoid "Invalid API key" / native crash.
 
 let _rcModule: typeof import("react-native-purchases") | null = null;
 let _rcAvailable: boolean | null = null;
 
 async function getRCModule(): Promise<typeof import("react-native-purchases") | null> {
+  // Hard-skip in Expo Go — native module is not linked, any call throws
+  if (isExpoGo) return null;
   if (_rcAvailable === false) return null;
   if (_rcModule) return _rcModule;
   try {
     const mod = await import("react-native-purchases");
-    // Verify the native module is actually linked (not available in Expo Go)
+    // Verify the native module is actually linked
     if (typeof mod.default?.configure !== "function") {
       console.warn(
         "[RevenueCat] react-native-purchases native module not available. " +
