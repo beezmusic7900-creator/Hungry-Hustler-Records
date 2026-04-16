@@ -69,6 +69,7 @@ function SongRow({
   isPurchasing,
   isDownloading,
   onPress,
+  onPurchase,
   onDownload,
 }: {
   song: Song;
@@ -78,6 +79,7 @@ function SongRow({
   isPurchasing: boolean;
   isDownloading: boolean;
   onPress: () => void;
+  onPurchase: () => void;
   onDownload: () => void;
 }) {
   const isPremium = song.is_premium === true;
@@ -139,7 +141,7 @@ function SongRow({
         {isLocked ? (
           <TouchableOpacity
             style={styles.buyBtn}
-            onPress={onPress}
+            onPress={onPurchase}
             disabled={isPurchasing}
           >
             {isPurchasing ? (
@@ -473,6 +475,7 @@ export default function ExclusiveSongsScreen() {
       isPurchasing={purchasingId === item.id}
       isDownloading={downloadingId === item.id}
       onPress={() => handleSongPress(item)}
+      onPurchase={() => handlePurchase(item)}
       onDownload={() => handleDownload(item)}
     />
   );

@@ -7,7 +7,7 @@
  * Supports:
  * - Native iOS/Android via RevenueCat SDK
  * - Web preview via RevenueCat REST API (read-only pricing display)
- * - Expo Go via test store keys
+ * - Expo Go: graceful fallback (no crash) with mock purchase support
  *
  * SETUP:
  * 1. Wrap your app with <SubscriptionProvider> inside <AuthProvider>
@@ -22,20 +22,18 @@ import React, {
   ReactNode,
 } from "react";
 import { Platform } from "react-native";
-import Purchases, {
-  PurchasesOfferings,
-  PurchasesOffering,
-  PurchasesPackage,
-  LOG_LEVEL,
-} from "react-native-purchases";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 
 // Import auth hook for user syncing (validated at setup time)
 import { useAuth } from "./AuthContext";
 
+// Lazily-imported RevenueCat types (only used in native builds)
+type PurchasesOfferings = import("react-native-purchases").PurchasesOfferings;
+type PurchasesOffering = import("react-native-purchases").PurchasesOffering;
+type PurchasesPackage = import("react-native-purchases").PurchasesPackage;
+
 // Read API keys from app.json (expo.extra)
-// Hardcoded fallback ensures the correct key is always used even if app.json extra is stale
 const extra = Constants.expoConfig?.extra || {};
 const IOS_API_KEY = extra.revenueCatApiKeyIos || "test_wEkIGlvWCRgUmodYuYUmFtROJxN";
 const ANDROID_API_KEY = extra.revenueCatApiKeyAndroid || "test_wEkIGlvWCRgUmodYuYUmFtROJxN";
@@ -55,13 +53,44 @@ if (_activeKey === "test_wEkIGlvWCRgUmodYuYUmFtROJxN") {
 
 // Check if running on web
 const isWeb = Platform.OS === "web";
-// Use nativelyProjectId (unique UUID) for scoping; fall back to slug for backward compatibility
 const _PROJECT_SCOPE = Constants.expoConfig?.extra?.nativelyProjectId || Constants.expoConfig?.slug || "app";
 const MOCK_PURCHASE_KEY = `rc_mock_purchased_${_PROJECT_SCOPE}`;
-// Scoped native dev mock key — persists simulated subscription in Expo Go via expo-secure-store
 const MOCK_NATIVE_KEY = `rc_dev_native_${_PROJECT_SCOPE}`;
-// Scoped native cache key — persists real subscription state for fast restore on bundle reload
 const NATIVE_PURCHASE_KEY = `rc_subscribed_${_PROJECT_SCOPE}`;
+
+// ─── Dynamic RC loader ────────────────────────────────────────────────────────
+// react-native-purchases requires a native module that is NOT present in Expo Go.
+// We load it dynamically and check for the native module before calling any SDK methods.
+// This prevents the app from crashing in Expo Go.
+
+let _rcModule: typeof import("react-native-purchases") | null = null;
+let _rcAvailable: boolean | null = null;
+
+async function getRCModule(): Promise<typeof import("react-native-purchases") | null> {
+  if (_rcAvailable === false) return null;
+  if (_rcModule) return _rcModule;
+  try {
+    const mod = await import("react-native-purchases");
+    // Verify the native module is actually linked (not available in Expo Go)
+    if (typeof mod.default?.configure !== "function") {
+      console.warn(
+        "[RevenueCat] react-native-purchases native module not available. " +
+        "Purchases require a custom dev build or production build, not standard Expo Go."
+      );
+      _rcAvailable = false;
+      return null;
+    }
+    _rcModule = mod;
+    _rcAvailable = true;
+    return mod;
+  } catch (e) {
+    console.warn("[RevenueCat] Failed to load react-native-purchases:", e);
+    _rcAvailable = false;
+    return null;
+  }
+}
+
+// ─── Context types ────────────────────────────────────────────────────────────
 
 interface SubscriptionContextType {
   /** Whether the user has an active subscription */
@@ -76,6 +105,8 @@ interface SubscriptionContextType {
   loading: boolean;
   /** Whether running on web (purchases not available) */
   isWeb: boolean;
+  /** Whether RevenueCat native module is available (false in Expo Go) */
+  isNativeAvailable: boolean;
   /** Purchase a package - returns true if successful */
   purchasePackage: (pkg: PurchasesPackage) => Promise<boolean>;
   /** Restore previous purchases - returns true if subscription found */
@@ -97,8 +128,6 @@ interface SubscriptionProviderProps {
 }
 
 export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
-  // Get user from auth context for subscription syncing across devices
-  // Safe: handles different auth context shapes (Better Auth, Supabase, etc.)
   const auth = useAuth() as Record<string, unknown> | null;
   const session = auth?.session as Record<string, unknown> | undefined;
   const user = (auth?.user ?? session?.user ?? null) as { id?: string } | null;
@@ -106,15 +135,14 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [offerings, setOfferings] = useState<PurchasesOfferings | null>(null);
-  const [currentOffering, setCurrentOffering] =
-    useState<PurchasesOffering | null>(null);
+  const [currentOffering, setCurrentOffering] = useState<PurchasesOffering | null>(null);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(false);
+  const [isNativeAvailable, setIsNativeAvailable] = useState(false);
 
-    // Fetch offerings via REST API for web platform
+  // Fetch offerings via REST API mock for web platform
   const fetchOfferingsViaRest = async () => {
-    // Mock package with real prices from RevenueCat dashboard
     const mockPackage = {
       identifier: "$rc_monthly",
       product: {
@@ -123,57 +151,19 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         description: "Unlock all premium features",
       },
     };
-
     setPackages([mockPackage] as PurchasesPackage[]);
-    console.log("[revenuecat] Web preview: showing real prices from dashboard");
+    console.log("[RevenueCat] Web preview: showing mock prices");
   };
 
   // Initialize RevenueCat on mount
   useEffect(() => {
     let customerInfoListener: { remove: () => void } | null = null;
 
-    // Local helpers defined inside the effect so they are available immediately
-    // (avoids ReferenceError from calling const-declared functions before their
-    // declaration in the component body).
-    const _fetchOfferings = async () => {
-      if (isWeb) return;
-      try {
-        const fetchedOfferings = await Purchases.getOfferings();
-        setOfferings(fetchedOfferings);
-        if (fetchedOfferings.current) {
-          setCurrentOffering(fetchedOfferings.current);
-          setPackages(fetchedOfferings.current.availablePackages);
-        }
-      } catch (error) {
-        console.error("[RevenueCat] Failed to fetch offerings:", error);
-      }
-    };
-
-    const _checkSubscription = async () => {
-      if (isWeb) return;
-      try {
-        const customerInfo = await Purchases.getCustomerInfo();
-        const hasEntitlement =
-          typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== "undefined";
-        if (hasEntitlement || !__DEV__) {
-          setIsSubscribed(hasEntitlement);
-        }
-        if (hasEntitlement) {
-          await SecureStore.setItemAsync(NATIVE_PURCHASE_KEY, "true").catch(() => {});
-        } else if (!__DEV__) {
-          await SecureStore.setItemAsync(NATIVE_PURCHASE_KEY, "false").catch(() => {});
-        }
-      } catch (error) {
-        console.error("[RevenueCat] Failed to check subscription:", error);
-      }
-    };
-
     const initRevenueCat = async () => {
       try {
-        // Web platform: SDK doesn't work, use REST API for basic info
+        // Web platform: SDK doesn't work, use mock for basic display
         if (isWeb) {
           await fetchOfferingsViaRest();
-          // Restore mock purchase state persisted from a previous session
           if (typeof window !== "undefined" && localStorage.getItem(MOCK_PURCHASE_KEY) === "true") {
             setIsSubscribed(true);
           }
@@ -181,32 +171,30 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
           return;
         }
 
-        // Check if the react-native-purchases native module is available.
-        // It is NOT available in standard Expo Go — only in custom dev builds and production builds.
-        // DO NOT change this check or replace with AsyncStorage-based workarounds.
-        if (typeof Purchases?.configure !== "function") {
-          console.warn(
-            "[RevenueCat] react-native-purchases native module not available. " +
-            "Purchases require a custom dev build or production build, not standard Expo Go."
-          );
-          // In DEV mode, restore any previously simulated subscription state from expo-secure-store.
-          // This lets you test subscription-gated features in standard Expo Go across reloads.
+        // Dynamically load the native module — returns null in Expo Go
+        const RC = await getRCModule();
+        if (!RC) {
+          // Native module not available (Expo Go) — restore any simulated state
+          setIsNativeAvailable(false);
           if (__DEV__) {
             const mockState = await SecureStore.getItemAsync(MOCK_NATIVE_KEY).catch(() => null);
             if (mockState === "true") {
               setIsSubscribed(true);
+              console.log("[RevenueCat] Expo Go: restored mock subscription state");
+            } else {
+              console.log("[RevenueCat] Expo Go: purchases not available — use mockNativePurchase() to simulate");
             }
           }
           setLoading(false);
           return;
         }
 
-        // Use DEBUG log level in development, INFO in production
+        setIsNativeAvailable(true);
+        const Purchases = RC.default;
+        const LOG_LEVEL = RC.LOG_LEVEL;
+
         Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO);
 
-        // Get API key based on platform and environment
-        // In development (__DEV__), use ANY available test key (test store works for all platforms)
-        // This allows Expo Go to work on iOS even without a platform-specific test key
         const testKey = TEST_IOS_API_KEY || TEST_ANDROID_API_KEY;
         const productionKey = Platform.OS === "ios" ? IOS_API_KEY : ANDROID_API_KEY;
         const apiKey = __DEV__ && testKey ? testKey : productionKey;
@@ -222,9 +210,6 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
         if (__DEV__) {
           console.log("[RevenueCat] Initializing in DEV mode with key:", apiKey.substring(0, 10) + "...");
-          // Restore cached subscription state immediately to avoid paywall flash on bundle reload.
-          // The customerInfoUpdateListener (fired by configure() below) is the authoritative
-          // source and will immediately overwrite this with real RC Keychain data.
           const cached = await SecureStore.getItemAsync(NATIVE_PURCHASE_KEY).catch(() => null);
           if (cached === "true") {
             setIsSubscribed(true);
@@ -234,25 +219,44 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         await Purchases.configure({ apiKey });
         setIsConfigured(true);
 
-        // Listen for real-time subscription changes (e.g., purchase from another device)
         customerInfoListener = Purchases.addCustomerInfoUpdateListener(
           (customerInfo) => {
             const hasEntitlement =
-              typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !==
-              "undefined";
-            // In __DEV__: don't clear subscription state — RevenueCat test store purchases are
-            // in-memory only and won't be known to RC after a configure() call on reload.
+              typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== "undefined";
             if (hasEntitlement || !__DEV__) {
               setIsSubscribed(hasEntitlement);
             }
           }
         );
 
-        // Fetch available products/packages
-        await _fetchOfferings();
+        // Fetch offerings
+        try {
+          const fetchedOfferings = await Purchases.getOfferings();
+          setOfferings(fetchedOfferings);
+          if (fetchedOfferings.current) {
+            setCurrentOffering(fetchedOfferings.current);
+            setPackages(fetchedOfferings.current.availablePackages);
+          }
+        } catch (error) {
+          console.error("[RevenueCat] Failed to fetch offerings:", error);
+        }
 
         // Check initial subscription status
-        await _checkSubscription();
+        try {
+          const customerInfo = await Purchases.getCustomerInfo();
+          const hasEntitlement =
+            typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== "undefined";
+          if (hasEntitlement || !__DEV__) {
+            setIsSubscribed(hasEntitlement);
+          }
+          if (hasEntitlement) {
+            await SecureStore.setItemAsync(NATIVE_PURCHASE_KEY, "true").catch(() => {});
+          } else if (!__DEV__) {
+            await SecureStore.setItemAsync(NATIVE_PURCHASE_KEY, "false").catch(() => {});
+          }
+        } catch (error) {
+          console.error("[RevenueCat] Failed to check subscription:", error);
+        }
       } catch (error) {
         console.error("[RevenueCat] Failed to initialize:", error);
       } finally {
@@ -262,7 +266,6 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
     initRevenueCat();
 
-    // Cleanup listener on unmount
     return () => {
       if (customerInfoListener) {
         customerInfoListener.remove();
@@ -273,15 +276,16 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   // Sync RevenueCat user ID with authenticated user
   useEffect(() => {
     if (!isConfigured || isWeb) return;
-    if (authLoading) return; // Don't logOut while auth is still loading
+    if (authLoading) return;
 
     const updateUser = async () => {
+      const RC = await getRCModule();
+      if (!RC) return;
+      const Purchases = RC.default;
       try {
         if (user?.id) {
-          // Log in with your app's user ID to sync subscriptions across devices
           await Purchases.logIn(user.id);
         } else {
-          // Anonymous user - only log out once auth has fully resolved
           await Purchases.logOut();
         }
         await checkSubscription();
@@ -293,29 +297,15 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     updateUser();
   }, [user?.id, isConfigured, authLoading]);
 
-  const fetchOfferings = async () => {
-    if (isWeb) return;
-    try {
-      const fetchedOfferings = await Purchases.getOfferings();
-      setOfferings(fetchedOfferings);
-
-      if (fetchedOfferings.current) {
-        setCurrentOffering(fetchedOfferings.current);
-        setPackages(fetchedOfferings.current.availablePackages);
-      }
-    } catch (error) {
-      console.error("[RevenueCat] Failed to fetch offerings:", error);
-    }
-  };
-
   const checkSubscription = async () => {
     if (isWeb) return;
+    const RC = await getRCModule();
+    if (!RC) return;
+    const Purchases = RC.default;
     try {
       const customerInfo = await Purchases.getCustomerInfo();
       const hasEntitlement =
         typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== "undefined";
-      // In __DEV__: RC test store purchases don't survive configure(), so only update state
-      // positively — mock/test purchase state persists across reloads via SecureStore cache.
       if (hasEntitlement || !__DEV__) {
         setIsSubscribed(hasEntitlement);
       }
@@ -326,9 +316,6 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       }
     } catch (error) {
       console.error("[RevenueCat] Failed to check subscription:", error);
-      // Don't reset isSubscribed on error — the customerInfoUpdateListener
-      // already set it from local cache after configure(). Overriding with false
-      // would incorrectly show the paywall to subscribed users on network errors.
     }
   };
 
@@ -337,7 +324,14 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       console.warn("[RevenueCat] Purchases not available on web");
       return false;
     }
+    const RC = await getRCModule();
+    if (!RC) {
+      console.warn("[RevenueCat] Purchases not available in Expo Go — use a custom dev build");
+      return false;
+    }
+    const Purchases = RC.default;
     try {
+      console.log("[RevenueCat] purchasePackage pressed:", pkg.identifier);
       const { customerInfo } = await Purchases.purchasePackage(pkg);
       const hasEntitlement =
         typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== "undefined";
@@ -347,7 +341,6 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       }
       return hasEntitlement;
     } catch (error: any) {
-      // Don't treat user cancellation as an error
       if (!error.userCancelled) {
         console.error("[RevenueCat] Purchase failed:", error);
         throw error;
@@ -361,12 +354,18 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       console.warn("[RevenueCat] Restore not available on web");
       return false;
     }
+    const RC = await getRCModule();
+    if (!RC) {
+      console.warn("[RevenueCat] Restore not available in Expo Go — use a custom dev build");
+      return false;
+    }
+    const Purchases = RC.default;
     try {
+      console.log("[RevenueCat] restorePurchases pressed");
       const customerInfo = await Purchases.restorePurchases();
       const hasEntitlement =
         typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== "undefined";
       setIsSubscribed(hasEntitlement);
-      // In __DEV__: don't clear the cache on restore failure (test store purchases are ephemeral)
       if (hasEntitlement || !__DEV__) {
         await SecureStore.setItemAsync(NATIVE_PURCHASE_KEY, hasEntitlement ? "true" : "false").catch(() => {});
       }
@@ -385,12 +384,11 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     setIsSubscribed(true);
   };
 
-  // Dev-only: simulate a purchase in standard Expo Go for testing subscription-gated features.
-  // Persists to expo-secure-store so the state survives Expo Go reloads.
   const mockNativePurchase = async (): Promise<void> => {
     if (!__DEV__ || isWeb) return;
     await SecureStore.setItemAsync(MOCK_NATIVE_KEY, "true").catch(() => {});
     setIsSubscribed(true);
+    console.log("[RevenueCat] mockNativePurchase: subscription simulated");
   };
 
   return (
@@ -402,6 +400,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         packages,
         loading,
         isWeb,
+        isNativeAvailable,
         purchasePackage,
         restorePurchases,
         checkSubscription,
@@ -418,7 +417,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
  * Hook to access subscription state and methods.
  *
  * @example
- * const { isSubscribed, purchasePackage, packages, isWeb } = useSubscription();
+ * const { isSubscribed, purchasePackage, packages, isWeb, isNativeAvailable } = useSubscription();
  *
  * if (!isSubscribed) {
  *   return <Button onPress={() => router.push("/paywall")}>Upgrade</Button>;

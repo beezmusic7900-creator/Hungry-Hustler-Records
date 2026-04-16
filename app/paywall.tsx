@@ -21,9 +21,10 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { PurchasesPackage } from "react-native-purchases";
-
 import { useSubscription } from "@/contexts/SubscriptionContext";
+
+// Type-only import — no native module loaded at runtime (safe in Expo Go)
+type PurchasesPackage = import("react-native-purchases").PurchasesPackage;
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
