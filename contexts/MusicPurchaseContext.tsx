@@ -9,10 +9,22 @@ import Constants from 'expo-constants';
 
 const _extra = Constants.expoConfig?.extra || {};
 // Hardcoded fallback ensures the correct key is always used even if app.json extra is stale
+// Use platform-appropriate production key; fall back to test key in dev
 const RC_API_KEY: string =
-  _extra.revenueCatTestApiKeyIos ||
-  _extra.revenueCatApiKeyIos ||
+  (Platform.OS === 'android'
+    ? (_extra.revenueCatApiKeyAndroid || _extra.revenueCatTestApiKeyAndroid)
+    : (_extra.revenueCatApiKeyIos || _extra.revenueCatTestApiKeyIos)) ||
   'test_wEkIGlvWCRgUmodYuYUmFtROJxN';
+
+// Warn loudly if still using the placeholder key — purchases will fail
+if (RC_API_KEY === 'test_wEkIGlvWCRgUmodYuYUmFtROJxN') {
+  console.warn(
+    '[MusicPurchase] ⚠️  RevenueCat API key is the Specular placeholder. ' +
+    'Replace revenueCatApiKeyIos / revenueCatApiKeyAndroid in app.json with ' +
+    'your real Public SDK keys from https://app.revenuecat.com → Project Settings → API Keys'
+  );
+}
+
 const MUSIC_ENTITLEMENT_ID: string =
   _extra.revenueCatMusicEntitlementId || 'music_purchase';
 

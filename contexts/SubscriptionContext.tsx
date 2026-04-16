@@ -43,6 +43,16 @@ const TEST_IOS_API_KEY = extra.revenueCatTestApiKeyIos || "test_wEkIGlvWCRgUmodY
 const TEST_ANDROID_API_KEY = extra.revenueCatTestApiKeyAndroid || "test_wEkIGlvWCRgUmodYuYUmFtROJxN";
 const ENTITLEMENT_ID = extra.revenueCatEntitlementId || "pro";
 
+// Warn loudly if still using the placeholder key — purchases and entitlement checks will fail
+const _activeKey = Platform.OS === "android" ? ANDROID_API_KEY : IOS_API_KEY;
+if (_activeKey === "test_wEkIGlvWCRgUmodYuYUmFtROJxN") {
+  console.warn(
+    "[RevenueCat] ⚠️  API key is the Specular placeholder — this is NOT a real RevenueCat key. " +
+    "Go to https://app.revenuecat.com → Project Settings → API Keys, copy your Public SDK keys, " +
+    "and set revenueCatApiKeyIos / revenueCatApiKeyAndroid in app.json extra."
+  );
+}
+
 // Check if running on web
 const isWeb = Platform.OS === "web";
 // Use nativelyProjectId (unique UUID) for scoping; fall back to slug for backward compatibility
