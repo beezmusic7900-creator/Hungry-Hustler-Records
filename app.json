@@ -2,7 +2,7 @@
   "expo": {
     "name": "Hungry Hustler Records",
     "slug": "hungry-hustler-records",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/Hungry_Hustler_Records_logo_ultra_3-removebg-preview 2-2.png",
     "userInterfaceStyle": "automatic",
