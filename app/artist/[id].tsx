@@ -19,8 +19,23 @@ import {
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { getArtist } from '@/utils/api';
-import type { Artist } from '@/types';
+import { supabase } from '@/app/integrations/supabase/client';
+
+interface Artist {
+  id: string;
+  name: string;
+  bio: string | null;
+  photo_url: string | null;
+  spotify_url: string | null;
+  apple_music_url: string | null;
+  youtube_url: string | null;
+  soundcloud_url: string | null;
+  instagram_url: string | null;
+  twitter_url: string | null;
+  facebook_url: string | null;
+  tiktok_url: string | null;
+  video_urls: string[] | null;
+}
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -196,7 +211,17 @@ export default function ArtistDetailScreen() {
       console.log(`[ArtistDetail] Loading artist: ${id}`);
       setLoading(true);
       setError(null);
-      const data = await getArtist(id as string);
+      const { data, error: dbError } = await supabase
+        .from('artists')
+        .select('*')
+        .eq('id', id as string)
+        .single();
+
+      if (dbError) {
+        console.error('[ArtistDetail] Supabase error:', dbError.message);
+        setError("Couldn't load artist profile.");
+        return;
+      }
       setArtist(data);
       navigation.setOptions({ title: data.name });
     } catch (err) {

@@ -152,6 +152,46 @@ export default function RootLayout() {
                     title: 'Edit About Page',
                   }}
                 />
+                <Stack.Screen
+                  name="admin/music-list"
+                  options={{
+                    headerShown: true,
+                    headerStyle: { backgroundColor: COLORS.background },
+                    headerTintColor: COLORS.text,
+                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
+                    title: 'Manage Music',
+                  }}
+                />
+                <Stack.Screen
+                  name="admin/music-form"
+                  options={{
+                    headerShown: true,
+                    headerStyle: { backgroundColor: COLORS.background },
+                    headerTintColor: COLORS.text,
+                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
+                    title: 'Song',
+                  }}
+                />
+                <Stack.Screen
+                  name="admin/videos-list"
+                  options={{
+                    headerShown: true,
+                    headerStyle: { backgroundColor: COLORS.background },
+                    headerTintColor: COLORS.text,
+                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
+                    title: 'Manage Videos',
+                  }}
+                />
+                <Stack.Screen
+                  name="admin/video-form"
+                  options={{
+                    headerShown: true,
+                    headerStyle: { backgroundColor: COLORS.background },
+                    headerTintColor: COLORS.text,
+                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
+                    title: 'Video',
+                  }}
+                />
                 <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
                 <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
               </Stack>

@@ -13,9 +13,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
-import { getHome, upsertHome, getArtists, uploadImage, getBearerToken } from '@/utils/api';
+import { supabase } from '@/app/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import type { HomeContentInput, Artist } from '@/types';
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -145,10 +144,16 @@ function ImageField({
   );
 }
 
+interface Artist {
+  id: string;
+  name: string;
+}
+
 export default function HomeEditorScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
+  const [homeId, setHomeId] = useState<string | null>(null);
   const [heroBannerUrl, setHeroBannerUrl] = useState('');
   const [heroTitle, setHeroTitle] = useState('');
   const [heroSubtitle, setHeroSubtitle] = useState('');
@@ -175,20 +180,29 @@ export default function HomeEditorScreen() {
 
   const loadData = async () => {
     try {
-      console.log('[HomeEditor] Loading home content and artists');
-      const [homeData, artistsData] = await Promise.all([getHome(), getArtists()]);
-      setHeroBannerUrl(homeData.hero_banner_url ?? '');
-      setHeroTitle(homeData.hero_title ?? '');
-      setHeroSubtitle(homeData.hero_subtitle ?? '');
-      setFeaturedArtistId(homeData.featured_artist?.id ?? '');
-      setLatestReleaseTitle(homeData.latest_release_title ?? '');
-      setLatestReleaseArtist(homeData.latest_release_artist ?? '');
-      setLatestReleaseImageUrl(homeData.latest_release_image_url ?? '');
-      setLatestReleaseSpotifyUrl(homeData.latest_release_spotify_url ?? '');
-      setLatestReleaseAppleMusicUrl(homeData.latest_release_apple_music_url ?? '');
-      setLatestReleaseYoutubeUrl(homeData.latest_release_youtube_url ?? '');
-      setLatestReleaseSoundcloudUrl(homeData.latest_release_soundcloud_url ?? '');
-      setArtists(artistsData);
+      console.log('[HomeEditor] Loading home content and artists from Supabase');
+      const [homeResult, artistsResult] = await Promise.all([
+        supabase.from('home_content').select('*').limit(1).single(),
+        supabase.from('artists').select('id, name').order('display_order'),
+      ]);
+
+      if (homeResult.data) {
+        const d = homeResult.data;
+        setHomeId(d.id);
+        setHeroBannerUrl(d.hero_banner_url ?? '');
+        setHeroTitle(d.hero_title ?? '');
+        setHeroSubtitle(d.hero_subtitle ?? '');
+        setFeaturedArtistId(d.featured_artist_id ?? '');
+        setLatestReleaseTitle(d.latest_release_title ?? '');
+        setLatestReleaseArtist(d.latest_release_artist ?? '');
+        setLatestReleaseImageUrl(d.latest_release_image_url ?? '');
+        setLatestReleaseSpotifyUrl(d.latest_release_spotify_url ?? '');
+        setLatestReleaseAppleMusicUrl(d.latest_release_apple_music_url ?? '');
+        setLatestReleaseYoutubeUrl(d.latest_release_youtube_url ?? '');
+        setLatestReleaseSoundcloudUrl(d.latest_release_soundcloud_url ?? '');
+      }
+
+      setArtists(artistsResult.data ?? []);
     } catch (err) {
       console.error('[HomeEditor] Failed to load data:', err);
     } finally {
@@ -206,19 +220,29 @@ export default function HomeEditorScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      const fileName = asset.uri.split('/').pop() ?? 'image.jpg';
-      const fileType = asset.mimeType ?? 'image/jpeg';
+      const ext = asset.uri.split('.').pop() ?? 'jpg';
+      const fileName = `home-${field}-${Date.now()}.${ext}`;
 
       try {
         setUploading(field);
-        const token = await getBearerToken();
-        if (!token) throw new Error('Not authenticated');
-        const { url } = await uploadImage(
-          { uri: asset.uri, name: fileName, type: fileType },
-          token
-        );
-        setter(url);
-        console.log(`[HomeEditor] Uploaded ${field}:`, url);
+        console.log(`[HomeEditor] Uploading ${field}: ${fileName}`);
+
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+
+        const { error: uploadError } = await supabase.storage
+          .from('images')
+          .upload(fileName, blob, { upsert: true, contentType: asset.mimeType ?? 'image/jpeg' });
+
+        if (uploadError) {
+          console.error('[HomeEditor] Upload failed:', uploadError.message);
+          Alert.alert('Upload failed', uploadError.message);
+          return;
+        }
+
+        const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName);
+        setter(urlData.publicUrl);
+        console.log(`[HomeEditor] Uploaded ${field}:`, urlData.publicUrl);
       } catch (err) {
         console.error('[HomeEditor] Upload failed:', err);
         Alert.alert('Upload failed', 'Could not upload the image.');
@@ -232,24 +256,47 @@ export default function HomeEditorScreen() {
     console.log('[HomeEditor] Save pressed');
     setSaving(true);
 
-    const data: HomeContentInput = {
-      hero_banner_url: heroBannerUrl.trim() || undefined,
-      hero_title: heroTitle.trim() || undefined,
-      hero_subtitle: heroSubtitle.trim() || undefined,
-      featured_artist_id: featuredArtistId.trim() || undefined,
-      latest_release_title: latestReleaseTitle.trim() || undefined,
-      latest_release_artist: latestReleaseArtist.trim() || undefined,
-      latest_release_image_url: latestReleaseImageUrl.trim() || undefined,
-      latest_release_spotify_url: latestReleaseSpotifyUrl.trim() || undefined,
-      latest_release_apple_music_url: latestReleaseAppleMusicUrl.trim() || undefined,
-      latest_release_youtube_url: latestReleaseYoutubeUrl.trim() || undefined,
-      latest_release_soundcloud_url: latestReleaseSoundcloudUrl.trim() || undefined,
+    const payload = {
+      hero_banner_url: heroBannerUrl.trim() || null,
+      hero_title: heroTitle.trim() || null,
+      hero_subtitle: heroSubtitle.trim() || null,
+      featured_artist_id: featuredArtistId.trim() || null,
+      latest_release_title: latestReleaseTitle.trim() || null,
+      latest_release_artist: latestReleaseArtist.trim() || null,
+      latest_release_image_url: latestReleaseImageUrl.trim() || null,
+      latest_release_spotify_url: latestReleaseSpotifyUrl.trim() || null,
+      latest_release_apple_music_url: latestReleaseAppleMusicUrl.trim() || null,
+      latest_release_youtube_url: latestReleaseYoutubeUrl.trim() || null,
+      latest_release_soundcloud_url: latestReleaseSoundcloudUrl.trim() || null,
+      updated_at: new Date().toISOString(),
     };
 
     try {
-      const token = await getBearerToken();
-      if (!token) throw new Error('Not authenticated');
-      await upsertHome(data, token);
+      let dbError;
+      if (homeId) {
+        console.log('[HomeEditor] Updating existing home content');
+        const result = await supabase
+          .from('home_content')
+          .update(payload)
+          .eq('id', homeId);
+        dbError = result.error;
+      } else {
+        console.log('[HomeEditor] Inserting new home content');
+        const result = await supabase
+          .from('home_content')
+          .insert(payload)
+          .select()
+          .single();
+        dbError = result.error;
+        if (result.data) setHomeId(result.data.id);
+      }
+
+      if (dbError) {
+        console.error('[HomeEditor] Save failed:', dbError.message);
+        Alert.alert('Error', dbError.message);
+        return;
+      }
+
       console.log('[HomeEditor] Home content saved successfully');
       Alert.alert('Saved', 'Home page content updated successfully.');
     } catch (err) {
@@ -329,7 +376,6 @@ export default function HomeEditorScreen() {
         Featured Artist
       </Text>
 
-      {/* Artist picker */}
       <View style={{ marginBottom: 16 }}>
         <Text
           style={{

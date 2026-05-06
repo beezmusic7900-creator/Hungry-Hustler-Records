@@ -8,13 +8,22 @@ import {
   ImageSourcePropType,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus, Pencil, Trash2, CheckCircle, XCircle } from 'lucide-react-native';
+import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { getMerch, deleteMerch, getBearerToken } from '@/utils/api';
+import { supabase } from '@/app/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import type { MerchItem } from '@/types';
+
+interface MerchItem {
+  id: string;
+  name: string;
+  price: number;
+  image_url: string | null;
+  category: string | null;
+  is_published: boolean;
+  in_stock: boolean;
+}
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -27,7 +36,7 @@ function resolveImageSource(
 export default function AdminMerchListScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [merch, setMerch] = useState<MerchItem[]>([]);
+  const [items, setItems] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,19 +45,28 @@ export default function AdminMerchListScreen() {
       router.replace('/(tabs)/admin');
       return;
     }
-    loadMerch();
+    loadItems();
   }, [user, authLoading]);
 
-  const loadMerch = async () => {
+  const loadItems = async () => {
     try {
-      console.log('[AdminMerch] Loading merch items');
+      console.log('[AdminMerch] Loading merch items from Supabase');
       setLoading(true);
       setError(null);
-      const data = await getMerch();
-      setMerch(data);
+      const { data, error: dbError } = await supabase
+        .from('merch_items')
+        .select('*')
+        .order('display_order');
+
+      if (dbError) {
+        console.error('[AdminMerch] Supabase error:', dbError.message);
+        setError("Couldn't load merch items.");
+        return;
+      }
+      setItems(data ?? []);
     } catch (err) {
       console.error('[AdminMerch] Failed to load merch:', err);
-      setError("Couldn't load merch.");
+      setError("Couldn't load merch items.");
     } finally {
       setLoading(false);
     }
@@ -57,20 +75,28 @@ export default function AdminMerchListScreen() {
   const handleDelete = (item: MerchItem) => {
     console.log(`[AdminMerch] Delete pressed: ${item.name}`);
     Alert.alert(
-      `Delete ${item.name}?`,
+      `Delete "${item.name}"?`,
       'This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete item',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log(`[AdminMerch] Deleting merch: ${item.id}`);
-              const token = await getBearerToken();
-              if (!token) throw new Error('Not authenticated');
-              await deleteMerch(item.id, token);
-              setMerch((prev) => prev.filter((m) => m.id !== item.id));
+              console.log(`[AdminMerch] Deleting merch item: ${item.id}`);
+              const { error: dbError } = await supabase
+                .from('merch_items')
+                .delete()
+                .eq('id', item.id);
+
+              if (dbError) {
+                console.error('[AdminMerch] Delete failed:', dbError.message);
+                Alert.alert('Error', dbError.message);
+                return;
+              }
+              console.log('[AdminMerch] Merch item deleted, reloading list');
+              await loadItems();
             } catch (err) {
               console.error('[AdminMerch] Delete failed:', err);
               Alert.alert('Error', 'Failed to delete item.');
@@ -79,6 +105,27 @@ export default function AdminMerchListScreen() {
         },
       ]
     );
+  };
+
+  const handleTogglePublish = async (item: MerchItem) => {
+    const newValue = !item.is_published;
+    console.log(`[AdminMerch] Toggle publish: ${item.name} → ${newValue}`);
+    try {
+      const { error: dbError } = await supabase
+        .from('merch_items')
+        .update({ is_published: newValue, updated_at: new Date().toISOString() })
+        .eq('id', item.id);
+
+      if (dbError) {
+        console.error('[AdminMerch] Toggle publish failed:', dbError.message);
+        Alert.alert('Error', dbError.message);
+        return;
+      }
+      await loadItems();
+    } catch (err) {
+      console.error('[AdminMerch] Toggle publish failed:', err);
+      Alert.alert('Error', 'Failed to update item.');
+    }
   };
 
   const handleEdit = (item: MerchItem) => {
@@ -93,7 +140,6 @@ export default function AdminMerchListScreen() {
 
   const renderItem = ({ item }: { item: MerchItem }) => {
     const priceDisplay = `$${Number(item.price).toFixed(2)}`;
-    const inStock = item.in_stock !== false;
 
     return (
       <View
@@ -126,7 +172,7 @@ export default function AdminMerchListScreen() {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: COLORS.textTertiary, fontSize: 20 }}>👕</Text>
+            <Text style={{ color: COLORS.textTertiary, fontSize: 20 }}>{'🛍'}</Text>
           </View>
         )}
 
@@ -137,30 +183,56 @@ export default function AdminMerchListScreen() {
           >
             {item.name}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-            <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700' }}>
-              {priceDisplay}
+          <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700', marginTop: 2 }}>
+            {priceDisplay}
+          </Text>
+          <View
+            style={{
+              backgroundColor: item.is_published
+                ? 'rgba(0, 255, 102, 0.12)'
+                : COLORS.surfaceSecondary,
+              borderRadius: 4,
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              alignSelf: 'flex-start',
+              marginTop: 4,
+              borderWidth: 1,
+              borderColor: item.is_published ? COLORS.primary : COLORS.border,
+            }}
+          >
+            <Text
+              style={{
+                color: item.is_published ? COLORS.primary : COLORS.textSecondary,
+                fontSize: 10,
+                fontWeight: '600',
+              }}
+            >
+              {item.is_published ? 'LIVE' : 'DRAFT'}
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              {inStock ? (
-                <CheckCircle size={12} color={COLORS.success} />
-              ) : (
-                <XCircle size={12} color={COLORS.danger} />
-              )}
-              <Text
-                style={{
-                  color: inStock ? COLORS.success : COLORS.danger,
-                  fontSize: 11,
-                  fontWeight: '500',
-                }}
-              >
-                {inStock ? 'In Stock' : 'Out of Stock'}
-              </Text>
-            </View>
           </View>
         </View>
 
         <View style={{ flexDirection: 'row', gap: 8 }}>
+          <AnimatedPressable onPress={() => handleTogglePublish(item)}>
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                backgroundColor: COLORS.surfaceSecondary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              {item.is_published ? (
+                <EyeOff size={16} color={COLORS.textSecondary} />
+              ) : (
+                <Eye size={16} color={COLORS.textSecondary} />
+              )}
+            </View>
+          </AnimatedPressable>
           <AnimatedPressable onPress={() => handleEdit(item)}>
             <View
               style={{
@@ -250,7 +322,7 @@ export default function AdminMerchListScreen() {
           <AnimatedPressable
             onPress={() => {
               console.log('[AdminMerch] Retry loading');
-              loadMerch();
+              loadItems();
             }}
             style={{ marginTop: 16 }}
           >
@@ -272,14 +344,14 @@ export default function AdminMerchListScreen() {
         </View>
       ) : (
         <FlatList
-          data={merch}
+          data={items}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
           renderItem={renderItem}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', paddingTop: 60 }}>
               <Text style={{ color: COLORS.textSecondary, fontSize: 15 }}>
-                No merch yet. Add some!
+                No merch items yet. Add one!
               </Text>
             </View>
           }

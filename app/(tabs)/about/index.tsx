@@ -6,24 +6,33 @@ import {
   Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Mail, Phone, MapPin, Instagram, Twitter, Facebook, Youtube, Music } from 'lucide-react-native';
+import { Mail, Phone, Instagram, Twitter, Facebook, Youtube, Music } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { HHRLogo } from '@/components/HHRLogo';
-import { getAbout } from '@/utils/api';
-import type { AboutContent } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+
+interface AboutContent {
+  id: string;
+  description: string | null;
+  mission: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  instagram_url: string | null;
+  twitter_url: string | null;
+  facebook_url: string | null;
+  youtube_url: string | null;
+}
 
 function SocialButton({
   icon,
   label,
   url,
-  color,
 }: {
   icon: React.ReactNode;
   label: string;
   url: string;
-  color: string;
 }) {
   const handlePress = () => {
     console.log(`[About] Opening social link: ${label} - ${url}`);
@@ -120,11 +129,22 @@ export default function AboutScreen() {
 
   const loadAbout = async () => {
     try {
-      console.log('[About] Loading about content');
+      console.log('[About] Loading about content from Supabase');
       setLoading(true);
       setError(null);
-      const data = await getAbout();
-      setAbout(data);
+      const { data, error: dbError } = await supabase
+        .from('about_content')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (dbError && dbError.code !== 'PGRST116') {
+        console.error('[About] Supabase error:', dbError.message);
+        setError("Couldn't load about content.");
+        return;
+      }
+      console.log('[About] Loaded about content');
+      setAbout(data ?? null);
     } catch (err) {
       console.error('[About] Failed to load about content:', err);
       setError("Couldn't load about content.");
@@ -137,11 +157,9 @@ export default function AboutScreen() {
     about?.instagram_url ||
     about?.twitter_url ||
     about?.facebook_url ||
-    about?.youtube_url ||
-    about?.tiktok_url;
+    about?.youtube_url;
 
-  const hasContact =
-    about?.contact_email || about?.contact_phone || about?.contact_address;
+  const hasContact = about?.contact_email || about?.contact_phone;
 
   return (
     <ScrollView
@@ -195,47 +213,47 @@ export default function AboutScreen() {
 
       {/* Mission */}
       <View
+        style={{
+          backgroundColor: COLORS.surface,
+          borderRadius: 16,
+          padding: 20,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+          borderLeftWidth: 3,
+          borderLeftColor: COLORS.primary,
+          marginBottom: 28,
+        }}
+      >
+        <Text
           style={{
-            backgroundColor: COLORS.surface,
-            borderRadius: 16,
-            padding: 20,
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            borderLeftWidth: 3,
-            borderLeftColor: COLORS.primary,
-            marginBottom: 28,
+            color: COLORS.textSecondary,
+            fontSize: 11,
+            fontWeight: '600',
+            letterSpacing: 2,
+            textTransform: 'uppercase',
+            marginBottom: 10,
           }}
         >
+          Our Mission
+        </Text>
+        {loading ? (
+          <View style={{ gap: 8 }}>
+            <SkeletonLine width="100%" height={14} />
+            <SkeletonLine width="85%" height={14} />
+          </View>
+        ) : (
           <Text
             style={{
-              color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: '600',
-              letterSpacing: 2,
-              textTransform: 'uppercase',
-              marginBottom: 10,
+              color: COLORS.text,
+              fontSize: 15,
+              lineHeight: 24,
+              fontStyle: 'italic',
             }}
           >
-            Our Mission
+            {about?.mission ||
+              'The mission is simple: build powerful artists, create timeless music, and establish a legacy that lasts forever.'}
           </Text>
-          {loading ? (
-            <View style={{ gap: 8 }}>
-              <SkeletonLine width="100%" height={14} />
-              <SkeletonLine width="85%" height={14} />
-            </View>
-          ) : (
-            <Text
-              style={{
-                color: COLORS.text,
-                fontSize: 15,
-                lineHeight: 24,
-                fontStyle: 'italic',
-              }}
-            >
-              {about?.mission ||
-                'The mission is simple: build powerful artists, create timeless music, and establish a legacy that lasts forever.'}
-            </Text>
-          )}
+        )}
       </View>
 
       {/* Contact */}
@@ -282,13 +300,6 @@ export default function AboutScreen() {
                   }}
                 />
               ) : null}
-              {about?.contact_address ? (
-                <ContactRow
-                  icon={<MapPin size={18} color={COLORS.primary} />}
-                  label="Address"
-                  value={about.contact_address}
-                />
-              ) : null}
             </View>
           )}
         </View>
@@ -322,7 +333,6 @@ export default function AboutScreen() {
                   icon={<Instagram size={22} color="#E1306C" />}
                   label="Instagram"
                   url={about.instagram_url}
-                  color="#E1306C"
                 />
               ) : null}
               {about?.twitter_url ? (
@@ -330,7 +340,6 @@ export default function AboutScreen() {
                   icon={<Twitter size={22} color="#1DA1F2" />}
                   label="Twitter"
                   url={about.twitter_url}
-                  color="#1DA1F2"
                 />
               ) : null}
               {about?.facebook_url ? (
@@ -338,7 +347,6 @@ export default function AboutScreen() {
                   icon={<Facebook size={22} color="#1877F2" />}
                   label="Facebook"
                   url={about.facebook_url}
-                  color="#1877F2"
                 />
               ) : null}
               {about?.youtube_url ? (
@@ -346,15 +354,6 @@ export default function AboutScreen() {
                   icon={<Youtube size={22} color="#FF0000" />}
                   label="YouTube"
                   url={about.youtube_url}
-                  color="#FF0000"
-                />
-              ) : null}
-              {about?.tiktok_url ? (
-                <SocialButton
-                  icon={<Music size={22} color={COLORS.text} />}
-                  label="TikTok"
-                  url={about.tiktok_url}
-                  color={COLORS.text}
                 />
               ) : null}
             </View>

@@ -14,8 +14,16 @@ import { Users } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonArtistCard } from '@/components/SkeletonLoader';
-import { getArtists } from '@/utils/api';
-import type { Artist } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Artist {
+  id: string;
+  name: string;
+  bio: string | null;
+  photo_url: string | null;
+  is_featured: boolean;
+  display_order: number;
+}
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -164,11 +172,21 @@ export default function ArtistsScreen() {
 
   const loadArtists = async () => {
     try {
-      console.log('[Artists] Loading artists');
+      console.log('[Artists] Loading artists from Supabase');
       setLoading(true);
       setError(null);
-      const data = await getArtists();
-      setArtists(data);
+      const { data, error: dbError } = await supabase
+        .from('artists')
+        .select('*')
+        .order('display_order');
+
+      if (dbError) {
+        console.error('[Artists] Supabase error:', dbError.message);
+        setError("Couldn't load artists.");
+        return;
+      }
+      console.log(`[Artists] Loaded ${data?.length ?? 0} artists`);
+      setArtists(data ?? []);
     } catch (err) {
       console.error('[Artists] Failed to load artists:', err);
       setError("Couldn't load artists. Check your connection.");

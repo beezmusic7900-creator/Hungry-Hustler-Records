@@ -11,13 +11,42 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Music, ExternalLink, ShoppingBag } from 'lucide-react-native';
+import { Music, ShoppingBag } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { HHRLogo } from '@/components/HHRLogo';
-import { getHome } from '@/utils/api';
-import type { HomeContent, MerchItem } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Artist {
+  id: string;
+  name: string;
+  bio: string | null;
+  photo_url: string | null;
+}
+
+interface MerchItem {
+  id: string;
+  name: string;
+  price: number;
+  image_url: string | null;
+}
+
+interface HomeData {
+  id: string;
+  hero_banner_url: string | null;
+  hero_title: string | null;
+  hero_subtitle: string | null;
+  featured_artist_id: string | null;
+  latest_release_title: string | null;
+  latest_release_artist: string | null;
+  latest_release_image_url: string | null;
+  latest_release_spotify_url: string | null;
+  latest_release_apple_music_url: string | null;
+  latest_release_youtube_url: string | null;
+  latest_release_soundcloud_url: string | null;
+  featured_merch_ids: string[] | null;
+}
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -127,7 +156,9 @@ function MerchPreviewCard({ item }: { item: MerchItem }) {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [homeData, setHomeData] = useState<HomeContent | null>(null);
+  const [homeData, setHomeData] = useState<HomeData | null>(null);
+  const [featuredArtist, setFeaturedArtist] = useState<Artist | null>(null);
+  const [featuredMerch, setFeaturedMerch] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -138,11 +169,57 @@ export default function HomeScreen() {
 
   const loadHome = async () => {
     try {
-      console.log('[Home] Loading home content');
+      console.log('[Home] Loading home content from Supabase');
       setLoading(true);
       setError(null);
-      const data = await getHome();
-      setHomeData(data);
+
+      const { data: home, error: homeErr } = await supabase
+        .from('home_content')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (homeErr && homeErr.code !== 'PGRST116') {
+        console.error('[Home] Supabase error:', homeErr.message);
+        setError('Could not load content. Pull to refresh.');
+        return;
+      }
+
+      setHomeData(home ?? null);
+
+      // Load featured artist and merch in parallel
+      const promises: Promise<void>[] = [];
+
+      const parallelTasks: Promise<void>[] = [];
+
+      if (home?.featured_artist_id) {
+        parallelTasks.push(
+          (async () => {
+            const { data } = await supabase
+              .from('artists')
+              .select('id, name, bio, photo_url')
+              .eq('id', home.featured_artist_id as string)
+              .single();
+            setFeaturedArtist(data ?? null);
+          })()
+        );
+      }
+
+      if (home?.featured_merch_ids && home.featured_merch_ids.length > 0) {
+        parallelTasks.push(
+          (async () => {
+            const { data } = await supabase
+              .from('merch_items')
+              .select('id, name, price, image_url')
+              .in('id', home.featured_merch_ids as string[])
+              .eq('is_published', true);
+            setFeaturedMerch(data ?? []);
+          })()
+        );
+      }
+
+      await Promise.all(parallelTasks);
+
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 400,
@@ -158,8 +235,6 @@ export default function HomeScreen() {
 
   const heroTitle = homeData?.hero_title ?? 'HUNGRY HUSTLER RECORDS';
   const heroSubtitle = homeData?.hero_subtitle ?? 'Independent. Authentic. Unstoppable.';
-  const featuredArtist = homeData?.featured_artist;
-  const featuredMerch = homeData?.featured_merch ?? [];
 
   return (
     <ScrollView
@@ -281,7 +356,6 @@ export default function HomeScreen() {
               padding: 16,
               borderWidth: 1,
               borderColor: COLORS.border,
-  
             }}
           >
             <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
@@ -533,7 +607,7 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* The Label — Welcome intro */}
+      {/* The Label */}
       <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
         <Text
           style={{

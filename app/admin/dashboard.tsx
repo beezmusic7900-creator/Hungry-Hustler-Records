@@ -8,24 +8,27 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Users,
+  Music,
+  Video,
   ShoppingBag,
   Home,
   Info,
-  ChevronRight,
   LogOut,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
+import { HHRLogo } from '@/components/HHRLogo';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface CMSCard {
+interface DashboardCard {
   title: string;
-  description: string;
+  subtitle: string;
   icon: React.ReactNode;
   route: string;
+  color: string;
 }
 
-function DashboardCard({ card }: { card: CMSCard }) {
+function DashCard({ card }: { card: DashboardCard }) {
   const router = useRouter();
 
   const handlePress = () => {
@@ -34,32 +37,33 @@ function DashboardCard({ card }: { card: CMSCard }) {
   };
 
   return (
-    <AnimatedPressable onPress={handlePress} style={{ flex: 1, minWidth: '45%' }}>
+    <AnimatedPressable onPress={handlePress} style={{ flex: 1 }}>
       <View
         style={{
           backgroundColor: COLORS.surface,
           borderRadius: 16,
-          padding: 20,
+          padding: 18,
           borderWidth: 1,
           borderColor: COLORS.border,
-          gap: 12,
+          minHeight: 110,
+          justifyContent: 'space-between',
         }}
       >
         <View
           style={{
-            width: 48,
-            height: 48,
+            width: 44,
+            height: 44,
             borderRadius: 12,
-            backgroundColor: COLORS.primaryMuted,
+            backgroundColor: `${card.color}18`,
             alignItems: 'center',
             justifyContent: 'center',
             borderWidth: 1,
-            borderColor: COLORS.primary,
+            borderColor: `${card.color}40`,
           }}
         >
           {card.icon}
         </View>
-        <View style={{ gap: 4 }}>
+        <View style={{ marginTop: 12 }}>
           <Text
             style={{
               color: COLORS.text,
@@ -73,31 +77,27 @@ function DashboardCard({ card }: { card: CMSCard }) {
             style={{
               color: COLORS.textSecondary,
               fontSize: 12,
-              lineHeight: 16,
+              marginTop: 2,
             }}
           >
-            {card.description}
+            {card.subtitle}
           </Text>
-        </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-          <ChevronRight size={16} color={COLORS.primary} />
         </View>
       </View>
     </AnimatedPressable>
   );
 }
 
-export default function AdminDashboard() {
+export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, loading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
 
   useEffect(() => {
-    if (!loading && !user) {
-      console.log('[Dashboard] Not authenticated, redirecting to admin tab');
+    if (!authLoading && !user) {
       router.replace('/(tabs)/admin');
     }
-  }, [user, loading]);
+  }, [user, authLoading]);
 
   const handleSignOut = async () => {
     console.log('[Dashboard] Sign out pressed');
@@ -105,123 +105,140 @@ export default function AdminDashboard() {
     router.replace('/(tabs)/admin');
   };
 
-  const cards: CMSCard[] = [
+  const cards: DashboardCard[] = [
     {
       title: 'Artists',
-      description: 'Manage artist profiles and roster',
-      icon: <Users size={22} color={COLORS.primary} />,
+      subtitle: 'Manage roster',
+      icon: <Users size={22} color="#7C3AED" />,
       route: '/admin/artists',
+      color: '#7C3AED',
+    },
+    {
+      title: 'Music',
+      subtitle: 'Songs & audio',
+      icon: <Music size={22} color={COLORS.primary} />,
+      route: '/admin/music-list',
+      color: COLORS.primary,
+    },
+    {
+      title: 'Videos',
+      subtitle: 'Music videos',
+      icon: <Video size={22} color="#3B82F6" />,
+      route: '/admin/videos-list',
+      color: '#3B82F6',
     },
     {
       title: 'Merch',
-      description: 'Manage merchandise and products',
-      icon: <ShoppingBag size={22} color={COLORS.primary} />,
+      subtitle: 'Products & store',
+      icon: <ShoppingBag size={22} color="#F59E0B" />,
       route: '/admin/merch-list',
+      color: '#F59E0B',
     },
     {
       title: 'Home Page',
-      description: 'Edit hero banner and featured content',
-      icon: <Home size={22} color={COLORS.primary} />,
+      subtitle: 'Hero & releases',
+      icon: <Home size={22} color="#EC4899" />,
       route: '/admin/home-editor',
+      color: '#EC4899',
     },
     {
       title: 'About Page',
-      description: 'Edit label info and contact details',
-      icon: <Info size={22} color={COLORS.primary} />,
+      subtitle: 'Label info',
+      icon: <Info size={22} color="#14B8A6" />,
       route: '/admin/about-editor',
+      color: '#14B8A6',
     },
   ];
 
-  if (loading) return null;
+  if (authLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: COLORS.background,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ color: COLORS.textSecondary }}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: COLORS.background }}
       contentContainerStyle={{
+        paddingTop: insets.top + 16,
         paddingBottom: 60,
         paddingHorizontal: 20,
-        paddingTop: 20,
       }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Welcome */}
+      {/* Header */}
       <View
         style={{
-          backgroundColor: COLORS.surface,
-          borderRadius: 16,
-          padding: 20,
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          marginBottom: 24,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
+          marginBottom: 28,
         }}
       >
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              color: COLORS.textSecondary,
-              fontSize: 12,
-              fontWeight: '500',
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-            }}
-          >
-            Signed in as
-          </Text>
+        <View>
           <Text
             style={{
               color: COLORS.text,
-              fontSize: 15,
-              fontWeight: '600',
-              marginTop: 4,
+              fontSize: 24,
+              fontWeight: '700',
+              letterSpacing: -0.3,
             }}
-            numberOfLines={1}
           >
-            {user?.email}
+            Dashboard
           </Text>
-        </View>
-        <AnimatedPressable onPress={handleSignOut}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: 'rgba(255, 68, 68, 0.12)',
-              borderRadius: 10,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderWidth: 1,
-              borderColor: 'rgba(255, 68, 68, 0.3)',
-            }}
-          >
-            <LogOut size={16} color={COLORS.danger} />
-            <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '600' }}>
-              Sign Out
+          {user ? (
+            <Text
+              style={{
+                color: COLORS.textSecondary,
+                fontSize: 13,
+                marginTop: 2,
+              }}
+            >
+              {user.email}
             </Text>
-          </View>
-        </AnimatedPressable>
+          ) : null}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <HHRLogo size="small" />
+          <AnimatedPressable onPress={handleSignOut}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                backgroundColor: 'rgba(255, 68, 68, 0.12)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 68, 68, 0.3)',
+              }}
+            >
+              <LogOut size={18} color={COLORS.danger} />
+            </View>
+          </AnimatedPressable>
+        </View>
       </View>
 
-      {/* Section header */}
-      <Text
-        style={{
-          color: COLORS.textSecondary,
-          fontSize: 11,
-          fontWeight: '600',
-          letterSpacing: 2,
-          textTransform: 'uppercase',
-          marginBottom: 16,
-        }}
-      >
-        Content Management
-      </Text>
-
       {/* Cards grid */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-        {cards.map((card) => (
-          <DashboardCard key={card.title} card={card} />
+      <View style={{ gap: 12 }}>
+        {[0, 2, 4].map((rowStart) => (
+          <View
+            key={rowStart}
+            style={{ flexDirection: 'row', gap: 12 }}
+          >
+            {cards.slice(rowStart, rowStart + 2).map((card) => (
+              <DashCard key={card.title} card={card} />
+            ))}
+          </View>
         ))}
       </View>
     </ScrollView>

@@ -4,19 +4,18 @@ import {
   Text,
   TextInput,
   ScrollView,
-  Switch,
   Image,
+  Switch,
   Alert,
   ImageSourcePropType,
 } from 'react-native';
-import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
-import { getMerchItem, createMerch, updateMerch, uploadImage, getBearerToken } from '@/utils/api';
+import { supabase } from '@/app/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import type { MerchInput } from '@/types';
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -33,15 +32,13 @@ function FormField({
   placeholder,
   multiline,
   keyboardType,
-  required,
 }: {
   label: string;
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: 'default' | 'url' | 'numeric' | 'email-address';
-  required?: boolean;
+  keyboardType?: 'default' | 'url' | 'numeric' | 'email-address' | 'decimal-pad';
 }) {
   return (
     <View style={{ marginBottom: 16 }}>
@@ -54,7 +51,6 @@ function FormField({
         }}
       >
         {label}
-        {required ? <Text style={{ color: COLORS.danger }}> *</Text> : null}
       </Text>
       <TextInput
         value={value}
@@ -84,10 +80,9 @@ function FormField({
 
 export default function MerchFormScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { user, loading: authLoading } = useAuth();
-  const isEdit = !!id;
+  const isEditing = !!id;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -96,44 +91,58 @@ export default function MerchFormScreen() {
   const [category, setCategory] = useState('');
   const [checkoutUrl, setCheckoutUrl] = useState('');
   const [inStock, setInStock] = useState(true);
+  const [isPublished, setIsPublished] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
   const [displayOrder, setDisplayOrder] = useState('0');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [loadingData, setLoadingData] = useState(isEdit);
+  const [loading, setLoading] = useState(isEditing);
 
   useEffect(() => {
-    navigation.setOptions({ title: isEdit ? 'Edit Merch Item' : 'Add Merch Item' });
     if (!authLoading && !user) {
       router.replace('/(tabs)/admin');
       return;
     }
-    if (isEdit && id) loadItem();
+    if (isEditing) loadItem();
   }, [user, authLoading]);
 
   const loadItem = async () => {
     try {
-      console.log(`[MerchForm] Loading merch for edit: ${id}`);
-      const data = await getMerchItem(id as string);
+      console.log(`[MerchForm] Loading merch item: ${id}`);
+      const { data, error: dbError } = await supabase
+        .from('merch_items')
+        .select('*')
+        .eq('id', id as string)
+        .single();
+
+      if (dbError) {
+        console.error('[MerchForm] Load failed:', dbError.message);
+        Alert.alert('Error', 'Could not load item data.');
+        router.back();
+        return;
+      }
+
       setName(data.name ?? '');
       setDescription(data.description ?? '');
       setPrice(String(data.price ?? ''));
       setImageUrl(data.image_url ?? '');
       setCategory(data.category ?? '');
       setCheckoutUrl(data.checkout_url ?? '');
-      setInStock(data.in_stock !== false);
+      setInStock(data.in_stock ?? true);
+      setIsPublished(data.is_published ?? true);
       setIsFeatured(data.is_featured ?? false);
       setDisplayOrder(String(data.display_order ?? 0));
     } catch (err) {
-      console.error('[MerchForm] Failed to load merch item:', err);
-      Alert.alert('Error', 'Failed to load item data.');
+      console.error('[MerchForm] Load failed:', err);
+      Alert.alert('Error', 'Could not load item data.');
+      router.back();
     } finally {
-      setLoadingData(false);
+      setLoading(false);
     }
   };
 
-  const handlePickImage = async () => {
-    console.log('[MerchForm] Pick image pressed');
+  const handleUploadImage = async () => {
+    console.log('[MerchForm] Upload image pressed');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -142,23 +151,32 @@ export default function MerchFormScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      const fileName = asset.uri.split('/').pop() ?? 'image.jpg';
-      const fileType = asset.mimeType ?? 'image/jpeg';
+      const ext = asset.uri.split('.').pop() ?? 'jpg';
+      const fileName = `merch-${Date.now()}.${ext}`;
 
       try {
         setUploading(true);
-        console.log('[MerchForm] Uploading image:', fileName);
-        const token = await getBearerToken();
-        if (!token) throw new Error('Not authenticated');
-        const { url } = await uploadImage(
-          { uri: asset.uri, name: fileName, type: fileType },
-          token
-        );
-        setImageUrl(url);
-        console.log('[MerchForm] Image uploaded:', url);
+        console.log(`[MerchForm] Uploading image: ${fileName}`);
+
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+
+        const { error: uploadError } = await supabase.storage
+          .from('images')
+          .upload(fileName, blob, { upsert: true, contentType: asset.mimeType ?? 'image/jpeg' });
+
+        if (uploadError) {
+          console.error('[MerchForm] Upload failed:', uploadError.message);
+          Alert.alert('Upload failed', uploadError.message);
+          return;
+        }
+
+        const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName);
+        setImageUrl(urlData.publicUrl);
+        console.log('[MerchForm] Image uploaded:', urlData.publicUrl);
       } catch (err) {
         console.error('[MerchForm] Upload failed:', err);
-        Alert.alert('Upload failed', 'Could not upload the image. Try again.');
+        Alert.alert('Upload failed', 'Could not upload the image.');
       } finally {
         setUploading(false);
       }
@@ -167,47 +185,70 @@ export default function MerchFormScreen() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Required', 'Item name is required.');
+      Alert.alert('Validation', 'Item name is required.');
+      return;
+    }
+    const parsedPrice = parseFloat(price);
+    if (isNaN(parsedPrice) || parsedPrice < 0) {
+      Alert.alert('Validation', 'Please enter a valid price.');
       return;
     }
 
-    console.log(`[MerchForm] Save pressed: ${isEdit ? 'update' : 'create'} ${name}`);
+    console.log(`[MerchForm] Save pressed: ${name}`);
     setSaving(true);
 
-    const data: MerchInput = {
+    const payload = {
       name: name.trim(),
-      description: description.trim() || undefined,
-      price: parseFloat(price) || 0,
-      image_url: imageUrl.trim() || undefined,
-      category: category.trim() || undefined,
-      checkout_url: checkoutUrl.trim() || undefined,
+      description: description.trim() || null,
+      price: parsedPrice,
+      image_url: imageUrl.trim() || null,
+      category: category.trim() || null,
+      checkout_url: checkoutUrl.trim() || null,
       in_stock: inStock,
+      is_published: isPublished,
       is_featured: isFeatured,
       display_order: parseInt(displayOrder, 10) || 0,
+      updated_at: new Date().toISOString(),
     };
 
     try {
-      const token = await getBearerToken();
-      if (!token) throw new Error('Not authenticated');
+      if (isEditing) {
+        console.log(`[MerchForm] Updating merch item: ${id}`);
+        const { error: dbError } = await supabase
+          .from('merch_items')
+          .update(payload)
+          .eq('id', id as string);
 
-      if (isEdit) {
-        await updateMerch(id as string, data, token);
-        console.log('[MerchForm] Merch updated successfully');
+        if (dbError) {
+          console.error('[MerchForm] Update failed:', dbError.message);
+          Alert.alert('Error', dbError.message);
+          return;
+        }
+        console.log('[MerchForm] Merch item updated successfully');
       } else {
-        await createMerch(data, token);
-        console.log('[MerchForm] Merch created successfully');
+        console.log('[MerchForm] Inserting new merch item');
+        const { error: dbError } = await supabase
+          .from('merch_items')
+          .insert(payload);
+
+        if (dbError) {
+          console.error('[MerchForm] Insert failed:', dbError.message);
+          Alert.alert('Error', dbError.message);
+          return;
+        }
+        console.log('[MerchForm] Merch item created successfully');
       }
 
-      router.back();
+      router.replace('/admin/merch-list');
     } catch (err) {
       console.error('[MerchForm] Save failed:', err);
-      Alert.alert('Error', 'Failed to save item. Please try again.');
+      Alert.alert('Error', 'Failed to save item.');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loadingData) {
+  if (loading) {
     return (
       <View
         style={{
@@ -234,14 +275,14 @@ export default function MerchFormScreen() {
         {imageUrl ? (
           <Image
             source={resolveImageSource(imageUrl)}
-            style={{ width: 120, height: 120, borderRadius: 12, marginBottom: 12 }}
+            style={{ width: 160, height: 160, borderRadius: 12, marginBottom: 12 }}
             resizeMode="cover"
           />
         ) : (
           <View
             style={{
-              width: 120,
-              height: 120,
+              width: 160,
+              height: 160,
               borderRadius: 12,
               backgroundColor: COLORS.surfaceSecondary,
               alignItems: 'center',
@@ -251,10 +292,10 @@ export default function MerchFormScreen() {
               borderColor: COLORS.border,
             }}
           >
-            <Camera size={32} color={COLORS.textTertiary} />
+            <Camera size={40} color={COLORS.textTertiary} />
           </View>
         )}
-        <AnimatedPressable onPress={handlePickImage} disabled={uploading}>
+        <AnimatedPressable onPress={handleUploadImage} disabled={uploading}>
           <View
             style={{
               backgroundColor: COLORS.primaryMuted,
@@ -273,32 +314,24 @@ export default function MerchFormScreen() {
       </View>
 
       <FormField
-        label="Name"
+        label="Item Name *"
         value={name}
         onChangeText={setName}
-        placeholder="Item name"
-        required
+        placeholder="Product name"
       />
       <FormField
         label="Description"
         value={description}
         onChangeText={setDescription}
-        placeholder="Item description..."
+        placeholder="Product description..."
         multiline
       />
       <FormField
-        label="Price"
+        label="Price *"
         value={price}
         onChangeText={setPrice}
-        placeholder="29.99"
-        keyboardType="numeric"
-      />
-      <FormField
-        label="Image URL"
-        value={imageUrl}
-        onChangeText={setImageUrl}
-        placeholder="https://..."
-        keyboardType="url"
+        placeholder="0.00"
+        keyboardType="decimal-pad"
       />
       <FormField
         label="Category"
@@ -313,75 +346,6 @@ export default function MerchFormScreen() {
         placeholder="https://..."
         keyboardType="url"
       />
-
-      <Text
-        style={{
-          color: COLORS.textSecondary,
-          fontSize: 11,
-          fontWeight: '600',
-          letterSpacing: 2,
-          textTransform: 'uppercase',
-          marginBottom: 12,
-          marginTop: 8,
-        }}
-      >
-        Settings
-      </Text>
-
-      {/* In Stock toggle */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: COLORS.surfaceSecondary,
-          borderRadius: 12,
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          marginBottom: 12,
-        }}
-      >
-        <Text style={{ color: COLORS.text, fontSize: 15 }}>In Stock</Text>
-        <Switch
-          value={inStock}
-          onValueChange={(v) => {
-            console.log(`[MerchForm] In stock toggle: ${v}`);
-            setInStock(v);
-          }}
-          trackColor={{ false: COLORS.surfaceTertiary, true: COLORS.primaryDark }}
-          thumbColor={inStock ? COLORS.primary : COLORS.textTertiary}
-        />
-      </View>
-
-      {/* Featured toggle */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: COLORS.surfaceSecondary,
-          borderRadius: 12,
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          marginBottom: 16,
-        }}
-      >
-        <Text style={{ color: COLORS.text, fontSize: 15 }}>Featured Item</Text>
-        <Switch
-          value={isFeatured}
-          onValueChange={(v) => {
-            console.log(`[MerchForm] Featured toggle: ${v}`);
-            setIsFeatured(v);
-          }}
-          trackColor={{ false: COLORS.surfaceTertiary, true: COLORS.primaryDark }}
-          thumbColor={isFeatured ? COLORS.primary : COLORS.textTertiary}
-        />
-      </View>
-
       <FormField
         label="Display Order"
         value={displayOrder}
@@ -390,7 +354,37 @@ export default function MerchFormScreen() {
         keyboardType="numeric"
       />
 
-      {/* Save Button */}
+      {/* Toggles */}
+      {[
+        { label: 'In Stock', value: inStock, setter: setInStock, key: 'inStock' },
+        { label: 'Published', value: isPublished, setter: setIsPublished, key: 'isPublished' },
+        { label: 'Featured', value: isFeatured, setter: setIsFeatured, key: 'isFeatured' },
+      ].map(({ label, value, setter, key }) => (
+        <View
+          key={key}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 16,
+            paddingVertical: 4,
+          }}
+        >
+          <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '500' }}>
+            {label}
+          </Text>
+          <Switch
+            value={value}
+            onValueChange={(v) => {
+              console.log(`[MerchForm] ${label} toggle: ${v}`);
+              setter(v);
+            }}
+            trackColor={{ false: COLORS.border, true: COLORS.primary }}
+            thumbColor={value ? COLORS.background : COLORS.textSecondary}
+          />
+        </View>
+      ))}
+
       <AnimatedPressable onPress={handleSave} disabled={saving} style={{ marginTop: 8 }}>
         <View
           style={{
@@ -409,7 +403,7 @@ export default function MerchFormScreen() {
               letterSpacing: 0.5,
             }}
           >
-            {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Item'}
+            {saving ? 'Saving...' : isEditing ? 'Update Item' : 'Add Item'}
           </Text>
         </View>
       </AnimatedPressable>

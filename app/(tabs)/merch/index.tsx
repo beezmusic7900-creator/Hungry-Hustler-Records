@@ -14,8 +14,21 @@ import { ShoppingBag } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonMerchCard } from '@/components/SkeletonLoader';
-import { getMerch } from '@/utils/api';
-import type { MerchItem } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+
+interface MerchItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  image_url: string | null;
+  category: string | null;
+  in_stock: boolean;
+  checkout_url: string | null;
+  display_order: number;
+  is_featured: boolean;
+  is_published: boolean;
+}
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -161,11 +174,22 @@ export default function MerchScreen() {
 
   const loadMerch = async () => {
     try {
-      console.log('[Merch] Loading merch items');
+      console.log('[Merch] Loading merch items from Supabase');
       setLoading(true);
       setError(null);
-      const data = await getMerch();
-      setMerch(data);
+      const { data, error: dbError } = await supabase
+        .from('merch_items')
+        .select('*')
+        .eq('is_published', true)
+        .order('display_order');
+
+      if (dbError) {
+        console.error('[Merch] Supabase error:', dbError.message);
+        setError("Couldn't load merch.");
+        return;
+      }
+      console.log(`[Merch] Loaded ${data?.length ?? 0} merch items`);
+      setMerch(data ?? []);
     } catch (err) {
       console.error('[Merch] Failed to load merch:', err);
       setError("Couldn't load merch. Check your connection.");

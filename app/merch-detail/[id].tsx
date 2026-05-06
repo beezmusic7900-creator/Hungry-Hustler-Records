@@ -12,8 +12,18 @@ import { ShoppingBag, ExternalLink, CheckCircle, XCircle } from 'lucide-react-na
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { getMerchItem } from '@/utils/api';
-import type { MerchItem } from '@/types';
+import { supabase } from '@/app/integrations/supabase/client';
+
+interface MerchItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  image_url: string | null;
+  category: string | null;
+  in_stock: boolean;
+  checkout_url: string | null;
+}
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -39,7 +49,17 @@ export default function MerchDetailScreen() {
       console.log(`[MerchDetail] Loading merch item: ${id}`);
       setLoading(true);
       setError(null);
-      const data = await getMerchItem(id as string);
+      const { data, error: dbError } = await supabase
+        .from('merch_items')
+        .select('*')
+        .eq('id', id as string)
+        .single();
+
+      if (dbError) {
+        console.error('[MerchDetail] Supabase error:', dbError.message);
+        setError("Couldn't load this item.");
+        return;
+      }
       setItem(data);
       navigation.setOptions({ title: data.name });
     } catch (err) {
@@ -218,9 +238,9 @@ export default function MerchDetailScreen() {
                     justifyContent: 'center',
                     gap: 8,
                     shadowColor: COLORS.primary,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.4,
-                  shadowRadius: 12,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 12,
                   }}
                 >
                   <ExternalLink size={18} color={COLORS.background} />

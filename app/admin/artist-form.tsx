@@ -4,20 +4,18 @@ import {
   Text,
   TextInput,
   ScrollView,
-  Switch,
   Image,
+  Switch,
   Alert,
   ImageSourcePropType,
 } from 'react-native';
-import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
-import { getArtist, createArtist, updateArtist, uploadImage } from '@/utils/api';
-import { getBearerToken } from '@/utils/api';
+import { supabase } from '@/app/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import type { ArtistInput } from '@/types';
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -34,7 +32,6 @@ function FormField({
   placeholder,
   multiline,
   keyboardType,
-  required,
 }: {
   label: string;
   value: string;
@@ -42,7 +39,6 @@ function FormField({
   placeholder?: string;
   multiline?: boolean;
   keyboardType?: 'default' | 'url' | 'numeric' | 'email-address';
-  required?: boolean;
 }) {
   return (
     <View style={{ marginBottom: 16 }}>
@@ -55,9 +51,6 @@ function FormField({
         }}
       >
         {label}
-        {required ? (
-          <Text style={{ color: COLORS.danger }}> *</Text>
-        ) : null}
       </Text>
       <TextInput
         value={value}
@@ -87,10 +80,9 @@ function FormField({
 
 export default function ArtistFormScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { user, loading: authLoading } = useAuth();
-  const isEdit = !!id;
+  const isEditing = !!id;
 
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
@@ -107,21 +99,32 @@ export default function ArtistFormScreen() {
   const [displayOrder, setDisplayOrder] = useState('0');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [loadingData, setLoadingData] = useState(isEdit);
+  const [loading, setLoading] = useState(isEditing);
 
   useEffect(() => {
-    navigation.setOptions({ title: isEdit ? 'Edit Artist' : 'Add Artist' });
     if (!authLoading && !user) {
       router.replace('/(tabs)/admin');
       return;
     }
-    if (isEdit && id) loadArtist();
+    if (isEditing) loadArtist();
   }, [user, authLoading]);
 
   const loadArtist = async () => {
     try {
-      console.log(`[ArtistForm] Loading artist for edit: ${id}`);
-      const data = await getArtist(id as string);
+      console.log(`[ArtistForm] Loading artist: ${id}`);
+      const { data, error: dbError } = await supabase
+        .from('artists')
+        .select('*')
+        .eq('id', id as string)
+        .single();
+
+      if (dbError) {
+        console.error('[ArtistForm] Load failed:', dbError.message);
+        Alert.alert('Error', 'Could not load artist data.');
+        router.back();
+        return;
+      }
+
       setName(data.name ?? '');
       setBio(data.bio ?? '');
       setPhotoUrl(data.photo_url ?? '');
@@ -136,15 +139,16 @@ export default function ArtistFormScreen() {
       setIsFeatured(data.is_featured ?? false);
       setDisplayOrder(String(data.display_order ?? 0));
     } catch (err) {
-      console.error('[ArtistForm] Failed to load artist:', err);
-      Alert.alert('Error', 'Failed to load artist data.');
+      console.error('[ArtistForm] Load failed:', err);
+      Alert.alert('Error', 'Could not load artist data.');
+      router.back();
     } finally {
-      setLoadingData(false);
+      setLoading(false);
     }
   };
 
-  const handlePickPhoto = async () => {
-    console.log('[ArtistForm] Pick photo pressed');
+  const handleUploadPhoto = async () => {
+    console.log('[ArtistForm] Upload photo pressed');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -153,23 +157,32 @@ export default function ArtistFormScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      const fileName = asset.uri.split('/').pop() ?? 'photo.jpg';
-      const fileType = asset.mimeType ?? 'image/jpeg';
+      const ext = asset.uri.split('.').pop() ?? 'jpg';
+      const fileName = `artist-${Date.now()}.${ext}`;
 
       try {
         setUploading(true);
-        console.log('[ArtistForm] Uploading photo:', fileName);
-        const token = await getBearerToken();
-        if (!token) throw new Error('Not authenticated');
-        const { url } = await uploadImage(
-          { uri: asset.uri, name: fileName, type: fileType },
-          token
-        );
-        setPhotoUrl(url);
-        console.log('[ArtistForm] Photo uploaded:', url);
+        console.log(`[ArtistForm] Uploading photo: ${fileName}`);
+
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+
+        const { error: uploadError } = await supabase.storage
+          .from('images')
+          .upload(fileName, blob, { upsert: true, contentType: asset.mimeType ?? 'image/jpeg' });
+
+        if (uploadError) {
+          console.error('[ArtistForm] Upload failed:', uploadError.message);
+          Alert.alert('Upload failed', uploadError.message);
+          return;
+        }
+
+        const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName);
+        setPhotoUrl(urlData.publicUrl);
+        console.log('[ArtistForm] Photo uploaded:', urlData.publicUrl);
       } catch (err) {
         console.error('[ArtistForm] Upload failed:', err);
-        Alert.alert('Upload failed', 'Could not upload the photo. Try again.');
+        Alert.alert('Upload failed', 'Could not upload the photo.');
       } finally {
         setUploading(false);
       }
@@ -178,51 +191,68 @@ export default function ArtistFormScreen() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Required', 'Artist name is required.');
+      Alert.alert('Validation', 'Artist name is required.');
       return;
     }
 
-    console.log(`[ArtistForm] Save pressed: ${isEdit ? 'update' : 'create'} ${name}`);
+    console.log(`[ArtistForm] Save pressed: ${name}`);
     setSaving(true);
 
-    const data: ArtistInput = {
+    const payload = {
       name: name.trim(),
-      bio: bio.trim() || undefined,
-      photo_url: photoUrl.trim() || undefined,
-      spotify_url: spotifyUrl.trim() || undefined,
-      apple_music_url: appleMusicUrl.trim() || undefined,
-      youtube_url: youtubeUrl.trim() || undefined,
-      soundcloud_url: soundcloudUrl.trim() || undefined,
-      instagram_url: instagramUrl.trim() || undefined,
-      twitter_url: twitterUrl.trim() || undefined,
-      facebook_url: facebookUrl.trim() || undefined,
-      tiktok_url: tiktokUrl.trim() || undefined,
+      bio: bio.trim() || null,
+      photo_url: photoUrl.trim() || null,
+      spotify_url: spotifyUrl.trim() || null,
+      apple_music_url: appleMusicUrl.trim() || null,
+      youtube_url: youtubeUrl.trim() || null,
+      soundcloud_url: soundcloudUrl.trim() || null,
+      instagram_url: instagramUrl.trim() || null,
+      twitter_url: twitterUrl.trim() || null,
+      facebook_url: facebookUrl.trim() || null,
+      tiktok_url: tiktokUrl.trim() || null,
       is_featured: isFeatured,
       display_order: parseInt(displayOrder, 10) || 0,
+      updated_at: new Date().toISOString(),
     };
 
     try {
-      const token = await getBearerToken();
-      if (!token) throw new Error('Not authenticated');
+      if (isEditing) {
+        console.log(`[ArtistForm] Updating artist: ${id}`);
+        const { error: dbError } = await supabase
+          .from('artists')
+          .update(payload)
+          .eq('id', id as string);
 
-      if (isEdit) {
-        await updateArtist(id as string, data, token);
+        if (dbError) {
+          console.error('[ArtistForm] Update failed:', dbError.message);
+          Alert.alert('Error', dbError.message);
+          return;
+        }
         console.log('[ArtistForm] Artist updated successfully');
       } else {
-        await createArtist(data, token);
+        console.log('[ArtistForm] Inserting new artist');
+        const { error: dbError } = await supabase
+          .from('artists')
+          .insert(payload);
+
+        if (dbError) {
+          console.error('[ArtistForm] Insert failed:', dbError.message);
+          Alert.alert('Error', dbError.message);
+          return;
+        }
         console.log('[ArtistForm] Artist created successfully');
       }
 
-      router.back();
+      router.replace('/admin/artists');
     } catch (err) {
       console.error('[ArtistForm] Save failed:', err);
-      Alert.alert('Error', 'Failed to save artist. Please try again.');
+      Alert.alert('Error', 'Failed to save artist.');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loadingData) {
+  if (loading) {
     return (
       <View
         style={{
@@ -249,15 +279,15 @@ export default function ArtistFormScreen() {
         {photoUrl ? (
           <Image
             source={resolveImageSource(photoUrl)}
-            style={{ width: 100, height: 100, borderRadius: 50, marginBottom: 12 }}
+            style={{ width: 120, height: 120, borderRadius: 60, marginBottom: 12 }}
             resizeMode="cover"
           />
         ) : (
           <View
             style={{
-              width: 100,
-              height: 100,
-              borderRadius: 50,
+              width: 120,
+              height: 120,
+              borderRadius: 60,
               backgroundColor: COLORS.surfaceSecondary,
               alignItems: 'center',
               justifyContent: 'center',
@@ -269,7 +299,7 @@ export default function ArtistFormScreen() {
             <Camera size={32} color={COLORS.textTertiary} />
           </View>
         )}
-        <AnimatedPressable onPress={handlePickPhoto} disabled={uploading}>
+        <AnimatedPressable onPress={handleUploadPhoto} disabled={uploading}>
           <View
             style={{
               backgroundColor: COLORS.primaryMuted,
@@ -288,11 +318,10 @@ export default function ArtistFormScreen() {
       </View>
 
       <FormField
-        label="Name"
+        label="Artist Name *"
         value={name}
         onChangeText={setName}
         placeholder="Artist name"
-        required
       />
       <FormField
         label="Bio"
@@ -302,12 +331,36 @@ export default function ArtistFormScreen() {
         multiline
       />
       <FormField
-        label="Photo URL"
-        value={photoUrl}
-        onChangeText={setPhotoUrl}
-        placeholder="https://..."
-        keyboardType="url"
+        label="Display Order"
+        value={displayOrder}
+        onChangeText={setDisplayOrder}
+        placeholder="0"
+        keyboardType="numeric"
       />
+
+      {/* Featured toggle */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 20,
+          paddingVertical: 4,
+        }}
+      >
+        <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '500' }}>
+          Featured Artist
+        </Text>
+        <Switch
+          value={isFeatured}
+          onValueChange={(v) => {
+            console.log(`[ArtistForm] Featured toggle: ${v}`);
+            setIsFeatured(v);
+          }}
+          trackColor={{ false: COLORS.border, true: COLORS.primary }}
+          thumbColor={isFeatured ? COLORS.background : COLORS.textSecondary}
+        />
+      </View>
 
       <Text
         style={{
@@ -317,7 +370,6 @@ export default function ArtistFormScreen() {
           letterSpacing: 2,
           textTransform: 'uppercase',
           marginBottom: 12,
-          marginTop: 8,
         }}
       >
         Music Platforms
@@ -359,7 +411,7 @@ export default function ArtistFormScreen() {
           letterSpacing: 2,
           textTransform: 'uppercase',
           marginBottom: 12,
-          marginTop: 8,
+          marginTop: 4,
         }}
       >
         Social Media
@@ -393,56 +445,6 @@ export default function ArtistFormScreen() {
         keyboardType="url"
       />
 
-      <Text
-        style={{
-          color: COLORS.textSecondary,
-          fontSize: 11,
-          fontWeight: '600',
-          letterSpacing: 2,
-          textTransform: 'uppercase',
-          marginBottom: 12,
-          marginTop: 8,
-        }}
-      >
-        Settings
-      </Text>
-
-      {/* Featured toggle */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: COLORS.surfaceSecondary,
-          borderRadius: 12,
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          marginBottom: 16,
-        }}
-      >
-        <Text style={{ color: COLORS.text, fontSize: 15 }}>Featured Artist</Text>
-        <Switch
-          value={isFeatured}
-          onValueChange={(v) => {
-            console.log(`[ArtistForm] Featured toggle: ${v}`);
-            setIsFeatured(v);
-          }}
-          trackColor={{ false: COLORS.surfaceTertiary, true: COLORS.primaryDark }}
-          thumbColor={isFeatured ? COLORS.primary : COLORS.textTertiary}
-        />
-      </View>
-
-      <FormField
-        label="Display Order"
-        value={displayOrder}
-        onChangeText={setDisplayOrder}
-        placeholder="0"
-        keyboardType="numeric"
-      />
-
-      {/* Save Button */}
       <AnimatedPressable onPress={handleSave} disabled={saving} style={{ marginTop: 8 }}>
         <View
           style={{
@@ -461,7 +463,7 @@ export default function ArtistFormScreen() {
               letterSpacing: 0.5,
             }}
           >
-            {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Artist'}
+            {saving ? 'Saving...' : isEditing ? 'Update Artist' : 'Add Artist'}
           </Text>
         </View>
       </AnimatedPressable>
