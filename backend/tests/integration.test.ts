@@ -194,6 +194,14 @@ describe("API Integration Tests", () => {
     expect(data).toHaveProperty("id");
   });
 
+  test("GET /api/home - should return updated home content", async () => {
+    const res = await api("/api/home");
+    await expectStatus(res, 200);
+    const data = await res.json();
+    expect(data.hero_title).toBe("Welcome");
+    expect(data.hero_subtitle).toBe("To our store");
+  });
+
   test("PUT /api/admin/about - should update about content", async () => {
     const res = await authenticatedApi("/api/admin/about", authToken, {
       method: "PUT",
@@ -206,6 +214,14 @@ describe("API Integration Tests", () => {
     await expectStatus(res, 200);
     const data = await res.json();
     expect(data).toHaveProperty("id");
+  });
+
+  test("GET /api/about - should return updated about content", async () => {
+    const res = await api("/api/about");
+    await expectStatus(res, 200);
+    const data = await res.json();
+    expect(data.description).toBe("We are a music platform");
+    expect(data.mission).toBe("To support artists");
   });
 
   // ===== File Upload =====

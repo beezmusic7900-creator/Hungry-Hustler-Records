@@ -1,4 +1,5 @@
 import { createApplication } from "@specific-dev/framework";
+import { eq } from 'drizzle-orm';
 import * as appSchema from './db/schema/schema.js';
 import * as authSchema from './db/schema/auth-schema.js';
 import { registerArtistsRoutes } from './routes/artists.js';
@@ -44,9 +45,16 @@ async function seedData() {
       app.logger.info('Admin user already exists');
     }
 
-    // Seed artists
-    const existingArtists = await app.db.select().from(appSchema.artists).limit(1);
-    if (existingArtists.length === 0) {
+    // Seed artists - only insert if Afroman doesn't exist
+    const afromanExists = await app.db.query.artists.findFirst({
+      where: (artists, { eq }) => eq(artists.name, 'Afroman'),
+    });
+
+    let afromanId: string;
+    let teeId: string;
+    let capId: string;
+
+    if (!afromanExists) {
       app.logger.info('Seeding artists');
       const afromanResult = await app.db.insert(appSchema.artists).values({
         name: 'Afroman',
@@ -65,7 +73,8 @@ async function seedData() {
         display_order: 2,
       }).returning();
 
-      app.logger.info({ afromanId: afromanResult[0].id }, 'Artists seeded');
+      afromanId = afromanResult[0].id;
+      app.logger.info({ afromanId }, 'Artists seeded');
 
       // Seed merch items
       app.logger.info('Seeding merch items');
@@ -98,38 +107,90 @@ async function seedData() {
         display_order: 3,
       }).returning();
 
+      teeId = teeResult[0].id;
+      capId = capResult[0].id;
       app.logger.info({ merchCount: 3 }, 'Merch items seeded');
+    } else {
+      app.logger.info('Afroman artist already exists');
+      afromanId = afromanExists.id;
+      // Get existing merch IDs
+      const tee = await app.db.query.merch_items.findFirst({
+        where: (merch, { eq }) => eq(merch.name, 'HHR Logo Tee'),
+      });
+      const cap = await app.db.query.merch_items.findFirst({
+        where: (merch, { eq }) => eq(merch.name, 'HHR Snapback Cap'),
+      });
+      teeId = tee?.id || '';
+      capId = cap?.id || '';
+    }
 
-      // Seed home content
-      app.logger.info('Seeding home content');
+    // Upsert home content
+    app.logger.info('Upserting home content');
+    const homeRows = await app.db.select().from(appSchema.home_content).limit(1);
+    const homeContent = homeRows[0];
+
+    if (homeContent) {
+      await app.db.update(appSchema.home_content).set({
+        hero_title: 'Welcome to Hungry Hustler Records',
+        hero_subtitle: 'The home of independent excellence, authentic music, and powerful artists.',
+        updated_at: new Date(),
+      }).where(eq(appSchema.home_content.id, homeContent.id));
+      app.logger.info('Home content updated');
+    } else {
       await app.db.insert(appSchema.home_content).values({
-        hero_title: 'Hungry Hustler Records',
-        hero_subtitle: 'Where Authentic Hip-Hop Lives',
+        hero_title: 'Welcome to Hungry Hustler Records',
+        hero_subtitle: 'The home of independent excellence, authentic music, and powerful artists.',
         hero_banner_url: 'https://picsum.photos/seed/hhrbanner/800/400',
-        featured_artist_id: afromanResult[0].id,
+        featured_artist_id: afromanId,
         latest_release_title: 'Because I Got High (Remastered)',
         latest_release_artist: 'Afroman',
         latest_release_image_url: 'https://picsum.photos/seed/afromanrelease/400/400',
         latest_release_spotify_url: 'https://open.spotify.com/track/0z4gvV4rjIZ7R289VMsTd4',
-        featured_merch_ids: [teeResult[0].id, capResult[0].id],
+        featured_merch_ids: [teeId, capId],
       }).returning();
+      app.logger.info('Home content created');
+    }
 
-      app.logger.info('Home content seeded');
+    // Upsert about content
+    app.logger.info('Upserting about content');
+    const aboutRows = await app.db.select().from(appSchema.about_content).limit(1);
+    const aboutContent = aboutRows[0];
 
-      // Seed about content
-      app.logger.info('Seeding about content');
+    if (aboutContent) {
+      await app.db.update(appSchema.about_content).set({
+        description: 'Hungry Hustler Records is an independent record label built on vision, ownership, and the relentless pursuit of success. Founded with the mission to empower artists and create opportunities without limitations, Hungry Hustler Records stands as a platform for authentic voices and real stories. The label represents the spirit of independence—where talent, hard work, and dedication come before everything else.\n\nCreated by the great mind of Afroman. Hungry Hustler Records is more than a label—it is a movement and a brand dedicated to building legacy. With a focus on artist development, music production, branding, and distribution, the label provides artists with the tools and support needed to grow creatively and professionally while maintaining ownership of their identity and sound.\n\nHungry Hustler Records represents both established legends and rising talent, bridging generations of hip-hop and bringing authentic music to global audiences. Every artist under the label represents the core values of hunger, hustle, loyalty, and independence.',
+        mission: 'The mission is simple: build powerful artists, create timeless music, and establish a legacy that lasts forever.',
+        updated_at: new Date(),
+      }).where(eq(appSchema.about_content.id, aboutContent.id));
+      app.logger.info('About content updated');
+    } else {
       await app.db.insert(appSchema.about_content).values({
-        description: 'Hungry Hustler Records is an independent hip-hop label dedicated to authentic artistry, real storytelling, and building a legacy in the culture. We represent artists who hustle hard and stay true to their craft.',
-        mission: 'Our mission is to amplify authentic voices in hip-hop, provide artists with the platform and resources they need to succeed, and build a brand that stands for integrity, creativity, and hustle.',
+        description: 'Hungry Hustler Records is an independent record label built on vision, ownership, and the relentless pursuit of success. Founded with the mission to empower artists and create opportunities without limitations, Hungry Hustler Records stands as a platform for authentic voices and real stories. The label represents the spirit of independence—where talent, hard work, and dedication come before everything else.\n\nCreated by the great mind of Afroman. Hungry Hustler Records is more than a label—it is a movement and a brand dedicated to building legacy. With a focus on artist development, music production, branding, and distribution, the label provides artists with the tools and support needed to grow creatively and professionally while maintaining ownership of their identity and sound.\n\nHungry Hustler Records represents both established legends and rising talent, bridging generations of hip-hop and bringing authentic music to global audiences. Every artist under the label represents the core values of hunger, hustle, loyalty, and independence.',
+        mission: 'The mission is simple: build powerful artists, create timeless music, and establish a legacy that lasts forever.',
         contact_email: 'info@hungryhustlerrecords.com',
         instagram_url: 'https://instagram.com/hungryhustlerrecords',
         twitter_url: 'https://twitter.com/hungryhustlerrec',
         youtube_url: 'https://youtube.com/hungryhustlerrecords',
       }).returning();
+      app.logger.info('About content created');
+    }
 
-      app.logger.info('About content seeded');
+    // Seed OG Daddy V artist if not exists
+    const ogDaddyVExists = await app.db.query.artists.findFirst({
+      where: (artists, { eq }) => eq(artists.name, 'OG Daddy V'),
+    });
+
+    if (!ogDaddyVExists) {
+      app.logger.info('Creating OG Daddy V artist');
+      await app.db.insert(appSchema.artists).values({
+        name: 'OG Daddy V',
+        bio: 'Experience authentic music and follow the journey.',
+        is_featured: true,
+        display_order: 2,
+      }).returning();
+      app.logger.info('OG Daddy V artist created');
     } else {
-      app.logger.info('Seed data already exists');
+      app.logger.info('OG Daddy V artist already exists');
     }
   } catch (error) {
     app.logger.error({ err: error }, 'Failed to seed data');
