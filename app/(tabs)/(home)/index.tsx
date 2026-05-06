@@ -533,6 +533,31 @@ export default function HomeScreen() {
         )}
       </View>
 
+      {/* The Label — Welcome intro */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
+        <Text
+          style={{
+            color: COLORS.textSecondary,
+            fontSize: 11,
+            fontWeight: '600',
+            letterSpacing: 2,
+            textTransform: 'uppercase',
+            marginBottom: 12,
+          }}
+        >
+          The Label
+        </Text>
+        <Text
+          style={{
+            color: '#ffffff',
+            fontSize: 15,
+            lineHeight: 24,
+          }}
+        >
+          {'Welcome to the official Hungry Hustler Records app — the home of independent excellence, authentic music, and powerful artists. This is your direct connection to the music, artists, and movement behind Hungry Hustler Records.\n\nDiscover new releases, watch exclusive videos, explore artist profiles, and stay connected with everything happening inside the label. This platform gives fans exclusive access to music, merch, announcements, and behind-the-scenes content you won\'t find anywhere else.\n\nHungry Hustler Records represents the hustle, the vision, and the future of independent music.'}
+        </Text>
+      </View>
+
       {/* Featured Merch */}
       {(loading || featuredMerch.length > 0) && (
         <View style={{ marginBottom: 32 }}>
@@ -581,6 +606,155 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
       )}
+
+      {/* Latest Releases info card */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            padding: 20,
+          }}
+        >
+          <Text
+            style={{
+              color: COLORS.textSecondary,
+              fontSize: 11,
+              fontWeight: '600',
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              marginBottom: 12,
+            }}
+          >
+            Latest Releases
+          </Text>
+          {(['New Singles', 'Albums', 'Exclusive Releases', 'Featured Tracks'] as const).map((item) => (
+            <View
+              key={item}
+              style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}
+            >
+              <Text style={{ color: '#00FF66', fontSize: 16, lineHeight: 28, marginRight: 10 }}>
+                {'•'}
+              </Text>
+              <Text style={{ color: '#ffffff', fontSize: 14, lineHeight: 28 }}>
+                {item}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Exclusive Videos card */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            padding: 20,
+          }}
+        >
+          <Text
+            style={{
+              color: COLORS.textSecondary,
+              fontSize: 11,
+              fontWeight: '600',
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              marginBottom: 12,
+            }}
+          >
+            Exclusive Videos
+          </Text>
+          <Text
+            style={{
+              color: '#ffffff',
+              fontSize: 15,
+              lineHeight: 24,
+              marginBottom: 16,
+            }}
+          >
+            {'Watch official music videos, behind-the-scenes footage, interviews, and exclusive content from Hungry Hustler Records artists.'}
+          </Text>
+          <AnimatedPressable
+            onPress={() => {
+              console.log('[Home] Tapped Watch Now — navigating to Artists tab');
+              router.push('/(tabs)/artists');
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: '#00FF66',
+                borderRadius: 10,
+                paddingVertical: 12,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: '#000000', fontSize: 14, fontWeight: '700' }}>
+                Watch Now
+              </Text>
+            </View>
+          </AnimatedPressable>
+        </View>
+      </View>
+
+      {/* Merch Store card */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 32 }}>
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            padding: 20,
+          }}
+        >
+          <Text
+            style={{
+              color: COLORS.textSecondary,
+              fontSize: 11,
+              fontWeight: '600',
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              marginBottom: 12,
+            }}
+          >
+            Merch Store
+          </Text>
+          <Text
+            style={{
+              color: '#ffffff',
+              fontSize: 15,
+              lineHeight: 24,
+              marginBottom: 16,
+            }}
+          >
+            {'Shop official Hungry Hustler Records merchandise, including apparel, accessories, and exclusive artist merch.'}
+          </Text>
+          <AnimatedPressable
+            onPress={() => {
+              console.log('[Home] Tapped Shop Now — navigating to Merch tab');
+              router.push('/(tabs)/merch');
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: '#00FF66',
+                borderRadius: 10,
+                paddingVertical: 12,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: '#000000', fontSize: 14, fontWeight: '700' }}>
+                Shop Now
+              </Text>
+            </View>
+          </AnimatedPressable>
+        </View>
+      </View>
 
       {/* Error state */}
       {error && !loading && (

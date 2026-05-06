@@ -188,14 +188,13 @@ export default function AboutScreen() {
             }}
           >
             {about?.description ||
-              'Hungry Hustler Records is an independent record label dedicated to authentic hip-hop culture.'}
+              'Hungry Hustler Records is an independent record label built on vision, ownership, and the relentless pursuit of success. Founded with the mission to empower artists and create opportunities without limitations, Hungry Hustler Records stands as a platform for authentic voices and real stories.'}
           </Text>
         )}
       </View>
 
       {/* Mission */}
-      {(loading || about?.mission) && (
-        <View
+      <View
           style={{
             backgroundColor: COLORS.surface,
             borderRadius: 16,
@@ -233,11 +232,11 @@ export default function AboutScreen() {
                 fontStyle: 'italic',
               }}
             >
-              {about?.mission}
+              {about?.mission ||
+                'The mission is simple: build powerful artists, create timeless music, and establish a legacy that lasts forever.'}
             </Text>
           )}
-        </View>
-      )}
+      </View>
 
       {/* Contact */}
       {(loading || hasContact) && (
