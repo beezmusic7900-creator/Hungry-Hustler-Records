@@ -1,12 +1,10 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { eq, inArray } from 'drizzle-orm';
-import * as schema from '../db/schema/schema.js';
+import type { FastifyRequest, FastifyReply } from 'fastify';
+import { supabase } from '../db/supabase.js';
 import type { App } from '../index.js';
 
 export function registerHomeRoutes(app: App) {
   const requireAuth = app.requireAuth();
 
-  // GET /api/home - Public endpoint
   app.fastify.get('/api/home', {
     schema: {
       description: 'Get home content',
@@ -35,10 +33,8 @@ export function registerHomeRoutes(app: App) {
     },
   }, async () => {
     app.logger.info('Getting home content');
-    const rows = await app.db.select().from(schema.home_content).limit(1);
-    const homeContent = rows[0];
-
-    if (!homeContent) {
+    const { data: homeData, error } = await supabase.from('home_content').select('*').limit(1).single();
+    if (error || !homeData) {
       app.logger.warn('Home content not found');
       return { error: 'Home content not found' };
     }
@@ -46,31 +42,20 @@ export function registerHomeRoutes(app: App) {
     let featured_artist = null;
     let featured_merch: any[] = [];
 
-    // Fetch featured artist if id is set
-    if (homeContent.featured_artist_id) {
-      featured_artist = await app.db.query.artists.findFirst({
-        where: eq(schema.artists.id, homeContent.featured_artist_id),
-      });
+    if (homeData.featured_artist_id) {
+      const { data } = await supabase.from('artists').select('*').eq('id', homeData.featured_artist_id).single();
+      featured_artist = data;
     }
 
-    // Fetch featured merch items if ids are set
-    if (homeContent.featured_merch_ids && homeContent.featured_merch_ids.length > 0) {
-      featured_merch = await app.db.select().from(schema.merch_items).where(
-        inArray(schema.merch_items.id, homeContent.featured_merch_ids)
-      );
+    if (homeData.featured_merch_ids && homeData.featured_merch_ids.length > 0) {
+      const { data } = await supabase.from('merch_items').select('*').in('id', homeData.featured_merch_ids);
+      featured_merch = data || [];
     }
-
-    const result = {
-      ...homeContent,
-      featured_artist,
-      featured_merch,
-    };
 
     app.logger.info('Home content retrieved');
-    return result;
+    return { ...homeData, featured_artist, featured_merch };
   });
 
-  // PUT /api/admin/home - Protected endpoint
   app.fastify.put('/api/admin/home', {
     schema: {
       description: 'Upsert home content',
@@ -93,18 +78,8 @@ export function registerHomeRoutes(app: App) {
         },
       },
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', format: 'uuid' },
-          },
-        },
-        401: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-          },
-        },
+        200: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
       },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -114,13 +89,9 @@ export function registerHomeRoutes(app: App) {
     const body = request.body as Record<string, any>;
     app.logger.info('Upserting home content');
 
-    const rows = await app.db.select().from(schema.home_content).limit(1);
-    const existing = rows[0];
+    const { data: existing } = await supabase.from('home_content').select('id').limit(1).single();
 
-    const updateData: any = {
-      updated_at: new Date(),
-    };
-
+    const updateData: any = { updated_at: new Date().toISOString() };
     if (body.hero_banner_url !== undefined) updateData.hero_banner_url = body.hero_banner_url;
     if (body.hero_title !== undefined) updateData.hero_title = body.hero_title;
     if (body.hero_subtitle !== undefined) updateData.hero_subtitle = body.hero_subtitle;
@@ -135,39 +106,30 @@ export function registerHomeRoutes(app: App) {
     if (body.featured_merch_ids !== undefined) updateData.featured_merch_ids = body.featured_merch_ids;
 
     let homeContent: any;
-
     if (existing) {
-      const result = await app.db.update(schema.home_content).set(updateData).where(eq(schema.home_content.id, existing.id)).returning();
-      [homeContent] = result;
+      const { data, error } = await supabase.from('home_content').update(updateData).eq('id', existing.id).select().single();
+      if (error) throw error;
+      homeContent = data;
       app.logger.info({ homeId: homeContent.id }, 'Home content updated');
     } else {
-      const result = await app.db.insert(schema.home_content).values(updateData).returning();
-      [homeContent] = result;
+      const { data, error } = await supabase.from('home_content').insert(updateData).select().single();
+      if (error) throw error;
+      homeContent = data;
       app.logger.info({ homeId: homeContent.id }, 'Home content created');
     }
 
-    // Fetch full data with joined tables
     let featured_artist = null;
     let featured_merch: any[] = [];
 
     if (homeContent.featured_artist_id) {
-      featured_artist = await app.db.query.artists.findFirst({
-        where: eq(schema.artists.id, homeContent.featured_artist_id),
-      });
+      const { data } = await supabase.from('artists').select('*').eq('id', homeContent.featured_artist_id).single();
+      featured_artist = data;
+    }
+    if (homeContent.featured_merch_ids?.length) {
+      const { data } = await supabase.from('merch_items').select('*').in('id', homeContent.featured_merch_ids);
+      featured_merch = data || [];
     }
 
-    if (homeContent.featured_merch_ids && homeContent.featured_merch_ids.length > 0) {
-      featured_merch = await app.db.select().from(schema.merch_items).where(
-        inArray(schema.merch_items.id, homeContent.featured_merch_ids)
-      );
-    }
-
-    const result = {
-      ...homeContent,
-      featured_artist,
-      featured_merch,
-    };
-
-    return result;
+    return { ...homeContent, featured_artist, featured_merch };
   });
 }

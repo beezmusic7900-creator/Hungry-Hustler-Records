@@ -1,12 +1,10 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { eq } from 'drizzle-orm';
-import * as schema from '../db/schema/schema.js';
+import type { FastifyRequest, FastifyReply } from 'fastify';
+import { supabase } from '../db/supabase.js';
 import type { App } from '../index.js';
 
 export function registerMerchRoutes(app: App) {
   const requireAuth = app.requireAuth();
 
-  // GET /api/merch - Public endpoint
   app.fastify.get('/api/merch', {
     schema: {
       description: 'Get all merch items',
@@ -41,12 +39,12 @@ export function registerMerchRoutes(app: App) {
     },
   }, async () => {
     app.logger.info('Getting all merch items');
-    const items = await app.db.select().from(schema.merch_items).orderBy(schema.merch_items.display_order);
-    app.logger.info({ count: items.length }, 'Merch items retrieved');
-    return { items };
+    const { data: items, error } = await supabase.from('merch_items').select('*').order('display_order');
+    if (error) throw error;
+    app.logger.info({ count: items?.length }, 'Merch items retrieved');
+    return { items: items || [] };
   });
 
-  // GET /api/merch/:id - Public endpoint
   app.fastify.get('/api/merch/:id', {
     schema: {
       description: 'Get merch item by ID',
@@ -54,9 +52,7 @@ export function registerMerchRoutes(app: App) {
       params: {
         type: 'object',
         required: ['id'],
-        properties: {
-          id: { type: 'string', format: 'uuid' },
-        },
+        properties: { id: { type: 'string', format: 'uuid' } },
       },
       response: {
         200: {
@@ -66,33 +62,31 @@ export function registerMerchRoutes(app: App) {
             name: { type: 'string' },
             description: { type: ['string', 'null'] },
             price: { type: 'string' },
+            image_url: { type: ['string', 'null'] },
+            category: { type: ['string', 'null'] },
+            in_stock: { type: 'boolean' },
+            checkout_url: { type: ['string', 'null'] },
+            display_order: { type: 'number' },
+            is_featured: { type: 'boolean' },
             created_at: { type: 'string', format: 'date-time' },
             updated_at: { type: 'string', format: 'date-time' },
           },
         },
-        404: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-          },
-        },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
       },
     },
   }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const { id } = request.params;
     app.logger.info({ merchId: id }, 'Getting merch item');
-    const item = await app.db.query.merch_items.findFirst({
-      where: eq(schema.merch_items.id, id),
-    });
-    if (!item) {
-      app.logger.warn({ merchId: id }, 'Merch item not found');
-      return reply.status(404).send({ error: 'Merch item not found' });
+    const { data: item, error } = await supabase.from('merch_items').select('*').eq('id', id).single();
+    if (error) {
+      if (error.code === 'PGRST116') return reply.status(404).send({ error: 'Merch item not found' });
+      throw error;
     }
     app.logger.info({ merchId: id }, 'Merch item retrieved');
     return item;
   });
 
-  // POST /api/admin/merch - Protected endpoint
   app.fastify.post('/api/admin/merch', {
     schema: {
       description: 'Create a new merch item',
@@ -113,19 +107,8 @@ export function registerMerchRoutes(app: App) {
         },
       },
       response: {
-        201: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', format: 'uuid' },
-            name: { type: 'string' },
-          },
-        },
-        401: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-          },
-        },
+        201: { type: 'object', properties: { id: { type: 'string', format: 'uuid' }, name: { type: 'string' } } },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
       },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -133,19 +116,13 @@ export function registerMerchRoutes(app: App) {
     if (!session) return;
 
     const body = request.body as {
-      name: string;
-      price: number;
-      description?: string;
-      image_url?: string;
-      category?: string;
-      in_stock?: boolean;
-      checkout_url?: string;
-      display_order?: number;
-      is_featured?: boolean;
+      name: string; price: number; description?: string; image_url?: string;
+      category?: string; in_stock?: boolean; checkout_url?: string;
+      display_order?: number; is_featured?: boolean;
     };
 
     app.logger.info({ name: body.name }, 'Creating merch item');
-    const result = await app.db.insert(schema.merch_items).values({
+    const { data: item, error } = await supabase.from('merch_items').insert({
       name: body.name,
       price: body.price.toString(),
       description: body.description,
@@ -155,59 +132,29 @@ export function registerMerchRoutes(app: App) {
       checkout_url: body.checkout_url,
       display_order: body.display_order ?? 0,
       is_featured: body.is_featured ?? false,
-    }).returning();
-
-    const [item] = result;
+    }).select().single();
+    if (error) throw error;
     app.logger.info({ merchId: item.id }, 'Merch item created successfully');
     return reply.status(201).send(item);
   });
 
-  // PUT /api/admin/merch/:id - Protected endpoint
   app.fastify.put('/api/admin/merch/:id', {
     schema: {
       description: 'Update merch item by ID',
       tags: ['admin', 'merch'],
-      params: {
-        type: 'object',
-        required: ['id'],
-        properties: {
-          id: { type: 'string', format: 'uuid' },
-        },
-      },
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
       body: {
         type: 'object',
         properties: {
-          name: { type: 'string' },
-          description: { type: 'string' },
-          price: { type: 'number' },
-          image_url: { type: 'string' },
-          category: { type: 'string' },
-          in_stock: { type: 'boolean' },
-          checkout_url: { type: 'string' },
-          display_order: { type: 'number' },
-          is_featured: { type: 'boolean' },
+          name: { type: 'string' }, description: { type: 'string' }, price: { type: 'number' },
+          image_url: { type: 'string' }, category: { type: 'string' }, in_stock: { type: 'boolean' },
+          checkout_url: { type: 'string' }, display_order: { type: 'number' }, is_featured: { type: 'boolean' },
         },
       },
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', format: 'uuid' },
-            name: { type: 'string' },
-          },
-        },
-        401: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-          },
-        },
-        404: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-          },
-        },
+        200: { type: 'object', properties: { id: { type: 'string', format: 'uuid' }, name: { type: 'string' } } },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
       },
     },
   }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
@@ -216,19 +163,15 @@ export function registerMerchRoutes(app: App) {
 
     const { id } = request.params;
     const body = request.body as Record<string, any>;
-
     app.logger.info({ merchId: id }, 'Updating merch item');
 
-    const existing = await app.db.query.merch_items.findFirst({
-      where: eq(schema.merch_items.id, id),
-    });
-
-    if (!existing) {
-      app.logger.warn({ merchId: id }, 'Merch item not found for update');
-      return reply.status(404).send({ error: 'Merch item not found' });
+    const { error: checkError } = await supabase.from('merch_items').select('id').eq('id', id).single();
+    if (checkError) {
+      if (checkError.code === 'PGRST116') return reply.status(404).send({ error: 'Merch item not found' });
+      throw checkError;
     }
 
-    const updateData: any = { updated_at: new Date() };
+    const updateData: any = { updated_at: new Date().toISOString() };
     if (body.name !== undefined) updateData.name = body.name;
     if (body.description !== undefined) updateData.description = body.description;
     if (body.price !== undefined) updateData.price = body.price.toString();
@@ -239,43 +182,21 @@ export function registerMerchRoutes(app: App) {
     if (body.display_order !== undefined) updateData.display_order = body.display_order;
     if (body.is_featured !== undefined) updateData.is_featured = body.is_featured;
 
-    const result = await app.db.update(schema.merch_items).set(updateData).where(eq(schema.merch_items.id, id)).returning();
-    const [item] = result;
+    const { data: item, error } = await supabase.from('merch_items').update(updateData).eq('id', id).select().single();
+    if (error) throw error;
     app.logger.info({ merchId: id }, 'Merch item updated successfully');
     return item;
   });
 
-  // DELETE /api/admin/merch/:id - Protected endpoint
   app.fastify.delete('/api/admin/merch/:id', {
     schema: {
       description: 'Delete merch item by ID',
       tags: ['admin', 'merch'],
-      params: {
-        type: 'object',
-        required: ['id'],
-        properties: {
-          id: { type: 'string', format: 'uuid' },
-        },
-      },
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } },
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-          },
-        },
-        401: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-          },
-        },
-        404: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-          },
-        },
+        200: { type: 'object', properties: { success: { type: 'boolean' } } },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
       },
     },
   }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
@@ -285,16 +206,14 @@ export function registerMerchRoutes(app: App) {
     const { id } = request.params;
     app.logger.info({ merchId: id }, 'Deleting merch item');
 
-    const existing = await app.db.query.merch_items.findFirst({
-      where: eq(schema.merch_items.id, id),
-    });
-
-    if (!existing) {
-      app.logger.warn({ merchId: id }, 'Merch item not found for deletion');
-      return reply.status(404).send({ error: 'Merch item not found' });
+    const { error: checkError } = await supabase.from('merch_items').select('id').eq('id', id).single();
+    if (checkError) {
+      if (checkError.code === 'PGRST116') return reply.status(404).send({ error: 'Merch item not found' });
+      throw checkError;
     }
 
-    await app.db.delete(schema.merch_items).where(eq(schema.merch_items.id, id));
+    const { error } = await supabase.from('merch_items').delete().eq('id', id);
+    if (error) throw error;
     app.logger.info({ merchId: id }, 'Merch item deleted successfully');
     return { success: true };
   });

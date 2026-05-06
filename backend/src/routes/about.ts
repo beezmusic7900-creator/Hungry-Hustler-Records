@@ -1,12 +1,10 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { eq } from 'drizzle-orm';
-import * as schema from '../db/schema/schema.js';
+import type { FastifyRequest, FastifyReply } from 'fastify';
+import { supabase } from '../db/supabase.js';
 import type { App } from '../index.js';
 
 export function registerAboutRoutes(app: App) {
   const requireAuth = app.requireAuth();
 
-  // GET /api/about - Public endpoint
   app.fastify.get('/api/about', {
     schema: {
       description: 'Get about content',
@@ -34,19 +32,15 @@ export function registerAboutRoutes(app: App) {
     },
   }, async () => {
     app.logger.info('Getting about content');
-    const rows = await app.db.select().from(schema.about_content).limit(1);
-    const aboutContent = rows[0];
-
-    if (!aboutContent) {
+    const { data: aboutContent, error } = await supabase.from('about_content').select('*').limit(1).single();
+    if (error || !aboutContent) {
       app.logger.warn('About content not found');
       return { error: 'About content not found' };
     }
-
     app.logger.info('About content retrieved');
     return aboutContent;
   });
 
-  // PUT /api/admin/about - Protected endpoint
   app.fastify.put('/api/admin/about', {
     schema: {
       description: 'Upsert about content',
@@ -68,18 +62,8 @@ export function registerAboutRoutes(app: App) {
         },
       },
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', format: 'uuid' },
-          },
-        },
-        401: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-          },
-        },
+        200: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
       },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -89,13 +73,9 @@ export function registerAboutRoutes(app: App) {
     const body = request.body as Record<string, any>;
     app.logger.info('Upserting about content');
 
-    const rows = await app.db.select().from(schema.about_content).limit(1);
-    const existing = rows[0];
+    const { data: existing } = await supabase.from('about_content').select('id').limit(1).single();
 
-    const updateData: any = {
-      updated_at: new Date(),
-    };
-
+    const updateData: any = { updated_at: new Date().toISOString() };
     if (body.logo_url !== undefined) updateData.logo_url = body.logo_url;
     if (body.description !== undefined) updateData.description = body.description;
     if (body.mission !== undefined) updateData.mission = body.mission;
@@ -109,14 +89,15 @@ export function registerAboutRoutes(app: App) {
     if (body.tiktok_url !== undefined) updateData.tiktok_url = body.tiktok_url;
 
     let aboutContent: any;
-
     if (existing) {
-      const result = await app.db.update(schema.about_content).set(updateData).where(eq(schema.about_content.id, existing.id)).returning();
-      [aboutContent] = result;
+      const { data, error } = await supabase.from('about_content').update(updateData).eq('id', existing.id).select().single();
+      if (error) throw error;
+      aboutContent = data;
       app.logger.info({ aboutId: aboutContent.id }, 'About content updated');
     } else {
-      const result = await app.db.insert(schema.about_content).values(updateData).returning();
-      [aboutContent] = result;
+      const { data, error } = await supabase.from('about_content').insert(updateData).select().single();
+      if (error) throw error;
+      aboutContent = data;
       app.logger.info({ aboutId: aboutContent.id }, 'About content created');
     }
 
