@@ -6,6 +6,7 @@ import { registerMerchRoutes } from './routes/merch.js';
 import { registerHomeRoutes } from './routes/home.js';
 import { registerAboutRoutes } from './routes/about.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerAppleMusicRoutes } from './routes/appleMusic.js';
 
 const schema = { ...authSchema };
 
@@ -21,6 +22,7 @@ registerMerchRoutes(app);
 registerHomeRoutes(app);
 registerAboutRoutes(app);
 registerAdminRoutes(app);
+registerAppleMusicRoutes(app);
 
 async function ensureTables(logger: any) {
   const sql = `
