@@ -1,6 +1,13 @@
 import React from 'react';
-import { View, Text } from 'react-native';
-import { COLORS } from '@/constants/Colors';
+import { View, Image, ImageSourcePropType } from 'react-native';
+
+const logoSource: ImageSourcePropType = require('../assets/images/cc665abf-a02b-4ce3-85e6-492dfdf3ec20.jpeg');
+
+const SIZE_MAP = {
+  small: 80,
+  medium: 120,
+  large: 160,
+};
 
 interface HHRLogoProps {
   size?: 'small' | 'medium' | 'large';
@@ -8,46 +15,24 @@ interface HHRLogoProps {
 }
 
 export function HHRLogo({ size = 'medium', showGlow = true }: HHRLogoProps) {
-  const sizes = {
-    small: { top: 14, bottom: 10, letterSpacing: 2 },
-    medium: { top: 20, bottom: 14, letterSpacing: 3 },
-    large: { top: 28, bottom: 18, letterSpacing: 4 },
-  };
+  const dimension = SIZE_MAP[size];
 
-  const s = sizes[size];
+  const glowStyle = showGlow
+    ? {
+        shadowColor: '#FFD700',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+      }
+    : {};
 
   return (
-    <View style={{ alignItems: 'center' }}>
-      <Text
-        style={{
-          fontSize: s.top,
-          fontWeight: '700',
-          color: COLORS.primary,
-          letterSpacing: s.letterSpacing,
-          textTransform: 'uppercase',
-          ...(showGlow
-            ? {
-                textShadowColor: 'rgba(0, 255, 102, 0.6)',
-                textShadowOffset: { width: 0, height: 0 },
-                textShadowRadius: 12,
-              }
-            : {}),
-        }}
-      >
-        HUNGRY HUSTLER
-      </Text>
-      <Text
-        style={{
-          fontSize: s.bottom,
-          fontWeight: '700',
-          color: COLORS.white,
-          letterSpacing: s.letterSpacing + 4,
-          textTransform: 'uppercase',
-          marginTop: -2,
-        }}
-      >
-        RECORDS
-      </Text>
+    <View style={[{ width: dimension, height: dimension }, glowStyle]}>
+      <Image
+        source={logoSource}
+        style={{ width: dimension, height: dimension }}
+        resizeMode="contain"
+      />
     </View>
   );
 }

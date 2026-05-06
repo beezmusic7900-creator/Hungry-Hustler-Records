@@ -4,10 +4,10 @@
     "slug": "hungry-hustler",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon-rji.png",
+    "icon": "./assets/images/cc665abf-a02b-4ce3-85e6-492dfdf3ec20.jpeg",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/images/app-icon-rji.png",
+      "image": "./assets/images/cc665abf-a02b-4ce3-85e6-492dfdf3ec20.jpeg",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -20,7 +20,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app-icon-rji.png",
+        "foregroundImage": "./assets/images/cc665abf-a02b-4ce3-85e6-492dfdf3ec20.jpeg",
         "backgroundColor": "#000000"
       },
       "package": "com.placeholder.app"
