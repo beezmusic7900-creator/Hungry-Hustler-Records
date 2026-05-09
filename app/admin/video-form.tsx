@@ -85,7 +85,6 @@ export default function VideoFormScreen() {
   const isEditing = !!id;
 
   const [title, setTitle] = useState('');
-  const [artist, setArtist] = useState('');
   const [category, setCategory] = useState('Music Videos');
   const [videoUrl, setVideoUrl] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
@@ -126,12 +125,12 @@ export default function VideoFormScreen() {
         return;
       }
 
-      setTitle(data.title ?? '');
-      setArtist(data.artist ?? '');
-      setCategory(data.category ?? 'Music Videos');
-      setVideoUrl(data.video_url ?? '');
-      setThumbnailUrl(data.thumbnail_url ?? '');
-      setIsPublished(data.is_published ?? true);
+      const anyData = data as any;
+      setTitle(anyData.title ?? '');
+      setCategory(anyData.category ?? 'Music Videos');
+      setVideoUrl(anyData.video_url ?? '');
+      setThumbnailUrl(anyData.thumbnail_url ?? '');
+      setIsPublished(anyData.is_published ?? true);
     } catch (err) {
       console.error('[VideoForm] Load failed:', err);
       Alert.alert('Error', 'Could not load video data.');
@@ -250,10 +249,6 @@ export default function VideoFormScreen() {
       Alert.alert('Validation', 'Video title is required.');
       return;
     }
-    if (!artist.trim()) {
-      Alert.alert('Validation', 'Artist name is required.');
-      return;
-    }
     if (!isEditing && !videoUrl.trim() && !pendingVideoUri) {
       Alert.alert('Validation', 'Please enter a video URL or select a video file.');
       return;
@@ -289,17 +284,14 @@ export default function VideoFormScreen() {
 
       const payload = {
         title: title.trim(),
-        artist: artist.trim(),
-        category: category.trim() || 'Music Videos',
         video_url: finalVideoUrl,
         thumbnail_url: finalThumbnailUrl,
         is_published: isPublished,
-        updated_at: new Date().toISOString(),
       };
 
       if (isEditing) {
         console.log(`[VideoForm] Updating video: ${id}`);
-        const { error: dbError } = await supabase
+        const { error: dbError } = await (supabase as any)
           .from('videos')
           .update(payload)
           .eq('id', id as string);
@@ -312,7 +304,7 @@ export default function VideoFormScreen() {
         console.log('[VideoForm] Video updated successfully');
       } else {
         console.log('[VideoForm] Inserting new video');
-        const { error: dbError } = await supabase
+        const { error: dbError } = await (supabase as any)
           .from('videos')
           .insert(payload);
 
@@ -415,13 +407,6 @@ export default function VideoFormScreen() {
         value={title}
         onChangeText={setTitle}
         placeholder="Video title"
-        required
-      />
-      <FormField
-        label="Artist Name"
-        value={artist}
-        onChangeText={setArtist}
-        placeholder="Artist name"
         required
       />
       <FormField

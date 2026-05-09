@@ -50,7 +50,7 @@ export default function MerchDetailScreen() {
       setLoading(true);
       setError(null);
       const { data, error: dbError } = await supabase
-        .from('merch_items')
+        .from('merch')
         .select('*')
         .eq('id', id as string)
         .single();
@@ -60,8 +60,8 @@ export default function MerchDetailScreen() {
         setError("Couldn't load this item.");
         return;
       }
-      setItem(data);
-      navigation.setOptions({ title: data.name });
+      setItem(data as any as MerchItem);
+      navigation.setOptions({ title: (data as any).name });
     } catch (err) {
       console.error('[MerchDetail] Failed to load merch item:', err);
       setError("Couldn't load this item.");

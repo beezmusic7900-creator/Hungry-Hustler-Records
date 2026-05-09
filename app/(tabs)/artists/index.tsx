@@ -19,10 +19,9 @@ import { supabase } from '@/integrations/supabase/client';
 interface Artist {
   id: string;
   name: string;
+  genre: string | null;
   bio: string | null;
-  photo_url: string | null;
-  is_featured: boolean;
-  display_order: number;
+  image_url: string | null;
 }
 
 function resolveImageSource(
@@ -79,9 +78,9 @@ function ArtistCard({ artist, index }: { artist: Artist; index: number }) {
             borderColor: COLORS.border,
           }}
         >
-          {artist.photo_url ? (
+          {artist.image_url ? (
             <Image
-              source={resolveImageSource(artist.photo_url)}
+              source={resolveImageSource(artist.image_url)}
               style={{ width: '100%', height: 160 }}
               resizeMode="cover"
             />
@@ -128,30 +127,17 @@ function ArtistCard({ artist, index }: { artist: Artist; index: number }) {
             >
               {artist.name}
             </Text>
-            {artist.is_featured ? (
-              <View
+            {artist.genre ? (
+              <Text
                 style={{
-                  backgroundColor: COLORS.primaryMuted,
-                  borderRadius: 4,
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  alignSelf: 'flex-start',
-                  marginTop: 4,
-                  borderWidth: 1,
-                  borderColor: COLORS.primary,
+                  color: COLORS.textSecondary,
+                  fontSize: 11,
+                  marginTop: 2,
                 }}
+                numberOfLines={1}
               >
-                <Text
-                  style={{
-                    color: COLORS.primary,
-                    fontSize: 10,
-                    fontWeight: '600',
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  FEATURED
-                </Text>
-              </View>
+                {artist.genre}
+              </Text>
             ) : null}
           </LinearGradient>
         </View>

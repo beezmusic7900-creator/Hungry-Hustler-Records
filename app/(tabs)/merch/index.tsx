@@ -25,7 +25,6 @@ interface MerchItem {
   category: string | null;
   in_stock: boolean;
   checkout_url: string | null;
-  display_order: number;
   is_featured: boolean;
   is_published: boolean;
 }
@@ -178,7 +177,7 @@ export default function MerchScreen() {
       setLoading(true);
       setError(null);
       const { data, error: dbError } = await supabase
-        .from('merch_items')
+        .from('merch')
         .select('*')
         .eq('is_published', true)
         .order('created_at', { ascending: false });

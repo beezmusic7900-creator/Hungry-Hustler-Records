@@ -54,7 +54,7 @@ export default function AdminMerchListScreen() {
       setLoading(true);
       setError(null);
       const { data, error: dbError } = await supabase
-        .from('merch_items')
+        .from('merch')
         .select('*')
         .order('display_order');
 
@@ -63,7 +63,7 @@ export default function AdminMerchListScreen() {
         setError("Couldn't load merch items.");
         return;
       }
-      setItems(data ?? []);
+      setItems(((data as any[]) ?? []) as MerchItem[]);
     } catch (err) {
       console.error('[AdminMerch] Failed to load merch:', err);
       setError("Couldn't load merch items.");
@@ -86,7 +86,7 @@ export default function AdminMerchListScreen() {
             try {
               console.log(`[AdminMerch] Deleting merch item: ${item.id}`);
               const { error: dbError } = await supabase
-                .from('merch_items')
+                .from('merch')
                 .delete()
                 .eq('id', item.id);
 
@@ -112,7 +112,7 @@ export default function AdminMerchListScreen() {
     console.log(`[AdminMerch] Toggle publish: ${item.name} → ${newValue}`);
     try {
       const { error: dbError } = await supabase
-        .from('merch_items')
+        .from('merch')
         .update({ is_published: newValue, updated_at: new Date().toISOString() })
         .eq('id', item.id);
 

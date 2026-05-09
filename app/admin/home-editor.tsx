@@ -182,8 +182,8 @@ export default function HomeEditorScreen() {
     try {
       console.log('[HomeEditor] Loading home content and artists from Supabase');
       const [homeResult, artistsResult] = await Promise.all([
-        supabase.from('home_content').select('*').limit(1).single(),
-        supabase.from('artists').select('id, name').order('display_order'),
+        (supabase as any).from('home_content').select('*').limit(1).single(),
+        supabase.from('artists').select('id, name').order('name'),
       ]);
 
       if (homeResult.data) {
@@ -275,14 +275,14 @@ export default function HomeEditorScreen() {
       let dbError;
       if (homeId) {
         console.log('[HomeEditor] Updating existing home content');
-        const result = await supabase
+        const result = await (supabase as any)
           .from('home_content')
           .update(payload)
           .eq('id', homeId);
         dbError = result.error;
       } else {
         console.log('[HomeEditor] Inserting new home content');
-        const result = await supabase
+        const result = await (supabase as any)
           .from('home_content')
           .insert(payload)
           .select()

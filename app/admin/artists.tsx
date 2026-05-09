@@ -8,7 +8,7 @@ import {
   ImageSourcePropType,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus, Pencil, Trash2, Star } from 'lucide-react-native';
+import { Plus, Pencil, Trash2 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
@@ -18,10 +18,11 @@ import { useAuth } from '@/contexts/AuthContext';
 interface Artist {
   id: string;
   name: string;
+  genre: string | null;
   bio: string | null;
-  photo_url: string | null;
-  is_featured: boolean;
-  display_order: number;
+  image_url: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 function resolveImageSource(
@@ -55,14 +56,14 @@ export default function AdminArtistsScreen() {
       const { data, error: dbError } = await supabase
         .from('artists')
         .select('*')
-        .order('display_order');
+        .order('name');
 
       if (dbError) {
         console.error('[AdminArtists] Supabase error:', dbError.message);
         setError("Couldn't load artists.");
         return;
       }
-      setArtists(data ?? []);
+      setArtists((data as any[]) as Artist[]);
     } catch (err) {
       console.error('[AdminArtists] Failed to load artists:', err);
       setError("Couldn't load artists.");
@@ -130,9 +131,9 @@ export default function AdminArtistsScreen() {
         gap: 14,
       }}
     >
-      {item.photo_url ? (
+      {item.image_url ? (
         <Image
-          source={resolveImageSource(item.photo_url)}
+          source={resolveImageSource(item.image_url)}
           style={{ width: 52, height: 52, borderRadius: 26 }}
           resizeMode="cover"
         />
@@ -161,8 +162,8 @@ export default function AdminArtistsScreen() {
           >
             {item.name}
           </Text>
-          {item.is_featured ? (
-            <Star size={14} color={COLORS.primary} fill={COLORS.primary} />
+          {item.genre ? (
+            <Text style={{ color: COLORS.textSecondary, fontSize: 11 }}>{item.genre}</Text>
           ) : null}
         </View>
         {item.bio ? (

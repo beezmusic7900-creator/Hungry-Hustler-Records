@@ -25,12 +25,13 @@ interface Song {
   artist: string;
   audio_url: string;
   cover_url: string | null;
+  cover_image_url: string | null;
   category: string;
   price: number | null;
   is_published: boolean;
-  display_order: number;
+  is_active: boolean;
+  sort_order: number;
   created_at: string;
-  updated_at: string;
 }
 
 interface AppleMusicArtist {
@@ -119,9 +120,9 @@ function SongCard({ item }: { item: Song }) {
         gap: 14,
       }}
     >
-      {item.cover_url ? (
+      {item.cover_url || item.cover_image_url ? (
         <Image
-          source={resolveImageSource(item.cover_url)}
+          source={resolveImageSource(item.cover_url ?? item.cover_image_url ?? '')}
           style={{ width: 60, height: 60, borderRadius: 10 }}
           resizeMode="cover"
         />
@@ -454,7 +455,8 @@ export default function MusicScreen() {
         .from('songs')
         .select('*')
         .eq('is_published', true)
-        .order('created_at', { ascending: false });
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
 
       if (dbError) {
         console.error('[Music] Supabase error:', dbError.message);

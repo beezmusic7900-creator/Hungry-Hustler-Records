@@ -132,7 +132,7 @@ export default function AboutScreen() {
       console.log('[About] Loading about content from Supabase');
       setLoading(true);
       setError(null);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await (supabase as any)
         .from('about_content')
         .select('*')
         .limit(1)

@@ -19,14 +19,16 @@ import { supabase } from '@/integrations/supabase/client';
 interface VideoItem {
   id: string;
   title: string;
-  artist: string;
-  video_url: string;
+  video_url: string | null;
+  youtube_url: string | null;
+  youtube_id: string | null;
   thumbnail_url: string | null;
-  category: string;
+  artist_id: string | null;
+  source_type: string | null;
+  description: string | null;
   is_published: boolean;
-  display_order: number;
+  sort_order: number;
   created_at: string;
-  updated_at: string;
 }
 
 function resolveImageSource(
@@ -45,20 +47,23 @@ function getYouTubeId(url: string): string | null {
 }
 
 function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) {
-  const youtubeId = getYouTubeId(item.video_url);
+  const resolvedUrl = item.video_url ?? item.youtube_url ?? '';
+  const derivedYoutubeId =
+    item.youtube_id ??
+    (resolvedUrl ? getYouTubeId(resolvedUrl) : null);
   const thumbnailUri = item.thumbnail_url
     ? item.thumbnail_url
-    : youtubeId
-    ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
+    : derivedYoutubeId
+    ? `https://img.youtube.com/vi/${derivedYoutubeId}/hqdefault.jpg`
     : '';
 
   const handlePress = () => {
-    console.log(`[Videos] Card pressed: ${item.title} - ${item.video_url}`);
-    Linking.openURL(item.video_url);
+    console.log(`[Videos] Card pressed: ${item.title} - ${resolvedUrl}`);
+    if (resolvedUrl) Linking.openURL(resolvedUrl);
   };
 
   return (
-    <AnimatedPressable onPress={handlePress} style={{ width: cardWidth }}>
+    <AnimatedPressable onPress={handlePress} style={{ width: cardWidth }} disabled={!resolvedUrl}>
       <View
         style={{
           backgroundColor: COLORS.surface,
@@ -121,23 +126,6 @@ function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) 
 
         {/* Info */}
         <View style={{ padding: 10 }}>
-          {/* Category badge */}
-          <View
-            style={{
-              alignSelf: 'flex-start',
-              backgroundColor: COLORS.primaryMuted,
-              borderRadius: 20,
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-              borderWidth: 1,
-              borderColor: COLORS.primary,
-              marginBottom: 6,
-            }}
-          >
-            <Text style={{ color: COLORS.primary, fontSize: 10, fontWeight: '600' }}>
-              {item.category}
-            </Text>
-          </View>
           <Text
             style={{
               color: COLORS.text,
@@ -149,12 +137,14 @@ function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) 
           >
             {item.title}
           </Text>
-          <Text
-            style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 3 }}
-            numberOfLines={1}
-          >
-            {item.artist}
-          </Text>
+          {item.description ? (
+            <Text
+              style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 3 }}
+              numberOfLines={1}
+            >
+              {item.description}
+            </Text>
+          ) : null}
         </View>
       </View>
     </AnimatedPressable>
@@ -207,7 +197,7 @@ export default function VideosScreen() {
         .from('videos')
         .select('*')
         .eq('is_published', true)
-        .order('created_at', { ascending: false });
+        .order('sort_order', { ascending: true });
 
       if (dbError) {
         console.error('[Videos] Supabase error:', dbError.message);

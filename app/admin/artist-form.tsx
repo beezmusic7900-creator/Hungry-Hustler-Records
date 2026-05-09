@@ -5,7 +5,6 @@ import {
   TextInput,
   ScrollView,
   Image,
-  Switch,
   Alert,
   ImageSourcePropType,
 } from 'react-native';
@@ -85,18 +84,9 @@ export default function ArtistFormScreen() {
   const isEditing = !!id;
 
   const [name, setName] = useState('');
+  const [genre, setGenre] = useState('');
   const [bio, setBio] = useState('');
-  const [photoUrl, setPhotoUrl] = useState('');
-  const [spotifyUrl, setSpotifyUrl] = useState('');
-  const [appleMusicUrl, setAppleMusicUrl] = useState('');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [soundcloudUrl, setSoundcloudUrl] = useState('');
-  const [instagramUrl, setInstagramUrl] = useState('');
-  const [twitterUrl, setTwitterUrl] = useState('');
-  const [facebookUrl, setFacebookUrl] = useState('');
-  const [tiktokUrl, setTiktokUrl] = useState('');
-  const [isFeatured, setIsFeatured] = useState(false);
-  const [displayOrder, setDisplayOrder] = useState('0');
+  const [imageUrl, setImageUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(isEditing);
@@ -125,19 +115,11 @@ export default function ArtistFormScreen() {
         return;
       }
 
-      setName(data.name ?? '');
-      setBio(data.bio ?? '');
-      setPhotoUrl(data.photo_url ?? '');
-      setSpotifyUrl(data.spotify_url ?? '');
-      setAppleMusicUrl(data.apple_music_url ?? '');
-      setYoutubeUrl(data.youtube_url ?? '');
-      setSoundcloudUrl(data.soundcloud_url ?? '');
-      setInstagramUrl(data.instagram_url ?? '');
-      setTwitterUrl(data.twitter_url ?? '');
-      setFacebookUrl(data.facebook_url ?? '');
-      setTiktokUrl(data.tiktok_url ?? '');
-      setIsFeatured(data.is_featured ?? false);
-      setDisplayOrder(String(data.display_order ?? 0));
+      const row = data as any;
+      setName(row.name ?? '');
+      setGenre(row.genre ?? '');
+      setBio(row.bio ?? '');
+      setImageUrl(row.image_url ?? '');
     } catch (err) {
       console.error('[ArtistForm] Load failed:', err);
       Alert.alert('Error', 'Could not load artist data.');
@@ -178,7 +160,7 @@ export default function ArtistFormScreen() {
         }
 
         const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName);
-        setPhotoUrl(urlData.publicUrl);
+        setImageUrl(urlData.publicUrl);
         console.log('[ArtistForm] Photo uploaded:', urlData.publicUrl);
       } catch (err) {
         console.error('[ArtistForm] Upload failed:', err);
@@ -200,18 +182,9 @@ export default function ArtistFormScreen() {
 
     const payload = {
       name: name.trim(),
+      genre: genre.trim() || null,
       bio: bio.trim() || null,
-      photo_url: photoUrl.trim() || null,
-      spotify_url: spotifyUrl.trim() || null,
-      apple_music_url: appleMusicUrl.trim() || null,
-      youtube_url: youtubeUrl.trim() || null,
-      soundcloud_url: soundcloudUrl.trim() || null,
-      instagram_url: instagramUrl.trim() || null,
-      twitter_url: twitterUrl.trim() || null,
-      facebook_url: facebookUrl.trim() || null,
-      tiktok_url: tiktokUrl.trim() || null,
-      is_featured: isFeatured,
-      display_order: parseInt(displayOrder, 10) || 0,
+      image_url: imageUrl.trim() || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -220,7 +193,7 @@ export default function ArtistFormScreen() {
         console.log(`[ArtistForm] Updating artist: ${id}`);
         const { error: dbError } = await supabase
           .from('artists')
-          .update(payload)
+          .update(payload as any)
           .eq('id', id as string);
 
         if (dbError) {
@@ -233,7 +206,7 @@ export default function ArtistFormScreen() {
         console.log('[ArtistForm] Inserting new artist');
         const { error: dbError } = await supabase
           .from('artists')
-          .insert(payload);
+          .insert(payload as any);
 
         if (dbError) {
           console.error('[ArtistForm] Insert failed:', dbError.message);
@@ -276,9 +249,9 @@ export default function ArtistFormScreen() {
     >
       {/* Photo Upload */}
       <View style={{ alignItems: 'center', marginBottom: 24 }}>
-        {photoUrl ? (
+        {imageUrl ? (
           <Image
-            source={resolveImageSource(photoUrl)}
+            source={resolveImageSource(imageUrl)}
             style={{ width: 120, height: 120, borderRadius: 60, marginBottom: 12 }}
             resizeMode="cover"
           />
@@ -324,6 +297,12 @@ export default function ArtistFormScreen() {
         placeholder="Artist name"
       />
       <FormField
+        label="Genre"
+        value={genre}
+        onChangeText={setGenre}
+        placeholder="e.g. Hip-Hop, R&B, Pop"
+      />
+      <FormField
         label="Bio"
         value={bio}
         onChangeText={setBio}
@@ -331,117 +310,10 @@ export default function ArtistFormScreen() {
         multiline
       />
       <FormField
-        label="Display Order"
-        value={displayOrder}
-        onChangeText={setDisplayOrder}
-        placeholder="0"
-        keyboardType="numeric"
-      />
-
-      {/* Featured toggle */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 20,
-          paddingVertical: 4,
-        }}
-      >
-        <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '500' }}>
-          Featured Artist
-        </Text>
-        <Switch
-          value={isFeatured}
-          onValueChange={(v) => {
-            console.log(`[ArtistForm] Featured toggle: ${v}`);
-            setIsFeatured(v);
-          }}
-          trackColor={{ false: COLORS.border, true: COLORS.primary }}
-          thumbColor={isFeatured ? COLORS.background : COLORS.textSecondary}
-        />
-      </View>
-
-      <Text
-        style={{
-          color: COLORS.textSecondary,
-          fontSize: 11,
-          fontWeight: '600',
-          letterSpacing: 2,
-          textTransform: 'uppercase',
-          marginBottom: 12,
-        }}
-      >
-        Music Platforms
-      </Text>
-      <FormField
-        label="Spotify URL"
-        value={spotifyUrl}
-        onChangeText={setSpotifyUrl}
-        placeholder="https://open.spotify.com/..."
-        keyboardType="url"
-      />
-      <FormField
-        label="Apple Music URL"
-        value={appleMusicUrl}
-        onChangeText={setAppleMusicUrl}
-        placeholder="https://music.apple.com/..."
-        keyboardType="url"
-      />
-      <FormField
-        label="YouTube URL"
-        value={youtubeUrl}
-        onChangeText={setYoutubeUrl}
-        placeholder="https://youtube.com/..."
-        keyboardType="url"
-      />
-      <FormField
-        label="SoundCloud URL"
-        value={soundcloudUrl}
-        onChangeText={setSoundcloudUrl}
-        placeholder="https://soundcloud.com/..."
-        keyboardType="url"
-      />
-
-      <Text
-        style={{
-          color: COLORS.textSecondary,
-          fontSize: 11,
-          fontWeight: '600',
-          letterSpacing: 2,
-          textTransform: 'uppercase',
-          marginBottom: 12,
-          marginTop: 4,
-        }}
-      >
-        Social Media
-      </Text>
-      <FormField
-        label="Instagram URL"
-        value={instagramUrl}
-        onChangeText={setInstagramUrl}
-        placeholder="https://instagram.com/..."
-        keyboardType="url"
-      />
-      <FormField
-        label="Twitter URL"
-        value={twitterUrl}
-        onChangeText={setTwitterUrl}
-        placeholder="https://twitter.com/..."
-        keyboardType="url"
-      />
-      <FormField
-        label="Facebook URL"
-        value={facebookUrl}
-        onChangeText={setFacebookUrl}
-        placeholder="https://facebook.com/..."
-        keyboardType="url"
-      />
-      <FormField
-        label="TikTok URL"
-        value={tiktokUrl}
-        onChangeText={setTiktokUrl}
-        placeholder="https://tiktok.com/..."
+        label="Image URL"
+        value={imageUrl}
+        onChangeText={setImageUrl}
+        placeholder="https://..."
         keyboardType="url"
       />
 

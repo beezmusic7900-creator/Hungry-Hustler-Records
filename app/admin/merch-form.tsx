@@ -109,11 +109,13 @@ export default function MerchFormScreen() {
   const loadItem = async () => {
     try {
       console.log(`[MerchForm] Loading merch item: ${id}`);
-      const { data, error: dbError } = await supabase
-        .from('merch_items')
+      const result = await supabase
+        .from('merch')
         .select('*')
         .eq('id', id as string)
         .single();
+      const data = result.data as any;
+      const dbError = result.error;
 
       if (dbError) {
         console.error('[MerchForm] Load failed:', dbError.message);
@@ -131,7 +133,7 @@ export default function MerchFormScreen() {
       setInStock(data.in_stock ?? true);
       setIsPublished(data.is_published ?? true);
       setIsFeatured(data.is_featured ?? false);
-      setDisplayOrder(String(data.display_order ?? 0));
+      setDisplayOrder('0');
     } catch (err) {
       console.error('[MerchForm] Load failed:', err);
       Alert.alert('Error', 'Could not load item data.');
@@ -207,7 +209,6 @@ export default function MerchFormScreen() {
       in_stock: inStock,
       is_published: isPublished,
       is_featured: isFeatured,
-      display_order: parseInt(displayOrder, 10) || 0,
       updated_at: new Date().toISOString(),
     };
 
@@ -215,7 +216,7 @@ export default function MerchFormScreen() {
       if (isEditing) {
         console.log(`[MerchForm] Updating merch item: ${id}`);
         const { error: dbError } = await supabase
-          .from('merch_items')
+          .from('merch')
           .update(payload)
           .eq('id', id as string);
 
@@ -228,7 +229,7 @@ export default function MerchFormScreen() {
       } else {
         console.log('[MerchForm] Inserting new merch item');
         const { error: dbError } = await supabase
-          .from('merch_items')
+          .from('merch')
           .insert(payload);
 
         if (dbError) {

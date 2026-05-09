@@ -65,7 +65,7 @@ export default function AdminVideosListScreen() {
         setError("Couldn't load videos.");
         return;
       }
-      setVideos(data ?? []);
+      setVideos((data as any[] ?? []) as VideoItem[]);
     } catch (err) {
       console.error('[AdminVideos] Failed to load videos:', err);
       setError("Couldn't load videos.");

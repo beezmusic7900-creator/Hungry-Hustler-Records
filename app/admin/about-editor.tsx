@@ -92,7 +92,7 @@ export default function AboutEditorScreen() {
   const loadData = async () => {
     try {
       console.log('[AboutEditor] Loading about content from Supabase');
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await (supabase as any)
         .from('about_content')
         .select('*')
         .limit(1)
@@ -140,14 +140,14 @@ export default function AboutEditorScreen() {
       let dbError;
       if (aboutId) {
         console.log('[AboutEditor] Updating existing about content');
-        const result = await supabase
+        const result = await (supabase as any)
           .from('about_content')
           .update(payload)
           .eq('id', aboutId);
         dbError = result.error;
       } else {
         console.log('[AboutEditor] Inserting new about content');
-        const result = await supabase
+        const result = await (supabase as any)
           .from('about_content')
           .insert(payload)
           .select()

@@ -287,12 +287,11 @@ export default function MusicFormScreen() {
         is_published: isPublished,
         audio_url: finalAudioUrl,
         cover_url: finalCoverUrl,
-        updated_at: new Date().toISOString(),
       };
 
       if (isEditing) {
         console.log(`[MusicForm] Updating song: ${id}`);
-        const { error: dbError } = await supabase
+        const { error: dbError } = await (supabase as any)
           .from('songs')
           .update(payload)
           .eq('id', id as string);
@@ -305,7 +304,7 @@ export default function MusicFormScreen() {
         console.log('[MusicForm] Song updated successfully');
       } else {
         console.log('[MusicForm] Inserting new song');
-        const { error: dbError } = await supabase
+        const { error: dbError } = await (supabase as any)
           .from('songs')
           .insert(payload);
 

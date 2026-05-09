@@ -66,7 +66,7 @@ export default function AdminMusicListScreen() {
         setError("Couldn't load songs.");
         return;
       }
-      setSongs(data ?? []);
+      setSongs(((data as any[]) ?? []) as Song[]);
     } catch (err) {
       console.error('[AdminMusic] Failed to load songs:', err);
       setError("Couldn't load songs.");
@@ -125,7 +125,7 @@ export default function AdminMusicListScreen() {
     const newValue = !song.is_published;
     console.log(`[AdminMusic] Toggle publish: ${song.title} → ${newValue}`);
     try {
-      const { error: dbError } = await supabase
+      const { error: dbError } = await (supabase as any)
         .from('songs')
         .update({ is_published: newValue, updated_at: new Date().toISOString() })
         .eq('id', song.id);

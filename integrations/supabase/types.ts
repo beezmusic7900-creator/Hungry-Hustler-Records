@@ -10,12 +10,18 @@ export type Database = {
           artist: string
           audio_url: string
           cover_url: string | null
+          cover_image_url: string | null
           category: string
           price: number | null
           is_published: boolean
-          display_order: number
+          is_active: boolean
+          sort_order: number
+          duration: number | null
+          description: string | null
+          is_premium: boolean
+          purchase_type: string | null
+          apple_product_id: string | null
           created_at: string
-          updated_at: string
         }
         Insert: {
           id?: string
@@ -23,12 +29,18 @@ export type Database = {
           artist: string
           audio_url: string
           cover_url?: string | null
+          cover_image_url?: string | null
           category?: string
           price?: number | null
           is_published?: boolean
-          display_order?: number
+          is_active?: boolean
+          sort_order?: number
+          duration?: number | null
+          description?: string | null
+          is_premium?: boolean
+          purchase_type?: string | null
+          apple_product_id?: string | null
           created_at?: string
-          updated_at?: string
         }
         Update: {
           id?: string
@@ -36,11 +48,17 @@ export type Database = {
           artist?: string
           audio_url?: string
           cover_url?: string | null
+          cover_image_url?: string | null
           category?: string
           price?: number | null
           is_published?: boolean
-          display_order?: number
-          updated_at?: string
+          is_active?: boolean
+          sort_order?: number
+          duration?: number | null
+          description?: string | null
+          is_premium?: boolean
+          purchase_type?: string | null
+          apple_product_id?: string | null
         }
         Relationships: []
       }
@@ -48,36 +66,45 @@ export type Database = {
         Row: {
           id: string
           title: string
-          artist: string
-          video_url: string
+          video_url: string | null
+          youtube_url: string | null
+          youtube_id: string | null
           thumbnail_url: string | null
-          category: string
+          artist_id: string | null
+          source_type: string | null
+          description: string | null
           is_published: boolean
-          display_order: number
+          sort_order: number
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           title: string
-          artist: string
-          video_url: string
+          video_url?: string | null
+          youtube_url?: string | null
+          youtube_id?: string | null
           thumbnail_url?: string | null
-          category?: string
+          artist_id?: string | null
+          source_type?: string | null
+          description?: string | null
           is_published?: boolean
-          display_order?: number
+          sort_order?: number
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           title?: string
-          artist?: string
-          video_url?: string
+          video_url?: string | null
+          youtube_url?: string | null
+          youtube_id?: string | null
           thumbnail_url?: string | null
-          category?: string
+          artist_id?: string | null
+          source_type?: string | null
+          description?: string | null
           is_published?: boolean
-          display_order?: number
+          sort_order?: number
           updated_at?: string
         }
         Relationships: []
@@ -86,62 +113,32 @@ export type Database = {
         Row: {
           id: string
           name: string
+          genre: string | null
           bio: string | null
-          photo_url: string | null
-          spotify_url: string | null
-          apple_music_url: string | null
-          youtube_url: string | null
-          soundcloud_url: string | null
-          instagram_url: string | null
-          twitter_url: string | null
-          facebook_url: string | null
-          tiktok_url: string | null
-          video_urls: string[] | null
-          display_order: number
-          is_featured: boolean
+          image_url: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           name: string
+          genre?: string | null
           bio?: string | null
-          photo_url?: string | null
-          spotify_url?: string | null
-          apple_music_url?: string | null
-          youtube_url?: string | null
-          soundcloud_url?: string | null
-          instagram_url?: string | null
-          twitter_url?: string | null
-          facebook_url?: string | null
-          tiktok_url?: string | null
-          video_urls?: string[] | null
-          display_order?: number
-          is_featured?: boolean
+          image_url?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           name?: string
+          genre?: string | null
           bio?: string | null
-          photo_url?: string | null
-          spotify_url?: string | null
-          apple_music_url?: string | null
-          youtube_url?: string | null
-          soundcloud_url?: string | null
-          instagram_url?: string | null
-          twitter_url?: string | null
-          facebook_url?: string | null
-          tiktok_url?: string | null
-          video_urls?: string[] | null
-          display_order?: number
-          is_featured?: boolean
+          image_url?: string | null
           updated_at?: string
         }
         Relationships: []
       }
-      merch_items: {
+      merch: {
         Row: {
           id: string
           name: string
@@ -151,7 +148,6 @@ export type Database = {
           category: string | null
           in_stock: boolean
           checkout_url: string | null
-          display_order: number
           is_featured: boolean
           is_published: boolean
           created_at: string
@@ -166,7 +162,6 @@ export type Database = {
           category?: string | null
           in_stock?: boolean
           checkout_url?: string | null
-          display_order?: number
           is_featured?: boolean
           is_published?: boolean
           created_at?: string
@@ -181,97 +176,8 @@ export type Database = {
           category?: string | null
           in_stock?: boolean
           checkout_url?: string | null
-          display_order?: number
           is_featured?: boolean
           is_published?: boolean
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      home_content: {
-        Row: {
-          id: string
-          hero_banner_url: string | null
-          hero_title: string | null
-          hero_subtitle: string | null
-          featured_artist_id: string | null
-          latest_release_title: string | null
-          latest_release_artist: string | null
-          latest_release_image_url: string | null
-          latest_release_spotify_url: string | null
-          latest_release_apple_music_url: string | null
-          latest_release_youtube_url: string | null
-          latest_release_soundcloud_url: string | null
-          featured_merch_ids: string[] | null
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          hero_banner_url?: string | null
-          hero_title?: string | null
-          hero_subtitle?: string | null
-          featured_artist_id?: string | null
-          latest_release_title?: string | null
-          latest_release_artist?: string | null
-          latest_release_image_url?: string | null
-          latest_release_spotify_url?: string | null
-          latest_release_apple_music_url?: string | null
-          latest_release_youtube_url?: string | null
-          latest_release_soundcloud_url?: string | null
-          featured_merch_ids?: string[] | null
-          updated_at?: string
-        }
-        Update: {
-          hero_banner_url?: string | null
-          hero_title?: string | null
-          hero_subtitle?: string | null
-          featured_artist_id?: string | null
-          latest_release_title?: string | null
-          latest_release_artist?: string | null
-          latest_release_image_url?: string | null
-          latest_release_spotify_url?: string | null
-          latest_release_apple_music_url?: string | null
-          latest_release_youtube_url?: string | null
-          latest_release_soundcloud_url?: string | null
-          featured_merch_ids?: string[] | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      about_content: {
-        Row: {
-          id: string
-          description: string | null
-          mission: string | null
-          contact_email: string | null
-          contact_phone: string | null
-          instagram_url: string | null
-          twitter_url: string | null
-          facebook_url: string | null
-          youtube_url: string | null
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          description?: string | null
-          mission?: string | null
-          contact_email?: string | null
-          contact_phone?: string | null
-          instagram_url?: string | null
-          twitter_url?: string | null
-          facebook_url?: string | null
-          youtube_url?: string | null
-          updated_at?: string
-        }
-        Update: {
-          description?: string | null
-          mission?: string | null
-          contact_email?: string | null
-          contact_phone?: string | null
-          instagram_url?: string | null
-          twitter_url?: string | null
-          facebook_url?: string | null
-          youtube_url?: string | null
           updated_at?: string
         }
         Relationships: []

@@ -22,7 +22,7 @@ interface Artist {
   id: string;
   name: string;
   bio: string | null;
-  photo_url: string | null;
+  image_url: string | null;
 }
 
 interface MerchItem {
@@ -173,7 +173,7 @@ export default function HomeScreen() {
       setLoading(true);
       setError(null);
 
-      const { data: home, error: homeErr } = await supabase
+      const { data: home, error: homeErr } = await (supabase as any)
         .from('home_content')
         .select('*')
         .limit(1)
@@ -196,7 +196,7 @@ export default function HomeScreen() {
           (async () => {
             const { data } = await supabase
               .from('artists')
-              .select('id, name, bio, photo_url')
+              .select('id, name, bio, image_url')
               .eq('id', home.featured_artist_id as string)
               .single();
             setFeaturedArtist(data ?? null);
@@ -207,7 +207,7 @@ export default function HomeScreen() {
       if (home?.featured_merch_ids && home.featured_merch_ids.length > 0) {
         parallelTasks.push(
           (async () => {
-            const { data } = await supabase
+            const { data } = await (supabase as any)
               .from('merch_items')
               .select('id, name, price, image_url')
               .in('id', home.featured_merch_ids as string[])
@@ -358,9 +358,9 @@ export default function HomeScreen() {
             }}
           >
             <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-              {featuredArtist.photo_url ? (
+              {featuredArtist.image_url ? (
                 <Image
-                  source={resolveImageSource(featuredArtist.photo_url)}
+                  source={resolveImageSource(featuredArtist.image_url)}
                   style={{ width: 80, height: 80, borderRadius: 40 }}
                   resizeMode="cover"
                 />
