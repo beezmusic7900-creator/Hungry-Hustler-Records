@@ -6,6 +6,7 @@ import {
   Image,
   Animated,
   ImageSourcePropType,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,13 +44,13 @@ function ArtistCard({ artist, index }: { artist: Artist; index: number }) {
         toValue: 1,
         duration: 350,
         delay: index * 60,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(translateY, {
         toValue: 0,
         duration: 350,
         delay: index * 60,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   }, []);

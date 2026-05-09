@@ -7,6 +7,7 @@ import {
   Animated,
   Linking,
   ImageSourcePropType,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -222,7 +223,7 @@ export default function HomeScreen() {
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 400,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }).start();
     } catch (err) {
       console.error('[Home] Failed to load home content:', err);

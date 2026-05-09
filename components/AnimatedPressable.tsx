@@ -1,4 +1,4 @@
-import { Pressable, Animated, PressableProps, ViewStyle, StyleProp } from 'react-native';
+import { Pressable, Animated, PressableProps, ViewStyle, StyleProp, Platform } from 'react-native';
 import { useRef, useCallback } from 'react';
 
 interface AnimatedPressableProps extends PressableProps {
@@ -12,6 +12,11 @@ export function AnimatedPressable({
   children,
   disabled,
   scaleValue = 0.97,
+  accessibilityLabel,
+  accessibilityRole,
+  accessibilityHint,
+  testID,
+  hitSlop,
   ...props
 }: AnimatedPressableProps) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -19,7 +24,7 @@ export function AnimatedPressable({
   const animateIn = useCallback(() => {
     Animated.spring(scale, {
       toValue: scaleValue,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
       speed: 50,
       bounciness: 4,
     }).start();
@@ -28,7 +33,7 @@ export function AnimatedPressable({
   const animateOut = useCallback(() => {
     Animated.spring(scale, {
       toValue: 1,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
       speed: 50,
       bounciness: 4,
     }).start();
@@ -42,7 +47,11 @@ export function AnimatedPressable({
         onPress={onPress}
         disabled={disabled}
         style={style}
-        {...props}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole={accessibilityRole}
+        accessibilityHint={accessibilityHint}
+        testID={testID}
+        hitSlop={hitSlop}
       >
         {children}
       </Pressable>
