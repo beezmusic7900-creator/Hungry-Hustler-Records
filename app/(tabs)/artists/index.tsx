@@ -178,7 +178,7 @@ export default function ArtistsScreen() {
       const { data, error: dbError } = await supabase
         .from('artists')
         .select('*')
-        .order('display_order');
+        .order('name');
 
       if (dbError) {
         console.error('[Artists] Supabase error:', dbError.message);

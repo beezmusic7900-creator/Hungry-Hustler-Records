@@ -181,11 +181,11 @@ export default function MerchScreen() {
         .from('merch_items')
         .select('*')
         .eq('is_published', true)
-        .order('display_order');
+        .order('created_at', { ascending: false });
 
       if (dbError) {
-        console.error('[Merch] Supabase error:', dbError.message);
-        setError("Couldn't load merch.");
+        console.warn('[Merch] Supabase error:', dbError.message);
+        setMerch([]);
         return;
       }
       console.log(`[Merch] Loaded ${data?.length ?? 0} merch items`);

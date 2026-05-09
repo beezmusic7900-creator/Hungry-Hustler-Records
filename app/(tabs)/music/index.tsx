@@ -454,7 +454,6 @@ export default function MusicScreen() {
         .from('songs')
         .select('*')
         .eq('is_published', true)
-        .order('display_order')
         .order('created_at', { ascending: false });
 
       if (dbError) {
