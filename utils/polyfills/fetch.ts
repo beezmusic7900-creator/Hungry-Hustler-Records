@@ -1,4 +1,5 @@
 import { fetch as expoFetch } from 'expo/fetch';
+// @ts-expect-error - deep import required until polyfillGlobal is exported from react-native public API
 import { polyfillGlobal } from 'react-native/Libraries/Utilities/PolyfillFunctions';
 
 // Replace global fetch with expo/fetch which supports streaming response bodies

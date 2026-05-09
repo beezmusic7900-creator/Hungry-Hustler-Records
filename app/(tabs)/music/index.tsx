@@ -494,9 +494,10 @@ export default function MusicScreen() {
         data.topSongs.length,
         'songs'
       );
-    } catch (err) {
-      console.error('[Music] Apple Music fetch failed:', err);
-      setAmError("Couldn't load Apple Music content.");
+    } catch {
+      // Backend route not available — hide section silently
+      setAmData(null);
+      setAmError(null);
     } finally {
       setAmLoading(false);
     }
@@ -589,131 +590,127 @@ export default function MusicScreen() {
         </View>
 
         {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* APPLE MUSIC SECTION                                               */}
+        {/* APPLE MUSIC SECTION — only shown when data loaded successfully    */}
         {/* ══════════════════════════════════════════════════════════════════ */}
-        <View style={{ paddingHorizontal: 20, marginTop: 8 }}>
-          {/* Section label */}
-          <Text
-            style={{
-              color: COLORS.text,
-              fontSize: 22,
-              fontWeight: '700',
-            }}
-          >
-            APPLE MUSIC
-          </Text>
-          <View
-            style={{
-              width: 40,
-              height: 3,
-              backgroundColor: AM_RED,
-              borderRadius: 2,
-              marginTop: 6,
-            }}
-          />
+        {amData !== null && (
+          <View style={{ paddingHorizontal: 20, marginTop: 8 }}>
+            {/* Section label */}
+            <Text
+              style={{
+                color: COLORS.text,
+                fontSize: 22,
+                fontWeight: '700',
+              }}
+            >
+              APPLE MUSIC
+            </Text>
+            <View
+              style={{
+                width: 40,
+                height: 3,
+                backgroundColor: AM_RED,
+                borderRadius: 2,
+                marginTop: 6,
+              }}
+            />
 
-          {amLoading ? (
-            <AppleMusicSkeleton />
-          ) : amError ? (
-            <View style={{ marginTop: 16 }}>
-              <Text style={{ color: '#888', fontSize: 14 }}>
-                {amError}
-              </Text>
-              <AnimatedPressable onPress={handleAmRetry} style={{ marginTop: 8 }}>
-                <Text style={{ color: AM_RED, fontSize: 14, fontWeight: '600' }}>
-                  Retry
+            {amLoading ? (
+              <AppleMusicSkeleton />
+            ) : amError ? (
+              <View style={{ marginTop: 16 }}>
+                <Text style={{ color: '#888', fontSize: 14 }}>
+                  {amError}
                 </Text>
-              </AnimatedPressable>
-            </View>
-          ) : amData ? (
-            <View>
-              {/* Artist pill */}
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  marginTop: 14,
-                  backgroundColor: COLORS.surface,
-                  borderRadius: 20,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  alignSelf: 'flex-start',
-                  gap: 8,
-                }}
-              >
-                <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }}>
-                  {artistPillText}
-                </Text>
-                <Text style={{ color: '#888', fontSize: 12 }}>
-                  •
-                </Text>
-                <AnimatedPressable
-                  onPress={() => {
-                    console.log('[Music] Open artist in Apple Music:', amData.artist.artistUrl);
-                    Linking.openURL(amData.artist.artistUrl);
-                  }}
-                >
-                  <Text style={{ color: AM_RED, fontSize: 13, fontWeight: '600' }}>
-                    Open in Apple Music →
+                <AnimatedPressable onPress={handleAmRetry} style={{ marginTop: 8 }}>
+                  <Text style={{ color: AM_RED, fontSize: 14, fontWeight: '600' }}>
+                    Retry
                   </Text>
                 </AnimatedPressable>
               </View>
-
-              {/* Albums sub-label */}
-              <Text
-                style={{
-                  color: '#888',
-                  fontSize: 11,
-                  fontWeight: '700',
-                  letterSpacing: 1.5,
-                  marginBottom: 10,
-                  marginTop: 16,
-                }}
-              >
-                ALBUMS
-              </Text>
-
-              {/* Albums horizontal scroll */}
-              <FlatList
-                data={amData.albums}
-                keyExtractor={(item) => String(item.id)}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                renderItem={({ item }) => <AlbumCard item={item} />}
-                scrollEnabled
-              />
-
-              {/* Top Songs sub-label */}
-              <Text
-                style={{
-                  color: '#888',
-                  fontSize: 11,
-                  fontWeight: '700',
-                  letterSpacing: 1.5,
-                  marginBottom: 10,
-                  marginTop: 16,
-                }}
-              >
-                TOP SONGS
-              </Text>
-
-              {/* Top Songs list */}
+            ) : (
               <View>
-                {amData.topSongs.map((song) => (
-                  <AMSongRow key={String(song.id)} item={song} />
-                ))}
+                {/* Artist pill */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginTop: 14,
+                    backgroundColor: COLORS.surface,
+                    borderRadius: 20,
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    alignSelf: 'flex-start',
+                    gap: 8,
+                  }}
+                >
+                  <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }}>
+                    {artistPillText}
+                  </Text>
+                  <Text style={{ color: '#888', fontSize: 12 }}>
+                    •
+                  </Text>
+                  <AnimatedPressable
+                    onPress={() => {
+                      console.log('[Music] Open artist in Apple Music:', amData.artist.artistUrl);
+                      Linking.openURL(amData.artist.artistUrl);
+                    }}
+                  >
+                    <Text style={{ color: AM_RED, fontSize: 13, fontWeight: '600' }}>
+                      Open in Apple Music →
+                    </Text>
+                  </AnimatedPressable>
+                </View>
+
+                {/* Albums sub-label */}
+                <Text
+                  style={{
+                    color: '#888',
+                    fontSize: 11,
+                    fontWeight: '700',
+                    letterSpacing: 1.5,
+                    marginBottom: 10,
+                    marginTop: 16,
+                  }}
+                >
+                  ALBUMS
+                </Text>
+
+                {/* Albums horizontal scroll */}
+                <FlatList
+                  data={amData.albums}
+                  keyExtractor={(item) => String(item.id)}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  renderItem={({ item }) => <AlbumCard item={item} />}
+                  scrollEnabled
+                />
+
+                {/* Top Songs sub-label */}
+                <Text
+                  style={{
+                    color: '#888',
+                    fontSize: 11,
+                    fontWeight: '700',
+                    letterSpacing: 1.5,
+                    marginBottom: 10,
+                    marginTop: 16,
+                  }}
+                >
+                  TOP SONGS
+                </Text>
+
+                {/* Top Songs list */}
+                <View>
+                  {amData.topSongs.map((song) => (
+                    <AMSongRow key={String(song.id)} item={song} />
+                  ))}
+                </View>
               </View>
-            </View>
-          ) : (
-            <Text
-              style={{ color: '#888', fontSize: 14, marginTop: 16 }}
-            >
-              Apple Music content unavailable. Check your connection.
-            </Text>
-          )}
-        </View>
+            )}
+          </View>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════════ */}
         {/* EXCLUSIVE SONGS SECTION                                           */}

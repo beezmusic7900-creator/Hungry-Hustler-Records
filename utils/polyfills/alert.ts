@@ -1,4 +1,5 @@
 import { Alert } from 'react-native';
+// @ts-expect-error - deep import required until polyfillGlobal is exported from react-native public API
 import { polyfillGlobal } from 'react-native/Libraries/Utilities/PolyfillFunctions';
 
 // Add global alert() on iOS/Android — it doesn't exist by default in React Native.
