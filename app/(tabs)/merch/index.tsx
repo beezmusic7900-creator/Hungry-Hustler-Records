@@ -7,8 +7,9 @@ import {
   ScrollView,
   Animated,
   ImageSourcePropType,
+  Linking,
+  Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShoppingBag } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
@@ -22,11 +23,11 @@ interface MerchItem {
   description: string | null;
   price: number;
   image_url: string | null;
-  category: string | null;
-  in_stock: boolean;
-  checkout_url: string | null;
-  is_featured: boolean;
+  stock: number;
   is_published: boolean;
+  sort_order: number;
+  stripe_url: string | null;
+  created_at: string;
 }
 
 function resolveImageSource(
@@ -37,12 +38,12 @@ function resolveImageSource(
   return source as ImageSourcePropType;
 }
 
-const ALL_CATEGORY = 'All';
+const SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
 
 function MerchCard({ item, index }: { item: MerchItem; index: number }) {
-  const router = useRouter();
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(16)).current;
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const priceDisplay = `$${Number(item.price).toFixed(2)}`;
 
   useEffect(() => {
@@ -62,14 +63,16 @@ function MerchCard({ item, index }: { item: MerchItem; index: number }) {
     ]).start();
   }, []);
 
-  const handlePress = () => {
-    console.log(`[Merch] Tapped merch item: ${item.name} (${item.id})`);
-    router.push(`/merch-detail/${item.id}`);
+  const handleSizePress = (size: string) => {
+    console.log(`[Merch] Size selected: ${size} for ${item.name}`);
+    setSelectedSize(size);
   };
 
-  const handleShopNow = () => {
-    console.log(`[Merch] Shop Now pressed: ${item.name}`);
-    router.push(`/merch-detail/${item.id}`);
+  const handleBuyNow = () => {
+    console.log(`[Merch] BUY NOW pressed: ${item.name} (id=${item.id}, size=${selectedSize ?? 'none'}, stripe_url=${item.stripe_url})`);
+    if (item.stripe_url) {
+      Linking.openURL(item.stripe_url);
+    }
   };
 
   return (
@@ -81,81 +84,121 @@ function MerchCard({ item, index }: { item: MerchItem; index: number }) {
         margin: 6,
       }}
     >
-      <AnimatedPressable onPress={handlePress}>
-        <View
-          style={{
-            backgroundColor: COLORS.surface,
-            borderRadius: 16,
-            overflow: 'hidden',
-            borderWidth: 1,
-            borderColor: COLORS.border,
-          }}
-        >
-          {item.image_url ? (
-            <Image
-              source={resolveImageSource(item.image_url)}
-              style={{ width: '100%', height: 180 }}
-              resizeMode="cover"
-            />
-          ) : (
+      <View
+        style={{
+          backgroundColor: COLORS.surface,
+          borderRadius: 16,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: COLORS.border,
+        }}
+      >
+        {item.image_url ? (
+          <Image
+            source={resolveImageSource(item.image_url)}
+            style={{ width: '100%', height: 180 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View
+            style={{
+              width: '100%',
+              height: 180,
+              backgroundColor: COLORS.surfaceSecondary,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <ShoppingBag size={40} color={COLORS.textTertiary} />
+          </View>
+        )}
+        <View style={{ padding: 12 }}>
+          <Text
+            style={{
+              color: COLORS.text,
+              fontSize: 13,
+              fontWeight: '600',
+              lineHeight: 18,
+            }}
+            numberOfLines={2}
+          >
+            {item.name}
+          </Text>
+          <Text
+            style={{
+              color: COLORS.primary,
+              fontSize: 16,
+              fontWeight: '700',
+              marginTop: 4,
+            }}
+          >
+            {priceDisplay}
+          </Text>
+
+          {/* Size selector */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginTop: 10 }}
+            contentContainerStyle={{ paddingRight: 4 }}
+          >
+            {SIZES.map((size) => {
+              const isSelected = selectedSize === size;
+              return (
+                <AnimatedPressable
+                  key={size}
+                  onPress={() => handleSizePress(size)}
+                >
+                  <View
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      marginRight: 6,
+                      backgroundColor: isSelected ? COLORS.primary : COLORS.surface,
+                      borderColor: isSelected ? COLORS.primary : COLORS.border,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: '600',
+                        color: isSelected ? COLORS.background : COLORS.textSecondary,
+                      }}
+                    >
+                      {size}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* BUY NOW button */}
+          <AnimatedPressable onPress={handleBuyNow} style={{ marginTop: 10 }}>
             <View
               style={{
-                width: '100%',
-                height: 180,
-                backgroundColor: COLORS.surfaceSecondary,
+                backgroundColor: COLORS.primary,
+                borderRadius: 8,
+                paddingVertical: 8,
                 alignItems: 'center',
-                justifyContent: 'center',
               }}
             >
-              <ShoppingBag size={40} color={COLORS.textTertiary} />
-            </View>
-          )}
-          <View style={{ padding: 12 }}>
-            <Text
-              style={{
-                color: COLORS.text,
-                fontSize: 13,
-                fontWeight: '600',
-                lineHeight: 18,
-              }}
-              numberOfLines={2}
-            >
-              {item.name}
-            </Text>
-            <Text
-              style={{
-                color: COLORS.primary,
-                fontSize: 16,
-                fontWeight: '700',
-                marginTop: 4,
-              }}
-            >
-              {priceDisplay}
-            </Text>
-            <AnimatedPressable onPress={handleShopNow} style={{ marginTop: 10 }}>
-              <View
+              <Text
                 style={{
-                  backgroundColor: COLORS.primary,
-                  borderRadius: 8,
-                  paddingVertical: 8,
-                  alignItems: 'center',
+                  color: COLORS.background,
+                  fontSize: 12,
+                  fontWeight: '700',
+                  letterSpacing: 0.5,
                 }}
               >
-                <Text
-                  style={{
-                    color: COLORS.background,
-                    fontSize: 12,
-                    fontWeight: '700',
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  SHOP NOW
-                </Text>
-              </View>
-            </AnimatedPressable>
-          </View>
+                BUY NOW
+              </Text>
+            </View>
+          </AnimatedPressable>
         </View>
-      </AnimatedPressable>
+      </View>
     </Animated.View>
   );
 }
@@ -165,7 +208,6 @@ export default function MerchScreen() {
   const [merch, setMerch] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
 
   useEffect(() => {
     loadMerch();
@@ -180,7 +222,7 @@ export default function MerchScreen() {
         .from('merch')
         .select('*')
         .eq('is_published', true)
-        .order('created_at', { ascending: false });
+        .order('sort_order', { ascending: true });
 
       if (dbError) {
         console.warn('[Merch] Supabase error:', dbError.message);
@@ -196,16 +238,6 @@ export default function MerchScreen() {
       setLoading(false);
     }
   };
-
-  const categories = [
-    ALL_CATEGORY,
-    ...Array.from(new Set(merch.map((m) => m.category).filter(Boolean) as string[])),
-  ];
-
-  const filteredMerch =
-    selectedCategory === ALL_CATEGORY
-      ? merch
-      : merch.filter((m) => m.category === selectedCategory);
 
   const skeletonData = [0, 1, 2, 3];
 
@@ -239,49 +271,6 @@ export default function MerchScreen() {
           Official HHR merchandise
         </Text>
       </View>
-
-      {/* Category Filter */}
-      {!loading && categories.length > 1 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12, gap: 8 }}
-        >
-          {categories.map((cat) => {
-            const isActive = selectedCategory === cat;
-            return (
-              <AnimatedPressable
-                key={cat}
-                onPress={() => {
-                  console.log(`[Merch] Filter category: ${cat}`);
-                  setSelectedCategory(cat);
-                }}
-              >
-                <View
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                    backgroundColor: isActive ? COLORS.primary : COLORS.surface,
-                    borderWidth: 1,
-                    borderColor: isActive ? COLORS.primary : COLORS.border,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: isActive ? COLORS.background : COLORS.textSecondary,
-                      fontSize: 13,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {cat}
-                  </Text>
-                </View>
-              </AnimatedPressable>
-            );
-          })}
-        </ScrollView>
-      )}
 
       {loading ? (
         <FlatList
@@ -342,7 +331,7 @@ export default function MerchScreen() {
             </View>
           </AnimatedPressable>
         </View>
-      ) : filteredMerch.length === 0 ? (
+      ) : merch.length === 0 ? (
         <View
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}
         >
@@ -383,7 +372,7 @@ export default function MerchScreen() {
         </View>
       ) : (
         <FlatList
-          data={filteredMerch}
+          data={merch}
           numColumns={2}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 10, paddingBottom: 120 }}
