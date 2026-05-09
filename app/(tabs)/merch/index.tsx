@@ -15,7 +15,7 @@ import { ShoppingBag } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonMerchCard } from '@/components/SkeletonLoader';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, supabasePublic } from '@/integrations/supabase/client';
 
 interface MerchItem {
   id: string;
@@ -218,7 +218,7 @@ export default function MerchScreen() {
       console.log('[Merch] Loading merch items from Supabase');
       setLoading(true);
       setError(null);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('merch')
         .select('*')
         .eq('is_published', true)

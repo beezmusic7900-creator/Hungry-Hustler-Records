@@ -15,7 +15,7 @@ import { Music, Play, ExternalLink } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, supabasePublic } from '@/integrations/supabase/client';
 import { apiGet } from '@/utils/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -462,7 +462,7 @@ export default function MusicScreen() {
     try {
       console.log('[Music] Loading songs from Supabase');
       setError(null);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('songs')
         .select('*')
         .eq('is_published', true)

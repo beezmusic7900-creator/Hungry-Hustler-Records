@@ -14,7 +14,7 @@ import { Video, Play } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase } from '@/integrations/supabase/client';
+import { supabasePublic } from '@/integrations/supabase/client';
 
 interface VideoItem {
   id: string;
@@ -193,7 +193,7 @@ export default function VideosScreen() {
     try {
       console.log('[Videos] Loading videos from Supabase');
       setError(null);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('videos')
         .select('*')
         .eq('is_published', true)

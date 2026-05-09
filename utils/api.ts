@@ -65,7 +65,7 @@ export const apiCall = async <T = unknown>(
 
   if (!response.ok) {
     const text = await response.text();
-    console.error(`[API] Error ${response.status}: ${text}`);
+    console.warn(`[API] Error ${response.status}: ${text}`);
     throw new Error(`API error: ${response.status} - ${text}`);
   }
 

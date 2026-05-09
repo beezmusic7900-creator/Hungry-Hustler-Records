@@ -17,7 +17,7 @@ import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { HHRLogo } from '@/components/HHRLogo';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, supabasePublic } from '@/integrations/supabase/client';
 
 interface Artist {
   id: string;
@@ -174,7 +174,7 @@ export default function HomeScreen() {
       setLoading(true);
       setError(null);
 
-      const { data: home, error: homeErr } = await (supabase as any)
+      const { data: home, error: homeErr } = await (supabasePublic as any)
         .from('home_content')
         .select('*')
         .limit(1)
@@ -195,7 +195,7 @@ export default function HomeScreen() {
       if (home?.featured_artist_id) {
         parallelTasks.push(
           (async () => {
-            const { data } = await supabase
+            const { data } = await supabasePublic
               .from('artists')
               .select('id, name, bio, image_url')
               .eq('id', home.featured_artist_id as string)
@@ -208,7 +208,7 @@ export default function HomeScreen() {
       if (home?.featured_merch_ids && home.featured_merch_ids.length > 0) {
         parallelTasks.push(
           (async () => {
-            const { data } = await (supabase as any)
+            const { data } = await (supabasePublic as any)
               .from('merch_items')
               .select('id, name, price, image_url')
               .in('id', home.featured_merch_ids as string[])
