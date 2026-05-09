@@ -12,18 +12,21 @@ import { Plus, Pencil, Trash2, Eye, EyeOff, Video } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase } from '@/app/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface VideoItem {
   id: string;
   title: string;
-  artist: string;
-  video_url: string;
+  video_url: string | null;
+  youtube_url: string | null;
+  youtube_id: string | null;
   thumbnail_url: string | null;
-  category: string;
+  artist_id: string | null;
+  source_type: string | null;
+  description: string | null;
   is_published: boolean;
-  display_order: number;
+  sort_order: number;
 }
 
 function resolveImageSource(
@@ -57,7 +60,7 @@ export default function AdminVideosListScreen() {
       const { data, error: dbError } = await supabase
         .from('videos')
         .select('*')
-        .order('display_order')
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
       if (dbError) {
@@ -89,8 +92,9 @@ export default function AdminVideosListScreen() {
               console.log(`[AdminVideos] Deleting video: ${video.id}`);
 
               // Delete from storage if it's a Supabase URL
-              if (video.video_url.includes('supabase')) {
-                const urlParts = video.video_url.split('/videos/');
+              const safeVideoUrl = video.video_url ?? '';
+              if (safeVideoUrl.includes('supabase')) {
+                const urlParts = safeVideoUrl.split('/videos/');
                 if (urlParts.length > 1) {
                   const filePath = urlParts[1];
                   console.log(`[AdminVideos] Deleting video file from storage: ${filePath}`);
@@ -126,7 +130,7 @@ export default function AdminVideosListScreen() {
     try {
       const { error: dbError } = await supabase
         .from('videos')
-        .update({ is_published: newValue, updated_at: new Date().toISOString() })
+        .update({ is_published: newValue })
         .eq('id', video.id);
 
       if (dbError) {
@@ -199,7 +203,7 @@ export default function AdminVideosListScreen() {
           style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}
           numberOfLines={1}
         >
-          {item.artist}
+          {item.description ?? item.source_type ?? ''}
         </Text>
         <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, alignItems: 'center' }}>
           <View
@@ -225,7 +229,7 @@ export default function AdminVideosListScreen() {
             </Text>
           </View>
           <Text style={{ color: COLORS.textTertiary, fontSize: 11 }}>
-            {item.category}
+            {item.source_type ?? 'Video'}
           </Text>
         </View>
       </View>

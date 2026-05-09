@@ -16,8 +16,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Camera, FileVideo, Video } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
-import { supabase } from '@/app/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+
+function getYouTubeId(url: string): string | null {
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -85,7 +90,6 @@ export default function VideoFormScreen() {
   const isEditing = !!id;
 
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Music Videos');
   const [videoUrl, setVideoUrl] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [isPublished, setIsPublished] = useState(true);
@@ -127,7 +131,6 @@ export default function VideoFormScreen() {
 
       const anyData = data as any;
       setTitle(anyData.title ?? '');
-      setCategory(anyData.category ?? 'Music Videos');
       setVideoUrl(anyData.video_url ?? '');
       setThumbnailUrl(anyData.thumbnail_url ?? '');
       setIsPublished(anyData.is_published ?? true);
@@ -282,10 +285,14 @@ export default function VideoFormScreen() {
         return;
       }
 
+      const youtubeId = getYouTubeId(finalVideoUrl);
       const payload = {
         title: title.trim(),
         video_url: finalVideoUrl,
-        thumbnail_url: finalThumbnailUrl,
+        youtube_url: finalVideoUrl.includes('youtu') ? finalVideoUrl : null,
+        youtube_id: youtubeId,
+        thumbnail_url: finalThumbnailUrl ?? (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : null),
+        source_type: youtubeId ? 'youtube' : 'upload',
         is_published: isPublished,
       };
 
@@ -408,12 +415,6 @@ export default function VideoFormScreen() {
         onChangeText={setTitle}
         placeholder="Video title"
         required
-      />
-      <FormField
-        label="Category"
-        value={category}
-        onChangeText={setCategory}
-        placeholder="Music Videos"
       />
 
       {/* Video source toggle */}
