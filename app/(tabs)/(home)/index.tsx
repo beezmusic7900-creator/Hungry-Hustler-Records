@@ -179,10 +179,9 @@ export default function HomeScreen() {
         .limit(1)
         .single();
 
-      if (homeErr && homeErr.code !== 'PGRST116') {
-        console.error('[Home] Supabase error:', homeErr.message);
-        setError('Could not load content. Pull to refresh.');
-        return;
+      if (homeErr) {
+        console.warn('[Home] home_content not available:', homeErr.message);
+        // Continue with null — table may not exist yet
       }
 
       setHomeData(home ?? null);
