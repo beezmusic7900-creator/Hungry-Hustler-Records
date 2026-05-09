@@ -170,10 +170,15 @@ export default function AdminTabScreen() {
                 justifyContent: 'center',
                 borderWidth: 1,
                 borderColor: COLORS.primary,
-                shadowColor: COLORS.primary,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.3,
-                shadowRadius: 12,
+                ...Platform.select({
+                  native: {
+                    shadowColor: COLORS.primary,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 12,
+                  },
+                  default: {},
+                }),
               }}
             >
               <Lock size={28} color={COLORS.primary} />

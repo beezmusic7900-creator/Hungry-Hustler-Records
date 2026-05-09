@@ -6,6 +6,7 @@ import {
   ScrollView,
   Image,
   Linking,
+  Platform,
   RefreshControl,
   ImageSourcePropType,
 } from 'react-native';
@@ -193,10 +194,15 @@ function SongCard({ item }: { item: Song }) {
             backgroundColor: COLORS.primary,
             alignItems: 'center',
             justifyContent: 'center',
-            shadowColor: COLORS.primary,
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.4,
-            shadowRadius: 8,
+            ...Platform.select({
+              native: {
+                shadowColor: COLORS.primary,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.4,
+                shadowRadius: 8,
+              },
+              default: {},
+            }),
           }}
         >
           <Play size={18} color={COLORS.background} fill={COLORS.background} />
@@ -329,10 +335,15 @@ function AMSongRow({ item }: { item: AppleMusicSong }) {
               backgroundColor: COLORS.primary,
               alignItems: 'center',
               justifyContent: 'center',
-              shadowColor: COLORS.primary,
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.4,
-              shadowRadius: 6,
+              ...Platform.select({
+                native: {
+                  shadowColor: COLORS.primary,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 6,
+                },
+                default: {},
+              }),
             }}
           >
             <Play size={14} color={COLORS.background} fill={COLORS.background} />
@@ -564,10 +575,15 @@ export default function MusicScreen() {
               backgroundColor: COLORS.primary,
               borderRadius: 2,
               marginTop: 6,
-              shadowColor: COLORS.primary,
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.6,
-              shadowRadius: 6,
+              ...Platform.select({
+                native: {
+                  shadowColor: COLORS.primary,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.6,
+                  shadowRadius: 6,
+                },
+                default: {},
+              }),
             }}
           />
         </View>
@@ -720,10 +736,15 @@ export default function MusicScreen() {
               backgroundColor: COLORS.primary,
               borderRadius: 2,
               marginTop: 6,
-              shadowColor: COLORS.primary,
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.6,
-              shadowRadius: 6,
+              ...Platform.select({
+                native: {
+                  shadowColor: COLORS.primary,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.6,
+                  shadowRadius: 6,
+                },
+                default: {},
+              }),
             }}
           />
 
