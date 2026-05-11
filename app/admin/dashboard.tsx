@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -14,11 +14,13 @@ import {
   Home,
   Info,
   LogOut,
+  UserCog,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { HHRLogo } from '@/components/HHRLogo';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabasePublic } from '@/integrations/supabase/client';
 
 interface DashboardCard {
   title: string;
@@ -92,12 +94,28 @@ export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, loading: authLoading, signOut } = useAuth();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace('/(tabs)/admin');
     }
   }, [user, authLoading]);
+
+  useEffect(() => {
+    if (!user) return;
+    console.log('[Dashboard] Checking super_admin role for user:', user.id);
+    (supabasePublic as any)
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }: { data: { role: string } | null }) => {
+        const isSuper = data?.role === 'super_admin';
+        console.log('[Dashboard] Role check result:', data?.role, '— isSuperAdmin:', isSuper);
+        setIsSuperAdmin(isSuper);
+      });
+  }, [user]);
 
   const handleSignOut = async () => {
     console.log('[Dashboard] Sign out pressed');
@@ -149,6 +167,16 @@ export default function DashboardScreen() {
       color: '#14B8A6',
     },
   ];
+
+  if (isSuperAdmin) {
+    cards.push({
+      title: 'Users',
+      subtitle: 'Manage accounts',
+      icon: <UserCog size={22} color="#EF4444" />,
+      route: '/admin/users',
+      color: '#EF4444',
+    });
+  }
 
   if (authLoading) {
     return (
@@ -230,7 +258,7 @@ export default function DashboardScreen() {
 
       {/* Cards grid */}
       <View style={{ gap: 12 }}>
-        {[0, 2, 4].map((rowStart) => (
+        {Array.from({ length: Math.ceil(cards.length / 2) }, (_, i) => i * 2).map((rowStart) => (
           <View
             key={rowStart}
             style={{ flexDirection: 'row', gap: 12 }}
