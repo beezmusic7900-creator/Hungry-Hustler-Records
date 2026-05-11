@@ -13,7 +13,7 @@ import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabasePublic } from '@/app/integrations/supabase/client';
+import { supabasePublic } from '@/integrations/supabase/client';
 
 interface Artist {
   id: string;

@@ -69,6 +69,12 @@ interface AppleMusicData {
   topSongs: AppleMusicSong[];
 }
 
+interface ArtistLink {
+  id: string;
+  name: string;
+  apple_music_url: string;
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const AM_RED = '#FC3C44';
@@ -448,6 +454,9 @@ export default function MusicScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Artists with Apple Music links
+  const [artists, setArtists] = useState<ArtistLink[]>([]);
+
   // Apple Music state
   const [amData, setAmData] = useState<AppleMusicData | null>(null);
   const [amLoading, setAmLoading] = useState(true);
@@ -482,6 +491,25 @@ export default function MusicScreen() {
     }
   }, []);
 
+  const loadArtists = useCallback(async () => {
+    try {
+      console.log('[Music] Loading artists with Apple Music URLs');
+      const { data, error: dbError } = await supabasePublic
+        .from('artists')
+        .select('id, name, apple_music_url')
+        .not('apple_music_url', 'is', null)
+        .order('name', { ascending: true });
+      if (dbError) {
+        console.error('[Music] Failed to load artists:', dbError.message);
+        return;
+      }
+      console.log(`[Music] Loaded ${data?.length ?? 0} artists with Apple Music URLs`);
+      setArtists((data as ArtistLink[]) ?? []);
+    } catch (err) {
+      console.error('[Music] Error loading artists:', err);
+    }
+  }, []);
+
   const loadAppleMusic = useCallback(async () => {
     try {
       setAmError(null);
@@ -507,14 +535,15 @@ export default function MusicScreen() {
     Promise.all([
       loadSongs().finally(() => setLoading(false)),
       loadAppleMusic(),
+      loadArtists(),
     ]);
-  }, [loadSongs, loadAppleMusic]);
+  }, [loadSongs, loadAppleMusic, loadArtists]);
 
   const handleRefresh = async () => {
     console.log('[Music] Pull-to-refresh triggered');
     setRefreshing(true);
     setAmLoading(true);
-    await Promise.all([loadSongs(), loadAppleMusic()]);
+    await Promise.all([loadSongs(), loadAppleMusic(), loadArtists()]);
     setRefreshing(false);
   };
 
@@ -588,6 +617,79 @@ export default function MusicScreen() {
             }}
           />
         </View>
+
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* ARTISTS SECTION — artists with Apple Music links                  */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {artists.length > 0 && (
+          <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+            <Text
+              style={{
+                color: COLORS.text,
+                fontSize: 22,
+                fontWeight: '700',
+              }}
+            >
+              ARTISTS
+            </Text>
+            <View
+              style={{
+                width: 40,
+                height: 3,
+                backgroundColor: AM_RED,
+                borderRadius: 2,
+                marginTop: 6,
+                marginBottom: 16,
+              }}
+            />
+            {artists.map((artist) => (
+              <View
+                key={artist.id}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    color: COLORS.text,
+                    fontSize: 15,
+                    fontWeight: '600',
+                    flex: 1,
+                    marginRight: 12,
+                  }}
+                  numberOfLines={1}
+                >
+                  {artist.name}
+                </Text>
+                <AnimatedPressable
+                  onPress={() => {
+                    console.log(`[Music] Opening Apple Music for artist: ${artist.name}`, artist.apple_music_url);
+                    Linking.openURL(artist.apple_music_url);
+                  }}
+                  style={{
+                    backgroundColor: AM_RED,
+                    borderRadius: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: '#FFFFFF',
+                      fontSize: 13,
+                      fontWeight: '700',
+                    }}
+                  >
+                    Listen on Apple Music
+                  </Text>
+                </AnimatedPressable>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════════ */}
         {/* APPLE MUSIC SECTION — only shown when data loaded successfully    */}
