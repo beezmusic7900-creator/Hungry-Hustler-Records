@@ -15,25 +15,10 @@ import { Music, Play, ExternalLink } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase, supabasePublic } from '@/integrations/supabase/client';
+import { supabasePublic } from '@/integrations/supabase/client';
 import { apiGet } from '@/utils/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-interface Song {
-  id: string;
-  title: string;
-  artist: string;
-  audio_url: string;
-  cover_url: string | null;
-  cover_image_url: string | null;
-  category: string;
-  price: number | null;
-  is_published: boolean;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-}
 
 interface AppleMusicArtist {
   id: number;
@@ -80,7 +65,6 @@ interface ArtistLink {
 const AM_RED = '#FC3C44';
 const SKELETON_KEYS_AM_ALBUMS = [0, 1, 2];
 const SKELETON_KEYS_AM_SONGS = [0, 1, 2, 3];
-const SKELETON_KEYS_SONGS = [0, 1, 2, 3];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -105,150 +89,6 @@ function formatDuration(ms: number): string {
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
   return `${min}:${sec.toString().padStart(2, '0')}`;
-}
-
-// ─── Exclusive Songs Components ──────────────────────────────────────────────
-
-function SongCard({ item }: { item: Song }) {
-  const priceText =
-    item.price && Number(item.price) > 0
-      ? `$${Number(item.price).toFixed(2)}`
-      : 'FREE';
-
-  const handlePlay = () => {
-    console.log(`[Music] Play pressed: ${item.title} - ${item.audio_url}`);
-    Linking.openURL(item.audio_url);
-  };
-
-  return (
-    <View
-      style={{
-        backgroundColor: COLORS.surface,
-        borderRadius: 14,
-        padding: 14,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-      }}
-    >
-      {item.cover_url || item.cover_image_url ? (
-        <Image
-          source={resolveImageSource(item.cover_url ?? item.cover_image_url ?? '')}
-          style={{ width: 60, height: 60, borderRadius: 10 }}
-          resizeMode="cover"
-        />
-      ) : (
-        <View
-          style={{
-            width: 60,
-            height: 60,
-            borderRadius: 10,
-            backgroundColor: COLORS.primaryMuted,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: 1,
-            borderColor: COLORS.primary,
-          }}
-        >
-          <Music size={24} color={COLORS.primary} />
-        </View>
-      )}
-
-      <View style={{ flex: 1 }}>
-        <Text
-          style={{ color: COLORS.text, fontSize: 15, fontWeight: '700' }}
-          numberOfLines={1}
-        >
-          {item.title}
-        </Text>
-        <Text
-          style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 2 }}
-          numberOfLines={1}
-        >
-          {item.artist}
-        </Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            marginTop: 6,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: COLORS.primaryMuted,
-              borderRadius: 20,
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-              borderWidth: 1,
-              borderColor: COLORS.primary,
-            }}
-          >
-            <Text style={{ color: COLORS.primary, fontSize: 10, fontWeight: '600' }}>
-              {item.category}
-            </Text>
-          </View>
-          <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '700' }}>
-            {priceText}
-          </Text>
-        </View>
-      </View>
-
-      <AnimatedPressable onPress={handlePlay}>
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: COLORS.primary,
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...Platform.select({
-              native: {
-                shadowColor: COLORS.primary,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.4,
-                shadowRadius: 8,
-              },
-              default: {},
-            }),
-          }}
-        >
-          <Play size={18} color={COLORS.background} fill={COLORS.background} />
-        </View>
-      </AnimatedPressable>
-    </View>
-  );
-}
-
-function SkeletonSongCard() {
-  return (
-    <View
-      style={{
-        backgroundColor: COLORS.surface,
-        borderRadius: 14,
-        padding: 14,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-      }}
-    >
-      <SkeletonLine width={60} height={60} borderRadius={10} />
-      <View style={{ flex: 1, gap: 8 }}>
-        <SkeletonLine width="70%" height={15} />
-        <SkeletonLine width="50%" height={13} />
-        <SkeletonLine width="40%" height={12} />
-      </View>
-      <SkeletonLine width={44} height={44} borderRadius={22} />
-    </View>
-  );
 }
 
 // ─── Apple Music Components ───────────────────────────────────────────────────
@@ -456,11 +296,6 @@ function AppleMusicSkeleton() {
 export default function MusicScreen() {
   const insets = useSafeAreaInsets();
 
-  // Exclusive Songs state
-  const [songs, setSongs] = useState<Song[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   // Artists with Apple Music links
   const [artists, setArtists] = useState<ArtistLink[]>([]);
 
@@ -473,30 +308,6 @@ export default function MusicScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // ── Loaders ────────────────────────────────────────────────────────────────
-
-  const loadSongs = useCallback(async () => {
-    try {
-      console.log('[Music] Loading songs from Supabase');
-      setError(null);
-      const { data, error: dbError } = await supabasePublic
-        .from('songs')
-        .select('*')
-        .eq('is_published', true)
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-
-      if (dbError) {
-        console.error('[Music] Supabase error:', dbError.message);
-        setError("Couldn't load songs.");
-        return;
-      }
-      console.log(`[Music] Loaded ${data?.length ?? 0} songs`);
-      setSongs(data ?? []);
-    } catch (err) {
-      console.error('[Music] Failed to load songs:', err);
-      setError("Couldn't load songs. Check your connection.");
-    }
-  }, []);
 
   const loadArtists = useCallback(async () => {
     try {
@@ -540,17 +351,16 @@ export default function MusicScreen() {
 
   useEffect(() => {
     Promise.all([
-      loadSongs().finally(() => setLoading(false)),
       loadAppleMusic(),
       loadArtists(),
     ]);
-  }, [loadSongs, loadAppleMusic, loadArtists]);
+  }, [loadAppleMusic, loadArtists]);
 
   const handleRefresh = async () => {
     console.log('[Music] Pull-to-refresh triggered');
     setRefreshing(true);
     setAmLoading(true);
-    await Promise.all([loadSongs(), loadAppleMusic(), loadArtists()]);
+    await Promise.all([loadAppleMusic(), loadArtists()]);
     setRefreshing(false);
   };
 
@@ -558,12 +368,6 @@ export default function MusicScreen() {
     console.log('[Music] Retry Apple Music loading');
     setAmLoading(true);
     loadAppleMusic();
-  };
-
-  const handleSongsRetry = () => {
-    console.log('[Music] Retry exclusive songs loading');
-    setLoading(true);
-    loadSongs().finally(() => setLoading(false));
   };
 
   // ── Derived values ─────────────────────────────────────────────────────────
@@ -837,117 +641,6 @@ export default function MusicScreen() {
           </View>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* EXCLUSIVE SONGS SECTION                                           */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        <View style={{ paddingHorizontal: 20, marginTop: 32 }}>
-          {/* Section label */}
-          <Text
-            style={{
-              color: COLORS.text,
-              fontSize: 22,
-              fontWeight: '700',
-            }}
-          >
-            EXCLUSIVE SONGS
-          </Text>
-          <View
-            style={{
-              width: 40,
-              height: 3,
-              backgroundColor: COLORS.primary,
-              borderRadius: 2,
-              marginTop: 6,
-              ...Platform.select({
-                native: {
-                  shadowColor: COLORS.primary,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.6,
-                  shadowRadius: 6,
-                },
-                default: {},
-              }),
-            }}
-          />
-
-          <View style={{ marginTop: 16 }}>
-            {loading ? (
-              SKELETON_KEYS_SONGS.map((k) => <SkeletonSongCard key={k} />)
-            ) : error ? (
-              <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-                <Text
-                  style={{
-                    color: COLORS.danger,
-                    fontSize: 15,
-                    textAlign: 'center',
-                  }}
-                >
-                  {error}
-                </Text>
-                <AnimatedPressable
-                  onPress={handleSongsRetry}
-                  style={{ marginTop: 16 }}
-                >
-                  <View
-                    style={{
-                      backgroundColor: COLORS.primaryMuted,
-                      borderRadius: 10,
-                      paddingVertical: 10,
-                      paddingHorizontal: 24,
-                      borderWidth: 1,
-                      borderColor: COLORS.primary,
-                    }}
-                  >
-                    <Text style={{ color: COLORS.primary, fontWeight: '600' }}>
-                      Try Again
-                    </Text>
-                  </View>
-                </AnimatedPressable>
-              </View>
-            ) : songs.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                <View
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 20,
-                    backgroundColor: COLORS.primaryMuted,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 16,
-                    borderWidth: 1,
-                    borderColor: COLORS.primary,
-                  }}
-                >
-                  <Music size={32} color={COLORS.primary} />
-                </View>
-                <Text
-                  style={{
-                    color: COLORS.text,
-                    fontSize: 18,
-                    fontWeight: '600',
-                    textAlign: 'center',
-                  }}
-                >
-                  No songs yet
-                </Text>
-                <Text
-                  style={{
-                    color: COLORS.textSecondary,
-                    fontSize: 14,
-                    textAlign: 'center',
-                    marginTop: 8,
-                    maxWidth: 260,
-                  }}
-                >
-                  No songs yet. Check back soon.
-                </Text>
-              </View>
-            ) : (
-              songs.map((s) => <SongCard key={s.id} item={s} />)
-            )}
-          </View>
-        </View>
       </ScrollView>
     </View>
   );
