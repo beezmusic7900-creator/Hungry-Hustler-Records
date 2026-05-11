@@ -92,6 +92,13 @@ function resolveImageSource(
   return source as ImageSourcePropType;
 }
 
+function getArtistImage(name: string): number | null {
+  const lower = name.toLowerCase();
+  if (lower.includes('afroman')) return require('@/assets/images/f7235853-2a4a-4d3e-8682-224dbc43b61f.jpeg');
+  if (lower.includes('og') || lower.includes('daddy')) return require('@/assets/images/db286256-0b13-43cc-bf89-1c671fe61f2b.png');
+  return null;
+}
+
 function formatDuration(ms: number): string {
   if (!ms) return '';
   const totalSec = Math.floor(ms / 1000);
@@ -642,52 +649,68 @@ export default function MusicScreen() {
                 marginBottom: 16,
               }}
             />
-            {artists.map((artist) => (
-              <View
-                key={artist.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: 12,
-                }}
-              >
-                <Text
+            {artists.map((artist) => {
+              const artistImage = getArtistImage(artist.name);
+              return (
+                <View
+                  key={artist.id}
                   style={{
-                    color: COLORS.text,
-                    fontSize: 15,
-                    fontWeight: '600',
-                    flex: 1,
-                    marginRight: 12,
-                  }}
-                  numberOfLines={1}
-                >
-                  {artist.name}
-                </Text>
-                <AnimatedPressable
-                  onPress={() => {
-                    console.log(`[Music] Opening Apple Music for artist: ${artist.name}`, artist.apple_music_url);
-                    Linking.openURL(artist.apple_music_url);
-                  }}
-                  style={{
-                    backgroundColor: AM_RED,
-                    borderRadius: 12,
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
+                    marginBottom: 24,
+                    backgroundColor: COLORS.surface,
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
                   }}
                 >
-                  <Text
-                    style={{
-                      color: '#FFFFFF',
-                      fontSize: 13,
-                      fontWeight: '700',
-                    }}
-                  >
-                    Listen on Apple Music
-                  </Text>
-                </AnimatedPressable>
-              </View>
-            ))}
+                  {artistImage !== null && (
+                    <Image
+                      source={artistImage}
+                      style={{ width: '100%', height: 220 }}
+                      resizeMode="cover"
+                    />
+                  )}
+                  <View style={{ padding: 16 }}>
+                    <Text
+                      style={{
+                        color: COLORS.text,
+                        fontSize: 18,
+                        fontWeight: '700',
+                        marginBottom: 12,
+                      }}
+                    >
+                      {artist.name}
+                    </Text>
+                    <AnimatedPressable
+                      onPress={() => {
+                        console.log(`[Music] Opening Apple Music for artist: ${artist.name}`, artist.apple_music_url);
+                        Linking.openURL(artist.apple_music_url);
+                      }}
+                    >
+                      <View
+                        style={{
+                          backgroundColor: AM_RED,
+                          borderRadius: 12,
+                          paddingVertical: 12,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 15,
+                            fontWeight: '700',
+                          }}
+                        >
+                          Listen on Apple Music
+                        </Text>
+                      </View>
+                    </AnimatedPressable>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         )}
 
