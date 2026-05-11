@@ -87,6 +87,7 @@ export default function ArtistFormScreen() {
   const [genre, setGenre] = useState('');
   const [bio, setBio] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [appleMusicUrl, setAppleMusicUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(isEditing);
@@ -120,6 +121,7 @@ export default function ArtistFormScreen() {
       setGenre(row.genre ?? '');
       setBio(row.bio ?? '');
       setImageUrl(row.image_url ?? '');
+      setAppleMusicUrl(row.apple_music_url ?? '');
     } catch (err) {
       console.error('[ArtistForm] Load failed:', err);
       Alert.alert('Error', 'Could not load artist data.');
@@ -185,6 +187,7 @@ export default function ArtistFormScreen() {
       genre: genre.trim() || null,
       bio: bio.trim() || null,
       image_url: imageUrl.trim() || null,
+      apple_music_url: appleMusicUrl.trim() || null,
     };
 
     try {
@@ -313,6 +316,13 @@ export default function ArtistFormScreen() {
         value={imageUrl}
         onChangeText={setImageUrl}
         placeholder="https://..."
+        keyboardType="url"
+      />
+      <FormField
+        label="Apple Music URL"
+        value={appleMusicUrl}
+        onChangeText={setAppleMusicUrl}
+        placeholder="https://music.apple.com/artist/..."
         keyboardType="url"
       />
 

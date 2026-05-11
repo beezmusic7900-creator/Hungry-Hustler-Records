@@ -116,6 +116,7 @@ export type Database = {
           genre: string | null
           bio: string | null
           image_url: string | null
+          apple_music_url: string | null
           created_at: string
           updated_at: string
         }
@@ -125,6 +126,7 @@ export type Database = {
           genre?: string | null
           bio?: string | null
           image_url?: string | null
+          apple_music_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -134,6 +136,7 @@ export type Database = {
           genre?: string | null
           bio?: string | null
           image_url?: string | null
+          apple_music_url?: string | null
           updated_at?: string
         }
         Relationships: []

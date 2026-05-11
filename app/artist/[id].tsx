@@ -5,7 +5,10 @@ import {
   ScrollView,
   Image,
   ImageSourcePropType,
+  Linking,
+  Alert,
 } from 'react-native';
+import { Music2 } from 'lucide-react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
@@ -18,6 +21,7 @@ interface Artist {
   genre: string | null;
   bio: string | null;
   image_url: string | null;
+  apple_music_url: string | null;
 }
 
 function resolveImageSource(
@@ -28,7 +32,14 @@ function resolveImageSource(
   return source as ImageSourcePropType;
 }
 
-
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
 
 export default function ArtistDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -161,6 +172,47 @@ export default function ArtistDetailScreen() {
             <Text style={{ color: COLORS.text, fontSize: 15 }}>
               {artist.genre}
             </Text>
+          </View>
+        ) : null}
+
+        {/* Apple Music Button */}
+        {!loading && artist?.apple_music_url && isValidUrl(artist.apple_music_url) ? (
+          <View style={{ marginBottom: 28 }}>
+            <AnimatedPressable
+              onPress={() => {
+                console.log('[ArtistDetail] Listen on Apple Music pressed:', artist.apple_music_url);
+                if (artist.apple_music_url) {
+                  Linking.openURL(artist.apple_music_url).catch(() => {
+                    Alert.alert('Error', 'Could not open Apple Music link.');
+                  });
+                }
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 10,
+                  backgroundColor: '#FC3C44',
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  paddingHorizontal: 20,
+                }}
+              >
+                <Music2 size={20} color="#FFFFFF" />
+                <Text
+                  style={{
+                    color: '#FFFFFF',
+                    fontSize: 15,
+                    fontWeight: '700',
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  Listen on Apple Music
+                </Text>
+              </View>
+            </AnimatedPressable>
           </View>
         ) : null}
 
