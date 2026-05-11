@@ -2,7 +2,7 @@
   "expo": {
     "name": "Hungry Hustler",
     "slug": "hungry-hustler",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/cc665abf-a02b-4ce3-85e6-492dfdf3ec20.jpeg",
     "userInterfaceStyle": "automatic",
@@ -14,8 +14,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.placeholder.app",
+      "buildNumber": "2",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload images."
       }
     },
     "android": {
@@ -23,7 +25,9 @@
         "foregroundImage": "./assets/images/cc665abf-a02b-4ce3-85e6-492dfdf3ec20.jpeg",
         "backgroundColor": "#000000"
       },
-      "package": "com.placeholder.app"
+      "package": "com.placeholder.app",
+      "versionCode": 2,
+      "permissions": ["READ_MEDIA_IMAGES"]
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",

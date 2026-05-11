@@ -23,11 +23,13 @@ interface MerchItem {
   description: string | null;
   price: number;
   image_url: string | null;
-  stock: number;
+  category: string | null;
+  in_stock: boolean;
+  checkout_url: string | null;
+  is_featured: boolean;
   is_published: boolean;
-  sort_order: number;
-  stripe_url: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 function resolveImageSource(
@@ -69,9 +71,9 @@ function MerchCard({ item, index }: { item: MerchItem; index: number }) {
   };
 
   const handleBuyNow = () => {
-    console.log(`[Merch] BUY NOW pressed: ${item.name} (id=${item.id}, size=${selectedSize ?? 'none'}, stripe_url=${item.stripe_url})`);
-    if (item.stripe_url) {
-      Linking.openURL(item.stripe_url);
+    console.log(`[Merch] BUY NOW pressed: ${item.name} (id=${item.id}, size=${selectedSize ?? 'none'}, checkout_url=${item.checkout_url})`);
+    if (item.checkout_url) {
+      Linking.openURL(item.checkout_url);
     }
   };
 

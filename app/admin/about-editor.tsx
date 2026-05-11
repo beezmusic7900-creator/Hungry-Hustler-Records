@@ -96,9 +96,9 @@ export default function AboutEditorScreen() {
         .from('about_content')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (dbError && dbError.code !== 'PGRST116') {
+      if (dbError && dbError.code !== 'PGRST116' && dbError.code !== 'PGRST205') {
         console.error('[AboutEditor] Failed to load about content:', dbError.message);
       }
 

@@ -8,7 +8,7 @@ import {
   ImageSourcePropType,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus, Pencil, Trash2, Eye, EyeOff, Video } from 'lucide-react-native';
+import { Plus, Pencil, Trash2, Eye, EyeOff, Video, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
@@ -155,7 +155,33 @@ export default function AdminVideosListScreen() {
     router.push('/admin/video-form');
   };
 
-  const renderItem = ({ item }: { item: VideoItem }) => (
+  const handleMove = async (index: number, direction: 'up' | 'down') => {
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    console.log(`[AdminVideos] Move video ${direction}: index ${index} ↔ ${swapIndex}`);
+    const original = [...videos];
+    const newArr = [...videos];
+    [newArr[index], newArr[swapIndex]] = [newArr[swapIndex], newArr[index]];
+    newArr.forEach((v, i) => { v.sort_order = i; });
+    setVideos(newArr);
+    try {
+      const changed = newArr.filter((v, i) => v.sort_order !== original[i].sort_order);
+      await Promise.all(
+        changed.map((v) => {
+          console.log(`[AdminVideos] Updating sort_order for ${v.id} → ${v.sort_order}`);
+          return supabase.from('videos').update({ sort_order: v.sort_order }).eq('id', v.id);
+        })
+      );
+    } catch (err) {
+      console.error('[AdminVideos] Reorder failed:', err);
+      setVideos(original);
+      Alert.alert('Error', 'Failed to reorder videos.');
+    }
+  };
+
+  const renderItem = ({ item, index }: { item: VideoItem; index: number }) => {
+    const isFirst = index === 0;
+    const isLast = index === videos.length - 1;
+    return (
     <View
       style={{
         backgroundColor: COLORS.surface,
@@ -235,6 +261,44 @@ export default function AdminVideosListScreen() {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 8 }}>
+        <AnimatedPressable
+          onPress={isFirst ? undefined : () => handleMove(index, 'up')}
+          style={{ opacity: isFirst ? 0.3 : 1 }}
+        >
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              backgroundColor: COLORS.surfaceSecondary,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.border,
+            }}
+          >
+            <ChevronUp size={16} color={COLORS.textSecondary} />
+          </View>
+        </AnimatedPressable>
+        <AnimatedPressable
+          onPress={isLast ? undefined : () => handleMove(index, 'down')}
+          style={{ opacity: isLast ? 0.3 : 1 }}
+        >
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              backgroundColor: COLORS.surfaceSecondary,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.border,
+            }}
+          >
+            <ChevronDown size={16} color={COLORS.textSecondary} />
+          </View>
+        </AnimatedPressable>
         <AnimatedPressable onPress={() => handleTogglePublish(item)}>
           <View
             style={{
@@ -290,6 +354,7 @@ export default function AdminVideosListScreen() {
       </View>
     </View>
   );
+};
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
