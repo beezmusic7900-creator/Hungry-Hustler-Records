@@ -16,7 +16,8 @@
       "bundleIdentifier": "com.placeholder.app",
       "buildNumber": "2",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload images."
       }
     },
     "android": {
@@ -25,7 +26,8 @@
         "backgroundColor": "#000000"
       },
       "package": "com.placeholder.app",
-      "versionCode": 2
+      "versionCode": 2,
+      "permissions": ["READ_MEDIA_IMAGES"]
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
