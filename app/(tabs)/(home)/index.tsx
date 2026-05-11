@@ -5,26 +5,18 @@ import {
   ScrollView,
   Image,
   Animated,
-  Linking,
   ImageSourcePropType,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Music, ShoppingBag } from 'lucide-react-native';
+import { ShoppingBag } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { HHRLogo } from '@/components/HHRLogo';
-import { supabase, supabasePublic } from '@/integrations/supabase/client';
-
-interface Artist {
-  id: string;
-  name: string;
-  bio: string | null;
-  image_url: string | null;
-}
+import { supabasePublic } from '@/integrations/supabase/client';
 
 interface MerchItem {
   id: string;
@@ -55,39 +47,6 @@ function resolveImageSource(
   if (!source) return { uri: '' };
   if (typeof source === 'string') return { uri: source };
   return source as ImageSourcePropType;
-}
-
-function PlatformButton({
-  label,
-  color,
-  url,
-}: {
-  label: string;
-  color: string;
-  url: string;
-}) {
-  const handlePress = () => {
-    console.log(`[Home] Opening platform link: ${label} - ${url}`);
-    Linking.openURL(url);
-  };
-
-  return (
-    <AnimatedPressable onPress={handlePress}>
-      <View
-        style={{
-          backgroundColor: color,
-          paddingHorizontal: 14,
-          paddingVertical: 8,
-          borderRadius: 20,
-          marginRight: 8,
-        }}
-      >
-        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
-          {label}
-        </Text>
-      </View>
-    </AnimatedPressable>
-  );
 }
 
 function MerchPreviewCard({ item }: { item: MerchItem }) {
@@ -158,7 +117,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [homeData, setHomeData] = useState<HomeData | null>(null);
-  const [featuredArtist, setFeaturedArtist] = useState<Artist | null>(null);
   const [featuredMerch, setFeaturedMerch] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -187,21 +145,8 @@ export default function HomeScreen() {
 
       setHomeData(home ?? null);
 
-      // Load featured artist and merch in parallel
+      // Load featured merch
       const parallelTasks: Promise<void>[] = [];
-
-      if (home?.featured_artist_id) {
-        parallelTasks.push(
-          (async () => {
-            const { data } = await supabasePublic
-              .from('artists')
-              .select('id, name, bio, image_url')
-              .eq('id', home.featured_artist_id as string)
-              .single();
-            setFeaturedArtist(data ?? null);
-          })()
-        );
-      }
 
       if (home?.featured_merch_ids && home.featured_merch_ids.length > 0) {
         parallelTasks.push(
@@ -311,299 +256,6 @@ export default function HomeScreen() {
           </LinearGradient>
         </View>
       )}
-
-      {/* Featured Artist */}
-      <View style={{ paddingHorizontal: 20, marginBottom: 32 }}>
-        <Text
-          style={{
-            color: COLORS.textSecondary,
-            fontSize: 11,
-            fontWeight: '600',
-            letterSpacing: 2,
-            textTransform: 'uppercase',
-            marginBottom: 12,
-          }}
-        >
-          Featured Artist
-        </Text>
-
-        {loading ? (
-          <View
-            style={{
-              backgroundColor: COLORS.surface,
-              borderRadius: 16,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              flexDirection: 'row',
-              gap: 16,
-            }}
-          >
-            <SkeletonLine width={80} height={80} borderRadius={40} />
-            <View style={{ flex: 1, gap: 8, justifyContent: 'center' }}>
-              <SkeletonLine width="60%" height={16} />
-              <SkeletonLine width="100%" height={12} />
-              <SkeletonLine width="80%" height={12} />
-            </View>
-          </View>
-        ) : featuredArtist ? (
-          <View
-            style={{
-              backgroundColor: COLORS.surface,
-              borderRadius: 16,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-            }}
-          >
-            <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-              {featuredArtist.image_url ? (
-                <Image
-                  source={resolveImageSource(featuredArtist.image_url)}
-                  style={{ width: 80, height: 80, borderRadius: 40 }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 40,
-                    backgroundColor: COLORS.primaryMuted,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: COLORS.primary,
-                      fontSize: 28,
-                      fontWeight: '700',
-                    }}
-                  >
-                    {featuredArtist.name.charAt(0)}
-                  </Text>
-                </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    color: COLORS.text,
-                    fontSize: 18,
-                    fontWeight: '700',
-                  }}
-                >
-                  {featuredArtist.name}
-                </Text>
-                {featuredArtist.bio ? (
-                  <Text
-                    style={{
-                      color: COLORS.textSecondary,
-                      fontSize: 13,
-                      lineHeight: 18,
-                      marginTop: 4,
-                    }}
-                    numberOfLines={2}
-                  >
-                    {featuredArtist.bio}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-            <AnimatedPressable
-              onPress={() => {
-                console.log(`[Home] View profile: ${featuredArtist.name}`);
-                router.push(`/artist/${featuredArtist.id}`);
-              }}
-              style={{ marginTop: 16 }}
-            >
-              <View
-                style={{
-                  backgroundColor: COLORS.primaryMuted,
-                  borderRadius: 10,
-                  paddingVertical: 12,
-                  alignItems: 'center',
-                  borderWidth: 1,
-                  borderColor: COLORS.primary,
-                }}
-              >
-                <Text
-                  style={{
-                    color: COLORS.primary,
-                    fontSize: 14,
-                    fontWeight: '600',
-                  }}
-                >
-                  View Profile
-                </Text>
-              </View>
-            </AnimatedPressable>
-          </View>
-        ) : (
-          <View
-            style={{
-              backgroundColor: COLORS.surface,
-              borderRadius: 16,
-              padding: 24,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: COLORS.textTertiary, fontSize: 14 }}>
-              No featured artist yet
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Latest Release */}
-      <View style={{ paddingHorizontal: 20, marginBottom: 32 }}>
-        <Text
-          style={{
-            color: COLORS.textSecondary,
-            fontSize: 11,
-            fontWeight: '600',
-            letterSpacing: 2,
-            textTransform: 'uppercase',
-            marginBottom: 12,
-          }}
-        >
-          Latest Release
-        </Text>
-
-        {loading ? (
-          <View
-            style={{
-              backgroundColor: COLORS.surface,
-              borderRadius: 16,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              flexDirection: 'row',
-              gap: 16,
-            }}
-          >
-            <SkeletonLine width={80} height={80} borderRadius={8} />
-            <View style={{ flex: 1, gap: 8, justifyContent: 'center' }}>
-              <SkeletonLine width="70%" height={16} />
-              <SkeletonLine width="50%" height={12} />
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                <SkeletonLine width={70} height={28} borderRadius={14} />
-                <SkeletonLine width={70} height={28} borderRadius={14} />
-              </View>
-            </View>
-          </View>
-        ) : homeData?.latest_release_title ? (
-          <View
-            style={{
-              backgroundColor: COLORS.surface,
-              borderRadius: 16,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-            }}
-          >
-            <View style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-start' }}>
-              {homeData.latest_release_image_url ? (
-                <Image
-                  source={resolveImageSource(homeData.latest_release_image_url)}
-                  style={{ width: 80, height: 80, borderRadius: 8 }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 8,
-                    backgroundColor: COLORS.surfaceSecondary,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Music size={28} color={COLORS.textTertiary} />
-                </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    color: COLORS.text,
-                    fontSize: 16,
-                    fontWeight: '700',
-                  }}
-                  numberOfLines={2}
-                >
-                  {homeData.latest_release_title}
-                </Text>
-                {homeData.latest_release_artist ? (
-                  <Text
-                    style={{
-                      color: COLORS.textSecondary,
-                      fontSize: 13,
-                      marginTop: 4,
-                    }}
-                  >
-                    {homeData.latest_release_artist}
-                  </Text>
-                ) : null}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                    gap: 8,
-                    marginTop: 12,
-                  }}
-                >
-                  {homeData.latest_release_spotify_url ? (
-                    <PlatformButton
-                      label="Spotify"
-                      color="#1DB954"
-                      url={homeData.latest_release_spotify_url}
-                    />
-                  ) : null}
-                  {homeData.latest_release_apple_music_url ? (
-                    <PlatformButton
-                      label="Apple Music"
-                      color="#FC3C44"
-                      url={homeData.latest_release_apple_music_url}
-                    />
-                  ) : null}
-                  {homeData.latest_release_youtube_url ? (
-                    <PlatformButton
-                      label="YouTube"
-                      color="#FF0000"
-                      url={homeData.latest_release_youtube_url}
-                    />
-                  ) : null}
-                  {homeData.latest_release_soundcloud_url ? (
-                    <PlatformButton
-                      label="SoundCloud"
-                      color="#FF5500"
-                      url={homeData.latest_release_soundcloud_url}
-                    />
-                  ) : null}
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : (
-          <View
-            style={{
-              backgroundColor: COLORS.surface,
-              borderRadius: 16,
-              padding: 24,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: COLORS.textTertiary, fontSize: 14 }}>
-              No release info yet
-            </Text>
-          </View>
-        )}
-      </View>
 
       {/* The Label */}
       <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
@@ -753,8 +405,8 @@ export default function HomeScreen() {
           </Text>
           <AnimatedPressable
             onPress={() => {
-              console.log('[Home] Tapped Watch Now — navigating to Artists tab');
-              router.push('/(tabs)/artists');
+              console.log('[Home] Tapped Watch Now — navigating to Videos tab');
+              router.push('/(tabs)/videos');
             }}
           >
             <View
