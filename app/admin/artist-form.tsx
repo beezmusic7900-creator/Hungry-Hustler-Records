@@ -13,7 +13,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, supabasePublic } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 function resolveImageSource(
@@ -103,15 +103,22 @@ export default function ArtistFormScreen() {
   const loadArtist = async () => {
     try {
       console.log(`[ArtistForm] Loading artist: ${id}`);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('artists')
         .select('*')
         .eq('id', id as string)
-        .single();
+        .maybeSingle();
 
       if (dbError) {
         console.error('[ArtistForm] Load failed:', dbError.message);
         Alert.alert('Error', 'Could not load artist data.');
+        router.back();
+        return;
+      }
+
+      if (!dbError && !data) {
+        console.warn('[ArtistForm] Artist not found:', id);
+        Alert.alert('Artist not found');
         router.back();
         return;
       }

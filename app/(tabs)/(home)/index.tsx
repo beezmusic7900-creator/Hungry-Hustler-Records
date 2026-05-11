@@ -178,7 +178,7 @@ export default function HomeScreen() {
         .from('home_content')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (homeErr) {
         console.warn('[Home] home_content not available:', homeErr.message);
