@@ -188,8 +188,6 @@ export default function HomeScreen() {
       setHomeData(home ?? null);
 
       // Load featured artist and merch in parallel
-      const promises: Promise<void>[] = [];
-
       const parallelTasks: Promise<void>[] = [];
 
       if (home?.featured_artist_id) {
@@ -209,7 +207,7 @@ export default function HomeScreen() {
         parallelTasks.push(
           (async () => {
             const { data } = await (supabasePublic as any)
-              .from('merch_items')
+              .from('merch')
               .select('id, name, price, image_url')
               .in('id', home.featured_merch_ids as string[])
               .eq('is_published', true);
