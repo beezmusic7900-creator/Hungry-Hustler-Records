@@ -10,7 +10,7 @@ import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase } from '@/app/integrations/supabase/client';
+import { supabasePublic } from '@/app/integrations/supabase/client';
 
 interface Artist {
   id: string;
@@ -46,7 +46,7 @@ export default function ArtistDetailScreen() {
       console.log(`[ArtistDetail] Loading artist: ${id}`);
       setLoading(true);
       setError(null);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('artists')
         .select('*')
         .eq('id', id as string)
