@@ -12,7 +12,7 @@ import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase } from '@/app/integrations/supabase/client';
+import { supabase, supabasePublic } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface MerchItem {
@@ -53,10 +53,10 @@ export default function AdminMerchListScreen() {
       console.log('[AdminMerch] Loading merch items from Supabase');
       setLoading(true);
       setError(null);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('merch')
         .select('*')
-        .order('display_order');
+        .order('sort_order', { ascending: true });
 
       if (dbError) {
         console.error('[AdminMerch] Supabase error:', dbError.message);
@@ -113,7 +113,7 @@ export default function AdminMerchListScreen() {
     try {
       const { error: dbError } = await supabase
         .from('merch')
-        .update({ is_published: newValue, updated_at: new Date().toISOString() })
+        .update({ is_published: newValue })
         .eq('id', item.id);
 
       if (dbError) {

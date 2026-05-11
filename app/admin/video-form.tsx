@@ -16,7 +16,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Camera, FileVideo, Video } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, supabasePublic } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 function getYouTubeId(url: string): string | null {
@@ -116,7 +116,7 @@ export default function VideoFormScreen() {
   const loadVideo = async () => {
     try {
       console.log(`[VideoForm] Loading video: ${id}`);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('videos')
         .select('*')
         .eq('id', id as string)

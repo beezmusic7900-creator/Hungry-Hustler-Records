@@ -12,7 +12,7 @@ import { Plus, Pencil, Trash2, Eye, EyeOff, Music } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase } from '@/app/integrations/supabase/client';
+import { supabase, supabasePublic } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Song {
@@ -24,7 +24,7 @@ interface Song {
   category: string;
   price: number | null;
   is_published: boolean;
-  display_order: number;
+  sort_order: number;
 }
 
 function resolveImageSource(
@@ -55,10 +55,10 @@ export default function AdminMusicListScreen() {
       console.log('[AdminMusic] Loading songs from Supabase');
       setLoading(true);
       setError(null);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('songs')
         .select('*')
-        .order('display_order')
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
       if (dbError) {
@@ -127,7 +127,7 @@ export default function AdminMusicListScreen() {
     try {
       const { error: dbError } = await (supabase as any)
         .from('songs')
-        .update({ is_published: newValue, updated_at: new Date().toISOString() })
+        .update({ is_published: newValue })
         .eq('id', song.id);
 
       if (dbError) {

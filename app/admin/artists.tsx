@@ -12,7 +12,7 @@ import { Plus, Pencil, Trash2 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase } from '@/app/integrations/supabase/client';
+import { supabase, supabasePublic } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Artist {
@@ -53,7 +53,7 @@ export default function AdminArtistsScreen() {
       console.log('[AdminArtists] Loading artists from Supabase');
       setLoading(true);
       setError(null);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('artists')
         .select('*')
         .order('name');

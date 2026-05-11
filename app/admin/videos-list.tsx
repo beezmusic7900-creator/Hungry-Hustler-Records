@@ -12,7 +12,7 @@ import { Plus, Pencil, Trash2, Eye, EyeOff, Video } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, supabasePublic } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface VideoItem {
@@ -57,7 +57,7 @@ export default function AdminVideosListScreen() {
       console.log('[AdminVideos] Loading videos from Supabase');
       setLoading(true);
       setError(null);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('videos')
         .select('*')
         .order('sort_order', { ascending: true })
