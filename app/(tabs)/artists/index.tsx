@@ -17,6 +17,9 @@ import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonArtistCard } from '@/components/SkeletonLoader';
 import { supabasePublic } from '@/integrations/supabase/client';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dbPublic = supabasePublic as any;
+
 interface Artist {
   id: string;
   name: string;
@@ -162,7 +165,7 @@ export default function ArtistsScreen() {
       console.log('[Artists] Loading artists from Supabase');
       setLoading(true);
       setError(null);
-      const { data, error: dbError } = await supabasePublic
+      const { data, error: dbError } = await dbPublic
         .from('artists')
         .select('*')
         .eq('is_published', true)

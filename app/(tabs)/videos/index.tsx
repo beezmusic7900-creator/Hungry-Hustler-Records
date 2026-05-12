@@ -4,17 +4,21 @@ import {
   Text,
   ScrollView,
   Image,
-  Linking,
   RefreshControl,
   ImageSourcePropType,
   useWindowDimensions,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Video, Play } from 'lucide-react-native';
+import { Video, Play, Heart } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabasePublic } from '@/integrations/supabase/client';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dbPublic = supabasePublic as any;
+import { useFavorite } from '@/hooks/useFavorite';
 
 interface VideoItem {
   id: string;
@@ -54,7 +58,38 @@ function getYouTubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+function VideoFavoriteButton({ videoId }: { videoId: string }) {
+  const { isFavorited, toggleFavorite } = useFavorite('video', videoId);
+
+  const handlePress = () => {
+    console.log('[Videos] Toggle favorite for video:', videoId, '— currently:', isFavorited);
+    toggleFavorite();
+  };
+
+  return (
+    <AnimatedPressable onPress={handlePress}>
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          backgroundColor: 'rgba(0,0,0,0.55)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Heart
+          size={15}
+          color={isFavorited ? '#FF4444' : '#FFFFFF'}
+          fill={isFavorited ? '#FF4444' : 'transparent'}
+        />
+      </View>
+    </AnimatedPressable>
+  );
+}
+
 function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) {
+  const router = useRouter();
   const resolvedUrl = item.video_url ?? item.youtube_url ?? '';
   const derivedYoutubeId =
     item.youtube_id ??
@@ -66,12 +101,12 @@ function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) 
     : '';
 
   const handlePress = () => {
-    console.log(`[Videos] Card pressed: ${item.title} - ${resolvedUrl}`);
-    if (resolvedUrl) Linking.openURL(resolvedUrl);
+    console.log(`[Videos] Card pressed: ${item.title} — navigating to video-player id=${item.id}`);
+    router.push(`/video-player?id=${item.id}`);
   };
 
   return (
-    <AnimatedPressable onPress={handlePress} style={{ width: cardWidth }} disabled={!resolvedUrl}>
+    <AnimatedPressable onPress={handlePress} style={{ width: cardWidth }}>
       <View
         style={{
           backgroundColor: COLORS.surface,
@@ -129,6 +164,10 @@ function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) 
             >
               <Play size={20} color="#FFFFFF" fill="#FFFFFF" />
             </View>
+          </View>
+          {/* Favorite button overlay */}
+          <View style={{ position: 'absolute', top: 6, right: 6 }}>
+            <VideoFavoriteButton videoId={item.id} />
           </View>
         </View>
 
@@ -203,7 +242,6 @@ function groupVideosByArtist(videos: VideoItem[]): ArtistSection[] {
     }
   }
 
-  // Move null-artist group to end
   const nullIdx = grouped.findIndex(g => g.artistId === null);
   if (nullIdx > 0) {
     const [nullGroup] = grouped.splice(nullIdx, 1);
@@ -227,7 +265,7 @@ export default function VideosScreen() {
     try {
       console.log('[Videos] Loading videos from Supabase');
       setError(null);
-      const { data, error: dbError } = await supabasePublic
+      const { data, error: dbError } = await dbPublic
         .from('videos')
         .select('*, artists(id, name, image_url)')
         .eq('is_published', true)
@@ -239,7 +277,7 @@ export default function VideosScreen() {
         return;
       }
       console.log(`[Videos] Loaded ${data?.length ?? 0} videos`);
-      setVideos((data as VideoItem[]) ?? []);
+      setVideos((data as unknown as VideoItem[]) ?? []);
     } catch (err) {
       console.error('[Videos] Failed to load videos:', err);
       setError("Couldn't load videos. Check your connection.");

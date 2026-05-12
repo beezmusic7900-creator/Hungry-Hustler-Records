@@ -11,14 +11,28 @@ import {
   ImageSourcePropType,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Music, Play, ExternalLink } from 'lucide-react-native';
+import { Music, Play, Pause, ExternalLink, Heart } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabasePublic } from '@/integrations/supabase/client';
 import { apiGet } from '@/utils/api';
+import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+import { useFavorite } from '@/hooks/useFavorite';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dbPublic: any = supabasePublic;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+
+interface SongItem {
+  id: string;
+  title: string;
+  artist: string;
+  cover_url: string | null;
+  audio_url: string | null;
+  created_at: string;
+}
 
 interface AppleMusicArtist {
   id: number;
@@ -65,6 +79,7 @@ interface ArtistLink {
 const AM_RED = '#FC3C44';
 const SKELETON_KEYS_AM_ALBUMS = [0, 1, 2];
 const SKELETON_KEYS_AM_SONGS = [0, 1, 2, 3];
+const SKELETON_KEYS_SONGS = [0, 1, 2, 3];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -89,6 +104,138 @@ function formatDuration(ms: number): string {
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
   return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
+// ─── Native Song Row ──────────────────────────────────────────────────────────
+
+function SongFavoriteButton({ songId }: { songId: string }) {
+  const { isFavorited, toggleFavorite } = useFavorite('song', songId);
+
+  const handlePress = () => {
+    console.log('[Music] Toggle favorite for song:', songId, '— currently:', isFavorited);
+    toggleFavorite();
+  };
+
+  return (
+    <AnimatedPressable onPress={handlePress}>
+      <Heart
+        size={18}
+        color={isFavorited ? '#FF4444' : COLORS.textTertiary}
+        fill={isFavorited ? '#FF4444' : 'transparent'}
+      />
+    </AnimatedPressable>
+  );
+}
+
+function NativeSongRow({ item }: { item: SongItem }) {
+  const { currentSong, isPlaying, playSong } = useAudioPlayer();
+  const isCurrentSong = currentSong?.id === item.id;
+  const isThisPlaying = isCurrentSong && isPlaying;
+
+  const handlePlay = () => {
+    console.log('[Music] Native song row pressed:', item.title, item.audio_url);
+    playSong({
+      id: item.id,
+      title: item.title,
+      artist: item.artist,
+      cover_url: item.cover_url,
+      audio_url: item.audio_url,
+    });
+  };
+
+  return (
+    <View
+      style={{
+        backgroundColor: isCurrentSong ? COLORS.primaryMuted : COLORS.surface,
+        borderRadius: 10,
+        padding: 10,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: isCurrentSong ? COLORS.primary : COLORS.border,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      {/* Cover art */}
+      {item.cover_url ? (
+        <Image
+          source={resolveImageSource(item.cover_url)}
+          style={{ width: 56, height: 56, borderRadius: 8 }}
+          resizeMode="cover"
+        />
+      ) : (
+        <View
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 8,
+            backgroundColor: COLORS.primaryMuted,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Music size={22} color={COLORS.primary} />
+        </View>
+      )}
+
+      {/* Info */}
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}
+          numberOfLines={1}
+        >
+          {item.title}
+        </Text>
+        <Text
+          style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}
+          numberOfLines={1}
+        >
+          {item.artist}
+        </Text>
+      </View>
+
+      {/* Favorite */}
+      <SongFavoriteButton songId={item.id} />
+
+      {/* Play button */}
+      <AnimatedPressable onPress={handlePlay}>
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: isCurrentSong ? COLORS.primary : COLORS.surface,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: isCurrentSong ? COLORS.primary : COLORS.border,
+            ...Platform.select({
+              native: isCurrentSong
+                ? {
+                    shadowColor: COLORS.primary,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 6,
+                  }
+                : {},
+              default: {},
+            }),
+          }}
+        >
+          {isThisPlaying ? (
+            <Pause size={14} color={COLORS.background} fill={COLORS.background} />
+          ) : (
+            <Play
+              size={14}
+              color={isCurrentSong ? COLORS.background : COLORS.primary}
+              fill={isCurrentSong ? COLORS.background : COLORS.primary}
+            />
+          )}
+        </View>
+      </AnimatedPressable>
+    </View>
+  );
 }
 
 // ─── Apple Music Components ───────────────────────────────────────────────────
@@ -225,7 +372,6 @@ function AMSongRow({ item }: { item: AppleMusicSong }) {
 function AppleMusicSkeleton() {
   return (
     <View>
-      {/* Albums skeleton */}
       <Text
         style={{
           color: '#888',
@@ -250,7 +396,6 @@ function AppleMusicSkeleton() {
         ))}
       </ScrollView>
 
-      {/* Songs skeleton */}
       <Text
         style={{
           color: '#888',
@@ -296,6 +441,10 @@ function AppleMusicSkeleton() {
 export default function MusicScreen() {
   const insets = useSafeAreaInsets();
 
+  // Native songs
+  const [songs, setSongs] = useState<SongItem[]>([]);
+  const [songsLoading, setSongsLoading] = useState(true);
+
   // Artists with Apple Music links
   const [artists, setArtists] = useState<ArtistLink[]>([]);
 
@@ -309,10 +458,32 @@ export default function MusicScreen() {
 
   // ── Loaders ────────────────────────────────────────────────────────────────
 
+  const loadSongs = useCallback(async () => {
+    try {
+      console.log('[Music] Loading native songs from Supabase');
+      const { data, error: dbError } = await dbPublic
+        .from('songs')
+        .select('id, title, artist, cover_url, audio_url, created_at')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
+
+      if (dbError) {
+        console.error('[Music] Failed to load songs:', dbError.message);
+        return;
+      }
+      console.log(`[Music] Loaded ${data?.length ?? 0} native songs`);
+      setSongs((data as SongItem[]) ?? []);
+    } catch (err) {
+      console.error('[Music] Error loading songs:', err);
+    } finally {
+      setSongsLoading(false);
+    }
+  }, []);
+
   const loadArtists = useCallback(async () => {
     try {
       console.log('[Music] Loading artists with Apple Music URLs');
-      const { data, error: dbError } = await supabasePublic
+      const { data, error: dbError } = await dbPublic
         .from('artists')
         .select('id, name, apple_music_url')
         .not('apple_music_url', 'is', null)
@@ -341,7 +512,6 @@ export default function MusicScreen() {
         'songs'
       );
     } catch {
-      // Backend route not available — hide section silently
       setAmData(null);
       setAmError(null);
     } finally {
@@ -351,16 +521,18 @@ export default function MusicScreen() {
 
   useEffect(() => {
     Promise.all([
+      loadSongs(),
       loadAppleMusic(),
       loadArtists(),
     ]);
-  }, [loadAppleMusic, loadArtists]);
+  }, [loadSongs, loadAppleMusic, loadArtists]);
 
   const handleRefresh = async () => {
     console.log('[Music] Pull-to-refresh triggered');
     setRefreshing(true);
+    setSongsLoading(true);
     setAmLoading(true);
-    await Promise.all([loadAppleMusic(), loadArtists()]);
+    await Promise.all([loadSongs(), loadAppleMusic(), loadArtists()]);
     setRefreshing(false);
   };
 
@@ -370,13 +542,9 @@ export default function MusicScreen() {
     loadAppleMusic();
   };
 
-  // ── Derived values ─────────────────────────────────────────────────────────
-
   const artistPillText = amData
     ? `${amData.artist.name} • ${amData.artist.genre}`
     : '';
-
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
@@ -430,10 +598,65 @@ export default function MusicScreen() {
         </View>
 
         {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* NATIVE SONGS SECTION                                              */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {(songsLoading || songs.length > 0) && (
+          <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+            <Text
+              style={{
+                color: COLORS.text,
+                fontSize: 22,
+                fontWeight: '700',
+              }}
+            >
+              SONGS
+            </Text>
+            <View
+              style={{
+                width: 40,
+                height: 3,
+                backgroundColor: COLORS.primary,
+                borderRadius: 2,
+                marginTop: 6,
+                marginBottom: 16,
+              }}
+            />
+
+            {songsLoading ? (
+              SKELETON_KEYS_SONGS.map((k) => (
+                <View
+                  key={k}
+                  style={{
+                    backgroundColor: COLORS.surface,
+                    borderRadius: 10,
+                    padding: 10,
+                    marginBottom: 8,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
+                >
+                  <SkeletonLine width={56} height={56} borderRadius={8} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <SkeletonLine width="65%" height={14} />
+                    <SkeletonLine width="50%" height={12} />
+                  </View>
+                  <SkeletonLine width={36} height={36} borderRadius={18} />
+                </View>
+              ))
+            ) : (
+              songs.map((song) => <NativeSongRow key={song.id} item={song} />)
+            )}
+          </View>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════ */}
         {/* ARTISTS SECTION — artists with Apple Music links                  */}
         {/* ══════════════════════════════════════════════════════════════════ */}
         {artists.length > 0 && (
-          <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+          <View style={{ paddingHorizontal: 20, marginTop: 8 }}>
             <Text
               style={{
                 color: COLORS.text,
@@ -519,11 +742,10 @@ export default function MusicScreen() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* APPLE MUSIC SECTION — only shown when data loaded successfully    */}
+        {/* APPLE MUSIC SECTION                                               */}
         {/* ══════════════════════════════════════════════════════════════════ */}
         {amData !== null && (
           <View style={{ paddingHorizontal: 20, marginTop: 8 }}>
-            {/* Section label */}
             <Text
               style={{
                 color: COLORS.text,
@@ -558,7 +780,6 @@ export default function MusicScreen() {
               </View>
             ) : (
               <View>
-                {/* Artist pill */}
                 <View
                   style={{
                     flexDirection: 'row',
@@ -592,7 +813,6 @@ export default function MusicScreen() {
                   </AnimatedPressable>
                 </View>
 
-                {/* Albums sub-label */}
                 <Text
                   style={{
                     color: '#888',
@@ -606,7 +826,6 @@ export default function MusicScreen() {
                   ALBUMS
                 </Text>
 
-                {/* Albums horizontal scroll */}
                 <FlatList
                   data={amData.albums}
                   keyExtractor={(item) => String(item.id)}
@@ -616,7 +835,6 @@ export default function MusicScreen() {
                   scrollEnabled
                 />
 
-                {/* Top Songs sub-label */}
                 <Text
                   style={{
                     color: '#888',
@@ -630,7 +848,6 @@ export default function MusicScreen() {
                   TOP SONGS
                 </Text>
 
-                {/* Top Songs list */}
                 <View>
                   {amData.topSongs.map((song) => (
                     <AMSongRow key={String(song.id)} item={song} />

@@ -15,6 +15,7 @@ import {
   Info,
   LogOut,
   UserCog,
+  Calendar,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
@@ -165,6 +166,13 @@ export default function DashboardScreen() {
       icon: <Info size={22} color="#14B8A6" />,
       route: '/admin/about-editor',
       color: '#14B8A6',
+    },
+    {
+      title: 'Events',
+      subtitle: 'Shows & tickets',
+      icon: <Calendar size={22} color="#F97316" />,
+      route: '/admin/events-list',
+      color: '#F97316',
     },
   ];
 

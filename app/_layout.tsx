@@ -10,6 +10,7 @@ import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { COLORS } from "@/constants/Colors";
 
 const DevErrorBoundary = __DEV__
@@ -35,6 +36,13 @@ const HHRDarkTheme = {
   },
 };
 
+const HEADER_OPTIONS = {
+  headerStyle: { backgroundColor: COLORS.background },
+  headerTintColor: COLORS.text,
+  headerTitleStyle: { color: COLORS.text, fontWeight: '700' as const },
+  headerBackButtonDisplayMode: 'minimal' as const,
+};
+
 export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
@@ -54,149 +62,101 @@ export default function RootLayout() {
       <ThemeProvider value={HHRDarkTheme}>
         <SafeAreaProvider>
           <AuthProvider>
-            <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: COLORS.background },
-                }}
-              >
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="artist/[id]"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    headerBackButtonDisplayMode: 'minimal',
+            <AudioPlayerProvider>
+              <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: COLORS.background },
                   }}
-                />
-                <Stack.Screen
-                  name="merch-detail/[id]"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    headerBackButtonDisplayMode: 'minimal',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/dashboard"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Admin Dashboard',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/artists"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Manage Artists',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/artist-form"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Artist',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/merch-list"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Manage Merch',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/merch-form"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Merch Item',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/home-editor"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Edit Home Page',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/about-editor"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Edit About Page',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/music-list"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Manage Music',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/music-form"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Song',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/videos-list"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Manage Videos',
-                  }}
-                />
-                <Stack.Screen
-                  name="admin/video-form"
-                  options={{
-                    headerShown: true,
-                    headerStyle: { backgroundColor: COLORS.background },
-                    headerTintColor: COLORS.text,
-                    headerTitleStyle: { color: COLORS.text, fontWeight: '700' },
-                    title: 'Video',
-                  }}
-                />
-                <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
-                <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
-              </Stack>
-              <SystemBars style="light" />
-            </GestureHandlerRootView>
+                >
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="artist/[id]"
+                    options={{ headerShown: true, title: 'Artist', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="merch-detail/[id]"
+                    options={{ headerShown: true, title: 'Merch', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/dashboard"
+                    options={{ headerShown: true, title: 'Admin Dashboard', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/artists"
+                    options={{ headerShown: true, title: 'Manage Artists', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/artist-form"
+                    options={{ headerShown: true, title: 'Artist', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/merch-list"
+                    options={{ headerShown: true, title: 'Manage Merch', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/merch-form"
+                    options={{ headerShown: true, title: 'Merch Item', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/home-editor"
+                    options={{ headerShown: true, title: 'Edit Home Page', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/about-editor"
+                    options={{ headerShown: true, title: 'Edit About Page', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/music-list"
+                    options={{ headerShown: true, title: 'Manage Music', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/music-form"
+                    options={{ headerShown: true, title: 'Song', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/videos-list"
+                    options={{ headerShown: true, title: 'Manage Videos', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/video-form"
+                    options={{ headerShown: true, title: 'Video', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/events-list"
+                    options={{ headerShown: true, title: 'Manage Events', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/event-form"
+                    options={{ headerShown: true, title: 'Event', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="fan-auth"
+                    options={{ headerShown: true, title: 'Fan Account', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="fan-profile"
+                    options={{ headerShown: true, title: 'My Profile', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="search"
+                    options={{ headerShown: true, title: 'Search', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="player"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="video-player"
+                    options={{ headerShown: true, title: 'Video', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
+                  <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+                </Stack>
+                <SystemBars style="light" />
+              </GestureHandlerRootView>
+            </AudioPlayerProvider>
           </AuthProvider>
         </SafeAreaProvider>
       </ThemeProvider>

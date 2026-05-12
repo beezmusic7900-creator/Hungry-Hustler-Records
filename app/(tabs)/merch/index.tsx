@@ -11,11 +11,12 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ShoppingBag } from 'lucide-react-native';
+import { ShoppingBag, Heart } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonMerchCard } from '@/components/SkeletonLoader';
 import { supabase, supabasePublic } from '@/integrations/supabase/client';
+import { useFavorite } from '@/hooks/useFavorite';
 
 interface MerchItem {
   id: string;
@@ -42,6 +43,39 @@ function resolveImageSource(
 
 const SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
 
+function MerchFavoriteButton({ itemId }: { itemId: string }) {
+  const { isFavorited, toggleFavorite } = useFavorite('merch', itemId);
+
+  const handlePress = () => {
+    console.log('[Merch] Toggle favorite for item:', itemId, '— currently:', isFavorited);
+    toggleFavorite();
+  };
+
+  return (
+    <AnimatedPressable onPress={handlePress}>
+      <View
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          backgroundColor: 'rgba(0,0,0,0.55)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Heart
+          size={15}
+          color={isFavorited ? '#FF4444' : '#FFFFFF'}
+          fill={isFavorited ? '#FF4444' : 'transparent'}
+        />
+      </View>
+    </AnimatedPressable>
+  );
+}
+
 function MerchCard({ item, index }: { item: MerchItem; index: number }) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(16)).current;
@@ -54,13 +88,13 @@ function MerchCard({ item, index }: { item: MerchItem; index: number }) {
         toValue: 1,
         duration: 350,
         delay: index * 60,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(translateY, {
         toValue: 0,
         duration: 350,
         delay: index * 60,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   }, []);
@@ -95,25 +129,30 @@ function MerchCard({ item, index }: { item: MerchItem; index: number }) {
           borderColor: COLORS.border,
         }}
       >
-        {item.image_url ? (
-          <Image
-            source={resolveImageSource(item.image_url)}
-            style={{ width: '100%', height: 180 }}
-            resizeMode="cover"
-          />
-        ) : (
-          <View
-            style={{
-              width: '100%',
-              height: 180,
-              backgroundColor: COLORS.surfaceSecondary,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <ShoppingBag size={40} color={COLORS.textTertiary} />
-          </View>
-        )}
+        {/* Image with favorite overlay */}
+        <View style={{ position: 'relative' }}>
+          {item.image_url ? (
+            <Image
+              source={resolveImageSource(item.image_url)}
+              style={{ width: '100%', height: 180 }}
+              resizeMode="cover"
+            />
+          ) : (
+            <View
+              style={{
+                width: '100%',
+                height: 180,
+                backgroundColor: COLORS.surfaceSecondary,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ShoppingBag size={40} color={COLORS.textTertiary} />
+            </View>
+          )}
+          <MerchFavoriteButton itemId={item.id} />
+        </View>
+
         <View style={{ padding: 12 }}>
           <Text
             style={{
@@ -232,7 +271,7 @@ export default function MerchScreen() {
         return;
       }
       console.log(`[Merch] Loaded ${data?.length ?? 0} merch items`);
-      setMerch(data ?? []);
+      setMerch((data ?? []) as unknown as MerchItem[]);
     } catch (err) {
       console.error('[Merch] Failed to load merch:', err);
       setError("Couldn't load merch. Check your connection.");
