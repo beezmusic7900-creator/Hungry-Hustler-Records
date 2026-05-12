@@ -1,5 +1,4 @@
 # Hungry Hustler
 
-This app was built using [Newly.app](https://newly.app) - a platform for creating mobile apps.
-
+This app was built by Brooksville Productions
 Made with 💙 for creativity.
