@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   Image,
   Linking,
   RefreshControl,
@@ -24,11 +24,19 @@ interface VideoItem {
   youtube_id: string | null;
   thumbnail_url: string | null;
   artist_id: string | null;
+  artists: { id: string; name: string; image_url: string | null } | null;
   source_type: string | null;
   description: string | null;
   is_published: boolean;
   sort_order: number;
   created_at: string;
+}
+
+interface ArtistSection {
+  artistId: string | null;
+  artistName: string;
+  artistImage: string | null;
+  videos: VideoItem[];
 }
 
 function resolveImageSource(
@@ -179,6 +187,32 @@ const H_PADDING = 16;
 const GAP = 12;
 const NUM_COLUMNS = 2;
 
+function groupVideosByArtist(videos: VideoItem[]): ArtistSection[] {
+  const grouped: ArtistSection[] = [];
+  const seen = new Map<string | null, number>();
+
+  for (const v of videos) {
+    const key = v.artist_id ?? null;
+    const name = v.artists?.name ?? 'Other Videos';
+    const img = v.artists?.image_url ?? null;
+    if (!seen.has(key)) {
+      seen.set(key, grouped.length);
+      grouped.push({ artistId: key, artistName: name, artistImage: img, videos: [v] });
+    } else {
+      grouped[seen.get(key)!].videos.push(v);
+    }
+  }
+
+  // Move null-artist group to end
+  const nullIdx = grouped.findIndex(g => g.artistId === null);
+  if (nullIdx > 0) {
+    const [nullGroup] = grouped.splice(nullIdx, 1);
+    grouped.push(nullGroup);
+  }
+
+  return grouped;
+}
+
 export default function VideosScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -195,7 +229,7 @@ export default function VideosScreen() {
       setError(null);
       const { data, error: dbError } = await supabasePublic
         .from('videos')
-        .select('*')
+        .select('*, artists(id, name, image_url)')
         .eq('is_published', true)
         .order('sort_order', { ascending: true });
 
@@ -205,7 +239,7 @@ export default function VideosScreen() {
         return;
       }
       console.log(`[Videos] Loaded ${data?.length ?? 0} videos`);
-      setVideos(data ?? []);
+      setVideos((data as VideoItem[]) ?? []);
     } catch (err) {
       console.error('[Videos] Failed to load videos:', err);
       setError("Couldn't load videos. Check your connection.");
@@ -223,14 +257,7 @@ export default function VideosScreen() {
     setRefreshing(false);
   };
 
-  const renderItem = ({ item, index }: { item: VideoItem; index: number }) => {
-    const isLeftColumn = index % 2 === 0;
-    return (
-      <View style={{ marginRight: isLeftColumn ? GAP : 0 }}>
-        <VideoCard item={item} cardWidth={cardWidth} />
-      </View>
-    );
-  };
+  const grouped = groupVideosByArtist(videos);
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
@@ -276,10 +303,8 @@ export default function VideosScreen() {
             gap: GAP,
           }}
         >
-          {SKELETON_KEYS.map((k, i) => (
-            <View key={k} style={{ marginRight: i % 2 === 0 ? 0 : 0 }}>
-              <SkeletonVideoCard cardWidth={cardWidth} />
-            </View>
+          {SKELETON_KEYS.map((k) => (
+            <SkeletonVideoCard key={k} cardWidth={cardWidth} />
           ))}
         </View>
       ) : error ? (
@@ -311,14 +336,48 @@ export default function VideosScreen() {
             </View>
           </AnimatedPressable>
         </View>
+      ) : videos.length === 0 ? (
+        <View style={{ alignItems: 'center', paddingTop: 80 }}>
+          <View
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 20,
+              backgroundColor: COLORS.primaryMuted,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: COLORS.primary,
+            }}
+          >
+            <Video size={32} color={COLORS.primary} />
+          </View>
+          <Text
+            style={{
+              color: COLORS.text,
+              fontSize: 18,
+              fontWeight: '600',
+              textAlign: 'center',
+            }}
+          >
+            No videos yet
+          </Text>
+          <Text
+            style={{
+              color: COLORS.textSecondary,
+              fontSize: 14,
+              textAlign: 'center',
+              marginTop: 8,
+              maxWidth: 260,
+            }}
+          >
+            Check back soon for new content.
+          </Text>
+        </View>
       ) : (
-        <FlatList
-          data={videos}
-          keyExtractor={(item) => item.id}
-          numColumns={NUM_COLUMNS}
-          columnWrapperStyle={{ paddingHorizontal: H_PADDING, gap: GAP }}
-          contentContainerStyle={{ paddingBottom: 120, gap: GAP }}
-          renderItem={renderItem}
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 120 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -326,47 +385,71 @@ export default function VideosScreen() {
               tintColor={COLORS.primary}
             />
           }
-          ListEmptyComponent={
-            <View style={{ alignItems: 'center', paddingTop: 80 }}>
-              <View
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 20,
-                  backgroundColor: COLORS.primaryMuted,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 16,
-                  borderWidth: 1,
-                  borderColor: COLORS.primary,
-                }}
-              >
-                <Video size={32} color={COLORS.primary} />
+          showsVerticalScrollIndicator={false}
+        >
+          {grouped.map((section) => {
+            const rows: VideoItem[][] = [];
+            for (let i = 0; i < section.videos.length; i += 2) {
+              rows.push(section.videos.slice(i, i + 2));
+            }
+
+            return (
+              <View key={section.artistId ?? 'null'} style={{ marginBottom: 24 }}>
+                {/* Section header */}
+                <View style={{ paddingHorizontal: H_PADDING, marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    {section.artistImage ? (
+                      <Image
+                        source={resolveImageSource(section.artistImage)}
+                        style={{ width: 40, height: 40, borderRadius: 20 }}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+                    <Text
+                      style={{
+                        color: COLORS.text,
+                        fontSize: 20,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {section.artistName}
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 3,
+                      backgroundColor: COLORS.primary,
+                      borderRadius: 2,
+                      marginTop: 6,
+                      shadowColor: COLORS.primary,
+                      shadowOffset: { width: 0, height: 0 },
+                      shadowOpacity: 0.6,
+                      shadowRadius: 6,
+                    }}
+                  />
+                </View>
+
+                {/* Video grid */}
+                {rows.map((row, rowIdx) => (
+                  <View
+                    key={rowIdx}
+                    style={{
+                      flexDirection: 'row',
+                      paddingHorizontal: H_PADDING,
+                      gap: GAP,
+                      marginBottom: GAP,
+                    }}
+                  >
+                    {row.map((item) => (
+                      <VideoCard key={item.id} item={item} cardWidth={cardWidth} />
+                    ))}
+                  </View>
+                ))}
               </View>
-              <Text
-                style={{
-                  color: COLORS.text,
-                  fontSize: 18,
-                  fontWeight: '600',
-                  textAlign: 'center',
-                }}
-              >
-                No videos yet
-              </Text>
-              <Text
-                style={{
-                  color: COLORS.textSecondary,
-                  fontSize: 14,
-                  textAlign: 'center',
-                  marginTop: 8,
-                  maxWidth: 260,
-                }}
-              >
-                Check back soon for new content.
-              </Text>
-            </View>
-          }
-        />
+            );
+          })}
+        </ScrollView>
       )}
     </View>
   );

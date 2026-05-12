@@ -19,6 +19,8 @@ import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { supabase, supabasePublic } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+interface Artist { id: string; name: string; }
+
 function getYouTubeId(url: string): string | null {
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
   return match ? match[1] : null;
@@ -94,6 +96,8 @@ export default function VideoFormScreen() {
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [isPublished, setIsPublished] = useState(true);
   const [useFileUpload, setUseFileUpload] = useState(false);
+  const [artistId, setArtistId] = useState<string | null>(null);
+  const [artists, setArtists] = useState<Artist[]>([]);
 
   const [pendingVideoUri, setPendingVideoUri] = useState<string | null>(null);
   const [pendingVideoName, setPendingVideoName] = useState<string | null>(null);
@@ -105,11 +109,17 @@ export default function VideoFormScreen() {
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const [loading, setLoading] = useState(isEditing);
 
+  const loadArtists = async () => {
+    const { data } = await supabasePublic.from('artists').select('id, name').order('name');
+    setArtists((data as Artist[]) ?? []);
+  };
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace('/(tabs)/admin');
       return;
     }
+    loadArtists();
     if (isEditing) loadVideo();
   }, [user, authLoading]);
 
@@ -134,6 +144,7 @@ export default function VideoFormScreen() {
       setVideoUrl(anyData.video_url ?? '');
       setThumbnailUrl(anyData.thumbnail_url ?? '');
       setIsPublished(anyData.is_published ?? true);
+      setArtistId(anyData.artist_id ?? null);
     } catch (err) {
       console.error('[VideoForm] Load failed:', err);
       Alert.alert('Error', 'Could not load video data.');
@@ -294,6 +305,7 @@ export default function VideoFormScreen() {
         thumbnail_url: finalThumbnailUrl ?? (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : null),
         source_type: youtubeId ? 'youtube' : 'upload',
         is_published: isPublished,
+        artist_id: artistId,
       };
 
       if (isEditing) {
@@ -416,6 +428,43 @@ export default function VideoFormScreen() {
         placeholder="Video title"
         required
       />
+
+      {/* Artist picker */}
+      <View style={{ marginBottom: 16 }}>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '500', marginBottom: 8 }}>
+          Artist Section
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {[{ id: null, name: 'None' }, ...artists].map((a) => {
+            const selected = artistId === a.id;
+            return (
+              <AnimatedPressable
+                key={String(a.id)}
+                onPress={() => {
+                  console.log(`[VideoForm] Artist selected: ${a.name}`);
+                  setArtistId(a.id);
+                }}
+              >
+                <View
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    marginRight: 8,
+                    backgroundColor: selected ? COLORS.primary : COLORS.surfaceSecondary,
+                    borderWidth: 1,
+                    borderColor: selected ? COLORS.primary : COLORS.border,
+                  }}
+                >
+                  <Text style={{ color: selected ? COLORS.background : COLORS.text, fontSize: 13, fontWeight: '600' }}>
+                    {a.name}
+                  </Text>
+                </View>
+              </AnimatedPressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {/* Video source toggle */}
       <View

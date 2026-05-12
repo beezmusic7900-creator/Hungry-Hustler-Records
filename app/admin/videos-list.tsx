@@ -23,6 +23,7 @@ interface VideoItem {
   youtube_id: string | null;
   thumbnail_url: string | null;
   artist_id: string | null;
+  artists: { id: string; name: string } | null;
   source_type: string | null;
   description: string | null;
   is_published: boolean;
@@ -59,7 +60,7 @@ export default function AdminVideosListScreen() {
       setError(null);
       const { data, error: dbError } = await supabasePublic
         .from('videos')
-        .select('*')
+        .select('*, artists(id, name)')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
@@ -229,7 +230,7 @@ export default function AdminVideosListScreen() {
           style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}
           numberOfLines={1}
         >
-          {item.description ?? item.source_type ?? ''}
+          {item.artists?.name ? item.artists.name : (item.description ?? item.source_type ?? 'No artist')}
         </Text>
         <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, alignItems: 'center' }}>
           <View
