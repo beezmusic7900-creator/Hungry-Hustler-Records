@@ -215,7 +215,7 @@ export default function ArtistFormScreen() {
         console.log('[ArtistForm] Inserting new artist');
         const { error: dbError } = await supabase
           .from('artists')
-          .insert(payload as any);
+          .insert({ ...payload, is_published: true, created_by: user?.id ?? null } as any);
 
         if (dbError) {
           console.error('[ArtistForm] Insert failed:', dbError.message);

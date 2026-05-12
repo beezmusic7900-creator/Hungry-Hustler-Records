@@ -8,7 +8,7 @@ import {
   ImageSourcePropType,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus, Pencil, Trash2 } from 'lucide-react-native';
+import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
@@ -21,6 +21,7 @@ interface Artist {
   genre: string | null;
   bio: string | null;
   image_url: string | null;
+  is_published: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -107,6 +108,29 @@ export default function AdminArtistsScreen() {
     );
   };
 
+  const handleTogglePublish = async (artist: Artist) => {
+    const next = !artist.is_published;
+    console.log(`[AdminArtists] Toggle publish: ${artist.name} -> ${next}`);
+    try {
+      const { error: dbError } = await supabase
+        .from('artists')
+        .update({ is_published: next } as any)
+        .eq('id', artist.id);
+
+      if (dbError) {
+        console.error('[AdminArtists] Toggle publish failed:', dbError.message);
+        Alert.alert('Error', dbError.message);
+        return;
+      }
+      setArtists((prev) =>
+        prev.map((a) => (a.id === artist.id ? { ...a, is_published: next } : a))
+      );
+    } catch (err) {
+      console.error('[AdminArtists] Toggle publish failed:', err);
+      Alert.alert('Error', 'Failed to update artist.');
+    }
+  };
+
   const handleEdit = (artist: Artist) => {
     console.log(`[AdminArtists] Edit pressed: ${artist.name}`);
     router.push(`/admin/artist-form?id=${artist.id}`);
@@ -177,6 +201,26 @@ export default function AdminArtistsScreen() {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 8 }}>
+        <AnimatedPressable onPress={() => handleTogglePublish(item)}>
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              backgroundColor: item.is_published ? COLORS.primaryMuted : COLORS.surfaceSecondary,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: item.is_published ? COLORS.primary : COLORS.border,
+            }}
+          >
+            {item.is_published ? (
+              <Eye size={16} color={COLORS.primary} />
+            ) : (
+              <EyeOff size={16} color={COLORS.textTertiary} />
+            )}
+          </View>
+        </AnimatedPressable>
         <AnimatedPressable onPress={() => handleEdit(item)}>
           <View
             style={{

@@ -16,7 +16,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Camera, FileAudio, Music } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
-import { supabase } from '@/app/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 function resolveImageSource(
@@ -118,11 +118,18 @@ export default function MusicFormScreen() {
         .from('songs')
         .select('*')
         .eq('id', id as string)
-        .single();
+        .maybeSingle();
 
       if (dbError) {
         console.error('[MusicForm] Load failed:', dbError.message);
         Alert.alert('Error', 'Could not load song data.');
+        router.back();
+        return;
+      }
+
+      if (!data) {
+        console.warn('[MusicForm] Song not found:', id);
+        Alert.alert('Song not found');
         router.back();
         return;
       }
@@ -279,7 +286,7 @@ export default function MusicFormScreen() {
 
       const parsedPrice = price.trim() ? parseFloat(price) : null;
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         title: title.trim(),
         artist: artist.trim(),
         category: category.trim() || 'Exclusive Songs',
@@ -304,6 +311,7 @@ export default function MusicFormScreen() {
         console.log('[MusicForm] Song updated successfully');
       } else {
         console.log('[MusicForm] Inserting new song');
+        payload.created_by = user?.id ?? null;
         const { error: dbError } = await (supabase as any)
           .from('songs')
           .insert(payload);

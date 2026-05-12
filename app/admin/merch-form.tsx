@@ -14,7 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
-import { supabase } from '@/app/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 function resolveImageSource(
@@ -217,7 +217,7 @@ export default function MerchFormScreen() {
         console.log(`[MerchForm] Updating merch item: ${id}`);
         const { error: dbError } = await supabase
           .from('merch')
-          .update(payload)
+          .update(payload as any)
           .eq('id', id as string);
 
         if (dbError) {
@@ -230,7 +230,7 @@ export default function MerchFormScreen() {
         console.log('[MerchForm] Inserting new merch item');
         const { error: dbError } = await supabase
           .from('merch')
-          .insert(payload);
+          .insert({ ...payload, created_by: user?.id ?? null } as any);
 
         if (dbError) {
           console.error('[MerchForm] Insert failed:', dbError.message);

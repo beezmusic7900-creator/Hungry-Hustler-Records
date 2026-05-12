@@ -80,6 +80,7 @@ export default function AboutEditorScreen() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [migrationNeeded, setMigrationNeeded] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -98,8 +99,15 @@ export default function AboutEditorScreen() {
         .limit(1)
         .maybeSingle();
 
-      if (dbError && dbError.code !== 'PGRST116' && dbError.code !== 'PGRST205') {
-        console.error('[AboutEditor] Failed to load about content:', dbError.message);
+      if (dbError) {
+        if (dbError.code === 'PGRST205' || dbError.code === '42P01') {
+          console.warn('[AboutEditor] about_content table not found — migration needed');
+          setMigrationNeeded(true);
+          return;
+        }
+        if (dbError.code !== 'PGRST116') {
+          console.error('[AboutEditor] Failed to load about content:', dbError.message);
+        }
       }
 
       if (data) {
@@ -139,10 +147,10 @@ export default function AboutEditorScreen() {
     try {
       let dbError;
       if (aboutId) {
-        console.log('[AboutEditor] Updating existing about content');
+        console.log('[AboutEditor] Upserting about content with id:', aboutId);
         const result = await (supabase as any)
           .from('about_content')
-          .update(payload)
+          .upsert({ id: aboutId, ...payload })
           .eq('id', aboutId);
         dbError = result.error;
       } else {
@@ -151,7 +159,7 @@ export default function AboutEditorScreen() {
           .from('about_content')
           .insert(payload)
           .select()
-          .single();
+          .maybeSingle();
         dbError = result.error;
         if (result.data) setAboutId(result.data.id);
       }
@@ -183,6 +191,43 @@ export default function AboutEditorScreen() {
         }}
       >
         <Text style={{ color: COLORS.textSecondary }}>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (migrationNeeded) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: COLORS.background,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 32,
+        }}
+      >
+        <Text
+          style={{
+            color: COLORS.text,
+            fontSize: 17,
+            fontWeight: '600',
+            textAlign: 'center',
+            marginBottom: 12,
+          }}
+        >
+          Database Migration Required
+        </Text>
+        <Text
+          style={{
+            color: COLORS.textSecondary,
+            fontSize: 14,
+            textAlign: 'center',
+            lineHeight: 22,
+          }}
+        >
+          Run the SQL migration to enable this feature.{'\n'}
+          See supabase/migrations/fix_content_persistence.sql
+        </Text>
       </View>
     );
   }

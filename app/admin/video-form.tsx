@@ -313,7 +313,7 @@ export default function VideoFormScreen() {
         console.log('[VideoForm] Inserting new video');
         const { error: dbError } = await (supabase as any)
           .from('videos')
-          .insert(payload);
+          .insert({ ...payload, created_by: user?.id ?? null });
 
         if (dbError) {
           console.error('[VideoForm] Insert failed:', dbError.message);

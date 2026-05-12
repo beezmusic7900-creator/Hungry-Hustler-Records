@@ -165,6 +165,7 @@ export default function ArtistsScreen() {
       const { data, error: dbError } = await supabasePublic
         .from('artists')
         .select('*')
+        .eq('is_published', true)
         .order('name');
 
       if (dbError) {
