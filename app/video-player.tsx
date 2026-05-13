@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { WebView } from 'react-native-webview';
+import { Video, ResizeMode } from 'expo-av';
 import { COLORS } from '@/constants/Colors';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabasePublic } from '@/integrations/supabase/client';
@@ -29,34 +30,15 @@ function getYouTubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-// Native video player using expo-video VideoView + useVideoPlayer hook
 function NativeVideoPlayer({ url }: { url: string }) {
-  // expo-video is part of SDK 54
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const expoVideo = require('expo-video') as {
-    VideoView: React.ComponentType<{
-      player: unknown;
-      style: object;
-      contentFit: string;
-      allowsFullscreen?: boolean;
-      allowsPictureInPicture?: boolean;
-    }>;
-    useVideoPlayer: (url: string, setup?: (p: { play: () => void }) => void) => unknown;
-  };
-  const { VideoView, useVideoPlayer } = expoVideo;
-  const player = useVideoPlayer(url, (p) => {
-    p.play();
-  });
-
   console.log('[VideoPlayer] NativeVideoPlayer rendering for:', url);
-
   return (
-    <VideoView
-      player={player}
+    <Video
+      source={{ uri: url }}
       style={{ flex: 1 }}
-      contentFit="contain"
-      allowsFullscreen
-      allowsPictureInPicture
+      resizeMode={ResizeMode.CONTAIN}
+      useNativeControls
+      shouldPlay
     />
   );
 }
