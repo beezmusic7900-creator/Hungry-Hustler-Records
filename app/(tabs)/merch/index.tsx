@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,9 @@ import {
   ImageSourcePropType,
   Linking,
   Platform,
+  RefreshControl,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShoppingBag, Heart } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
@@ -76,7 +78,7 @@ function MerchFavoriteButton({ itemId }: { itemId: string }) {
   );
 }
 
-function MerchCard({ item, index }: { item: MerchItem; index: number }) {
+function MerchCard({ item, index, onPress }: { item: MerchItem; index: number; onPress: () => void }) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(16)).current;
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -120,6 +122,7 @@ function MerchCard({ item, index }: { item: MerchItem; index: number }) {
         margin: 6,
       }}
     >
+      <AnimatedPressable onPress={onPress}>
       <View
         style={{
           backgroundColor: COLORS.surface,
@@ -253,19 +256,29 @@ function MerchCard({ item, index }: { item: MerchItem; index: number }) {
           })()}
         </View>
       </View>
+      </AnimatedPressable>
     </Animated.View>
   );
 }
 
 export default function MerchScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [merch, setMerch] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadMerch();
   }, []);
+
+  const handleRefresh = async () => {
+    console.log('[Merch] Pull-to-refresh triggered');
+    setRefreshing(true);
+    await loadMerch();
+    setRefreshing(false);
+  };
 
   const loadMerch = async () => {
     try {
@@ -430,8 +443,22 @@ export default function MerchScreen() {
           numColumns={2}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 10, paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={COLORS.primary}
+            />
+          }
           renderItem={({ item, index }) => (
-            <MerchCard item={item} index={index} />
+            <MerchCard
+              item={item}
+              index={index}
+              onPress={() => {
+                console.log('[Merch] Card tapped, navigating to merch-detail:', item.id);
+                router.push(`/merch-detail/${item.id}`);
+              }}
+            />
           )}
         />
       )}

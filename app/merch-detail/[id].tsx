@@ -22,7 +22,7 @@ interface MerchItem {
   image_url: string | null;
   category: string | null;
   in_stock: boolean;
-  checkout_url: string | null;
+  stripe_url: string | null;
 }
 
 function resolveImageSource(
@@ -71,9 +71,9 @@ export default function MerchDetailScreen() {
   };
 
   const handleBuyNow = () => {
-    if (item?.checkout_url) {
-      console.log(`[MerchDetail] Buy Now pressed: ${item.name} - ${item.checkout_url}`);
-      Linking.openURL(item.checkout_url);
+    if (item?.stripe_url) {
+      console.log(`[MerchDetail] Buy Now pressed: ${item.name} - ${item.stripe_url}`);
+      Linking.openURL(item.stripe_url);
     }
   };
 
@@ -226,7 +226,7 @@ export default function MerchDetailScreen() {
             ) : null}
 
             {/* Buy Now Button */}
-            {item.checkout_url ? (
+            {item.stripe_url ? (
               <AnimatedPressable onPress={handleBuyNow}>
                 <View
                   style={{

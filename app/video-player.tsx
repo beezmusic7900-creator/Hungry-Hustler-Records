@@ -162,7 +162,7 @@ export default function VideoPlayerScreen() {
         }}
       >
         {loading ? (
-          <SkeletonLine width="100%" height={undefined} borderRadius={0} style={{ flex: 1 }} />
+          <SkeletonLine width="100%" borderRadius={0} style={{ flex: 1 }} />
         ) : error ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: COLORS.danger, fontSize: 14 }}>{error}</Text>
@@ -209,7 +209,7 @@ export default function VideoPlayerScreen() {
                 }}
                 pointerEvents="none"
               >
-                <SkeletonLine width="100%" height={undefined} borderRadius={0} style={{ flex: 1 }} />
+                <SkeletonLine width="100%" borderRadius={0} style={{ flex: 1 }} />
               </View>
             ) : null}
             {playerError ? (

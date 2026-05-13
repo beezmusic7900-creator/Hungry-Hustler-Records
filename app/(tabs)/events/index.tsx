@@ -84,7 +84,7 @@ function SkeletonPostCard() {
           aspectRatio: 1,
         }}
       >
-        <SkeletonLine width="100%" height="100%" borderRadius={0} />
+        <SkeletonLine width="100%" height={120} borderRadius={0} />
       </View>
     </InstagramGradientBorder>
   );

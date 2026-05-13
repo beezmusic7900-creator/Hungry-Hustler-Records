@@ -15,6 +15,7 @@ import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabasePublic } from '@/integrations/supabase/client';
+import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -54,6 +55,7 @@ export default function FanProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, loading: authLoading, signOut } = useAuth();
+  const { playSong } = useAudioPlayer();
 
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [songs, setSongs] = useState<SongDetail[]>([]);
@@ -359,8 +361,20 @@ export default function FanProfileScreen() {
                   </Text>
                 </View>
                 {songs.map((song) => (
-                  <View
+                  <AnimatedPressable
                     key={song.id}
+                    onPress={() => {
+                      console.log('[FanProfile] Play favorite song:', song.title);
+                      playSong({
+                        id: song.id,
+                        title: song.title,
+                        artist: song.artist,
+                        cover_url: song.cover_url,
+                        audio_url: null,
+                      });
+                    }}
+                  >
+                  <View
                     style={{
                       backgroundColor: COLORS.surface,
                       borderRadius: 12,
@@ -408,6 +422,7 @@ export default function FanProfileScreen() {
                       </Text>
                     </View>
                   </View>
+                  </AnimatedPressable>
                 ))}
               </View>
             )}
