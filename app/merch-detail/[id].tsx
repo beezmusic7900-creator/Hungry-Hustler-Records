@@ -12,7 +12,7 @@ import { ShoppingBag, ExternalLink, CheckCircle, XCircle } from 'lucide-react-na
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase } from '@/app/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MerchItem {
   id: string;
