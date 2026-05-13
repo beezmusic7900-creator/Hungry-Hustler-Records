@@ -168,8 +168,8 @@ export default function DashboardScreen() {
       color: '#14B8A6',
     },
     {
-      title: 'Events',
-      subtitle: 'Shows & tickets',
+      title: 'Social',
+      subtitle: 'Instagram & social',
       icon: <Calendar size={22} color="#F97316" />,
       route: '/admin/events-list',
       color: '#F97316',

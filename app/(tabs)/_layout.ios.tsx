@@ -11,7 +11,7 @@ const tabs: TabBarItem[] = [
   { name: 'artists', route: '/(tabs)/artists', icon: 'people', label: 'Artists' },
   { name: 'music', route: '/(tabs)/music', icon: 'music-note', label: 'Music' },
   { name: 'videos', route: '/(tabs)/videos', icon: 'videocam', label: 'Videos' },
-  { name: 'events', route: '/(tabs)/events', icon: 'calendar-today', label: 'Events' },
+  { name: 'events', route: '/(tabs)/events', icon: 'rss-feed', label: 'Social' },
   { name: 'merch', route: '/(tabs)/merch', icon: 'shopping-bag', label: 'Merch' },
   { name: 'admin', route: '/(tabs)/admin', icon: 'admin-panel-settings', label: 'Admin' },
 ];

@@ -4,6 +4,8 @@ import {
   Text,
   ScrollView,
   Platform,
+  Linking,
+  TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { WebView } from 'react-native-webview';
@@ -104,12 +106,50 @@ export default function VideoPlayerScreen() {
 
   const isYouTube = !!resolvedYoutubeId;
   const youtubeEmbedUrl = resolvedYoutubeId
-    ? `https://www.youtube.com/embed/${resolvedYoutubeId}?autoplay=1&playsinline=1`
+    ? `https://www.youtube.com/embed/${resolvedYoutubeId}?playsinline=1&rel=0&modestbranding=1&enablejsapi=1&origin=https://hungry-hustler.app`
     : null;
 
   const videoTitle = video?.title ?? '';
   const videoDescription = video?.description ?? '';
   const directVideoUrl = video?.video_url ?? null;
+
+  const [playerError, setPlayerError] = useState<string | null>(null);
+  const [playerLoaded, setPlayerLoaded] = useState(false);
+  const [playerKey, setPlayerKey] = useState(0);
+
+  const injectedJS = `
+    window.onYouTubeIframeAPIReady = function() {
+      var player = new YT.Player('player', {
+        events: { 'onError': function(e) { window.ReactNativeWebView.postMessage(JSON.stringify({type:'ytError',code:e.data})); } }
+      });
+    };
+    true;
+  `;
+
+  const handleYTMessage = (event: { nativeEvent: { data: string } }) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.type === 'ytError') {
+        console.error('[VideoPlayer] YouTube player error code:', msg.code);
+        setPlayerError('Video unavailable (YouTube error ' + String(msg.code) + ')');
+      }
+    } catch {
+      // non-JSON messages from the page, ignore
+    }
+  };
+
+  const handleOpenInYouTube = () => {
+    const ytUrl = 'https://www.youtube.com/watch?v=' + resolvedYoutubeId;
+    console.log('[VideoPlayer] Opening in YouTube:', ytUrl);
+    Linking.openURL(ytUrl);
+  };
+
+  const handleRetry = () => {
+    console.log('[VideoPlayer] Retrying YouTube player');
+    setPlayerError(null);
+    setPlayerLoaded(false);
+    setPlayerKey((k) => k + 1);
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
@@ -128,16 +168,95 @@ export default function VideoPlayerScreen() {
             <Text style={{ color: COLORS.danger, fontSize: 14 }}>{error}</Text>
           </View>
         ) : isYouTube && youtubeEmbedUrl ? (
-          <WebView
-            source={{ uri: youtubeEmbedUrl }}
-            style={{ flex: 1, backgroundColor: '#000' }}
-            allowsFullscreenVideo
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            onLoadStart={() => console.log('[VideoPlayer] WebView loading YouTube:', youtubeEmbedUrl)}
-            onLoadEnd={() => console.log('[VideoPlayer] WebView loaded')}
-            onError={(e) => console.error('[VideoPlayer] WebView error:', e.nativeEvent.description)}
-          />
+          <View style={{ flex: 1 }}>
+            {!playerError ? (
+              <WebView
+                key={playerKey}
+                source={{ uri: youtubeEmbedUrl }}
+                style={{ flex: 1, backgroundColor: '#000' }}
+                allowsFullscreenVideo
+                allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+                injectedJavaScript={injectedJS}
+                onMessage={handleYTMessage}
+                onLoadStart={() => {
+                  console.log('[VideoPlayer] YouTube WebView load start:', youtubeEmbedUrl);
+                  setPlayerError(null);
+                  setPlayerLoaded(false);
+                }}
+                onLoadEnd={() => {
+                  console.log('[VideoPlayer] YouTube WebView loaded');
+                  setPlayerLoaded(true);
+                }}
+                onError={(e) => {
+                  console.error('[VideoPlayer] YouTube WebView error:', e.nativeEvent.description);
+                  setPlayerError(e.nativeEvent.description);
+                }}
+                onHttpError={(e) => {
+                  console.error('[VideoPlayer] YouTube WebView HTTP error:', e.nativeEvent.statusCode);
+                  setPlayerError('HTTP ' + String(e.nativeEvent.statusCode));
+                }}
+              />
+            ) : null}
+            {!playerLoaded && !playerError ? (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: '#000',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                pointerEvents="none"
+              >
+                <SkeletonLine width="100%" height={undefined} borderRadius={0} style={{ flex: 1 }} />
+              </View>
+            ) : null}
+            {playerError ? (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: '#000',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 12,
+                  padding: 20,
+                }}
+              >
+                <Text style={{ color: COLORS.danger, fontSize: 14, textAlign: 'center' }}>
+                  Video unavailable
+                </Text>
+                <TouchableOpacity
+                  onPress={handleOpenInYouTube}
+                  style={{
+                    backgroundColor: COLORS.primary,
+                    paddingHorizontal: 20,
+                    paddingVertical: 10,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>
+                    Open in YouTube
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleRetry}
+                  style={{
+                    paddingHorizontal: 20,
+                    paddingVertical: 10,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: COLORS.textSecondary,
+                  }}
+                >
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 14, fontWeight: '600' }}>
+                    Retry
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
         ) : directVideoUrl ? (
           Platform.OS === 'web' ? (
             <WebVideoPlayer url={directVideoUrl} />

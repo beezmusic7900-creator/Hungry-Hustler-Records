@@ -217,27 +217,40 @@ function MerchCard({ item, index }: { item: MerchItem; index: number }) {
           </ScrollView>
 
           {/* BUY NOW button */}
-          <AnimatedPressable onPress={handleBuyNow} style={{ marginTop: 10 }}>
-            <View
-              style={{
-                backgroundColor: COLORS.primary,
-                borderRadius: 8,
-                paddingVertical: 8,
-                alignItems: 'center',
-              }}
-            >
-              <Text
-                style={{
-                  color: COLORS.background,
-                  fontSize: 12,
-                  fontWeight: '700',
-                  letterSpacing: 0.5,
-                }}
-              >
-                BUY NOW
-              </Text>
-            </View>
-          </AnimatedPressable>
+          {(() => {
+            const isOutOfStock = !item.in_stock;
+            const isUnavailable = item.in_stock && !item.stripe_url;
+            const isDisabled = isOutOfStock || isUnavailable;
+            const buttonLabel = isOutOfStock ? 'Out of Stock' : isUnavailable ? 'Unavailable' : 'BUY NOW';
+            const buttonBg = isDisabled ? COLORS.surfaceSecondary : COLORS.primary;
+            const buttonBorder = isDisabled ? COLORS.border : COLORS.primary;
+            const buttonTextColor = isDisabled ? COLORS.textSecondary : COLORS.background;
+            return (
+              <AnimatedPressable onPress={handleBuyNow} disabled={isDisabled} style={{ marginTop: 10 }}>
+                <View
+                  style={{
+                    backgroundColor: buttonBg,
+                    borderRadius: 8,
+                    paddingVertical: 8,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: buttonBorder,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: buttonTextColor,
+                      fontSize: 12,
+                      fontWeight: '700',
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    {buttonLabel}
+                  </Text>
+                </View>
+              </AnimatedPressable>
+            );
+          })()}
         </View>
       </View>
     </Animated.View>

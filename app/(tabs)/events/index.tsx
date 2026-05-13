@@ -10,29 +10,45 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar, MapPin, Ticket, Heart } from 'lucide-react-native';
+import { Share2 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabasePublic } from '@/integrations/supabase/client';
-import { useFavorite } from '@/hooks/useFavorite';
 
-// The `events` table is not yet in the generated Supabase types — cast to bypass
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dbPublic: any = supabasePublic;
 
-interface EventItem {
+const INSTAGRAM_GRADIENT_COLORS = ['#833AB4', '#FD1D1D', '#F77737'];
+
+interface SocialPost {
   id: string;
-  title: string;
-  description: string | null;
-  event_date: string | null;
-  venue: string | null;
-  city: string | null;
-  ticket_url: string | null;
+  artist_name: string | null;
+  caption: string | null;
   image_url: string | null;
+  post_url: string | null;
+  post_date: string | null;
   is_published: boolean;
-  created_at: string;
 }
+
+interface ArtistSection {
+  name: string;
+  handle: string;
+  profileUrl: string;
+}
+
+const ARTISTS: ArtistSection[] = [
+  {
+    name: 'Afroman',
+    handle: '@ogafroman',
+    profileUrl: 'https://www.instagram.com/ogafroman',
+  },
+  {
+    name: 'OG Daddy V',
+    handle: '@ogdaddy_vee',
+    profileUrl: 'https://www.instagram.com/ogdaddy_vee/',
+  },
+];
 
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
@@ -42,259 +58,266 @@ function resolveImageSource(
   return source as ImageSourcePropType;
 }
 
-function formatEventDate(dateStr: string | null): string {
-  if (!dateStr) return 'Date TBA';
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
-function EventFavoriteButton({ eventId }: { eventId: string }) {
-  const { isFavorited, toggleFavorite } = useFavorite('event', eventId);
-
-  const handlePress = () => {
-    console.log('[Events] Toggle favorite for event:', eventId, '— currently:', isFavorited);
-    toggleFavorite();
-  };
-
+function InstagramGradientBorder({ children }: { children: React.ReactNode }) {
   return (
-    <AnimatedPressable onPress={handlePress}>
-      <View
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 18,
-          backgroundColor: isFavorited ? 'rgba(255, 68, 68, 0.15)' : COLORS.surfaceSecondary,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: 1,
-          borderColor: isFavorited ? 'rgba(255, 68, 68, 0.4)' : COLORS.border,
-        }}
-      >
-        <Heart
-          size={16}
-          color={isFavorited ? '#FF4444' : COLORS.textSecondary}
-          fill={isFavorited ? '#FF4444' : 'transparent'}
-        />
-      </View>
-    </AnimatedPressable>
+    <View
+      style={{
+        borderRadius: 10,
+        padding: 1.5,
+        backgroundColor: INSTAGRAM_GRADIENT_COLORS[1],
+        borderWidth: 0,
+      }}
+    >
+      {children}
+    </View>
   );
 }
 
-function EventCard({ item }: { item: EventItem }) {
-  const dateText = formatEventDate(item.event_date);
-  const venueCity = [item.venue, item.city].filter(Boolean).join(', ');
+function SkeletonPostCard() {
+  return (
+    <InstagramGradientBorder>
+      <View
+        style={{
+          backgroundColor: COLORS.surface,
+          borderRadius: 9,
+          overflow: 'hidden',
+          aspectRatio: 1,
+        }}
+      >
+        <SkeletonLine width="100%" height="100%" borderRadius={0} />
+      </View>
+    </InstagramGradientBorder>
+  );
+}
 
-  const handleGetTickets = () => {
-    if (item.ticket_url) {
-      console.log('[Events] Get tickets pressed for:', item.title, item.ticket_url);
-      Linking.openURL(item.ticket_url);
+function PostCard({ post }: { post: SocialPost }) {
+  const handleViewPost = () => {
+    if (post.post_url) {
+      console.log('[Social] View post pressed:', post.post_url);
+      Linking.openURL(post.post_url);
     }
   };
 
   return (
-    <View
-      style={{
-        backgroundColor: COLORS.surface,
-        borderRadius: 16,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        marginBottom: 16,
-      }}
-    >
-      {/* Event image */}
-      {item.image_url ? (
-        <Image
-          source={resolveImageSource(item.image_url)}
-          style={{ width: '100%', height: 180 }}
-          resizeMode="cover"
-        />
-      ) : (
-        <View
-          style={{
-            width: '100%',
-            height: 120,
-            backgroundColor: COLORS.primaryMuted,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderBottomWidth: 1,
-            borderBottomColor: COLORS.border,
-          }}
-        >
-          <Calendar size={40} color={COLORS.primary} />
-        </View>
-      )}
+    <InstagramGradientBorder>
+      <View
+        style={{
+          backgroundColor: COLORS.surface,
+          borderRadius: 9,
+          overflow: 'hidden',
+        }}
+      >
+        {post.image_url ? (
+          <Image
+            source={resolveImageSource(post.image_url)}
+            style={{ width: '100%', aspectRatio: 1 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View
+            style={{
+              width: '100%',
+              aspectRatio: 1,
+              backgroundColor: COLORS.primaryMuted,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Share2 size={24} color={COLORS.primary} />
+          </View>
+        )}
+        {post.caption ? (
+          <Text
+            style={{
+              color: COLORS.textSecondary,
+              fontSize: 11,
+              lineHeight: 15,
+              padding: 6,
+            }}
+            numberOfLines={2}
+          >
+            {post.caption}
+          </Text>
+        ) : null}
+        {post.post_url ? (
+          <AnimatedPressable onPress={handleViewPost} style={{ padding: 6, paddingTop: 0 }}>
+            <View
+              style={{
+                backgroundColor: COLORS.primaryMuted,
+                borderRadius: 6,
+                paddingVertical: 5,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.primary,
+              }}
+            >
+              <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: '700' }}>
+                View Post
+              </Text>
+            </View>
+          </AnimatedPressable>
+        ) : null}
+      </View>
+    </InstagramGradientBorder>
+  );
+}
 
-      <View style={{ padding: 16 }}>
-        {/* Title row */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+function ArtistSocialSection({
+  artist,
+  posts,
+  showPlaceholder,
+}: {
+  artist: ArtistSection;
+  posts: SocialPost[];
+  showPlaceholder: boolean;
+}) {
+  const handleFollow = () => {
+    console.log('[Social] Follow on Instagram pressed for:', artist.name, artist.profileUrl);
+    Linking.openURL(artist.profileUrl);
+  };
+
+  const artistPosts = posts.filter(
+    (p) => p.artist_name?.toLowerCase() === artist.name.toLowerCase()
+  );
+  const hasPosts = artistPosts.length > 0;
+  const gridItems = hasPosts ? artistPosts : [0, 1, 2, 3, 4, 5];
+
+  return (
+    <View style={{ marginBottom: 32 }}>
+      {/* Artist header */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 12,
+          paddingHorizontal: 16,
+        }}
+      >
+        <View style={{ flex: 1 }}>
           <Text
             style={{
               color: COLORS.text,
               fontSize: 18,
               fontWeight: '700',
-              flex: 1,
-              letterSpacing: -0.2,
+              letterSpacing: -0.3,
             }}
-            numberOfLines={2}
           >
-            {item.title}
+            {artist.name}
           </Text>
-          <EventFavoriteButton eventId={item.id} />
-        </View>
-
-        {/* Date */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
-          <Calendar size={14} color={COLORS.primary} />
-          <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '600' }}>
-            {dateText}
+          <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 2 }}>
+            {artist.handle}
           </Text>
         </View>
-
-        {/* Venue */}
-        {venueCity ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
-            <MapPin size={14} color={COLORS.textSecondary} />
-            <Text style={{ color: COLORS.textSecondary, fontSize: 13 }} numberOfLines={1}>
-              {venueCity}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Description */}
-        {item.description ? (
-          <Text
-            style={{
-              color: COLORS.textSecondary,
-              fontSize: 13,
-              lineHeight: 20,
-              marginTop: 10,
-            }}
-            numberOfLines={3}
-          >
-            {item.description}
-          </Text>
-        ) : null}
-
-        {/* Get Tickets button */}
-        {item.ticket_url ? (
-          <AnimatedPressable onPress={handleGetTickets} style={{ marginTop: 14 }}>
-            <View
-              style={{
-                backgroundColor: COLORS.primary,
-                borderRadius: 10,
-                paddingVertical: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-              }}
-            >
-              <Ticket size={16} color={COLORS.background} />
-              <Text
-                style={{
-                  color: COLORS.background,
-                  fontSize: 14,
-                  fontWeight: '700',
-                  letterSpacing: 0.3,
-                }}
-              >
-                Get Tickets
-              </Text>
-            </View>
-          </AnimatedPressable>
-        ) : (
+        <AnimatedPressable onPress={handleFollow}>
           <View
             style={{
-              marginTop: 14,
-              backgroundColor: COLORS.surfaceSecondary,
-              borderRadius: 10,
-              paddingVertical: 12,
+              flexDirection: 'row',
               alignItems: 'center',
-              borderWidth: 1,
-              borderColor: COLORS.border,
+              gap: 6,
+              backgroundColor: INSTAGRAM_GRADIENT_COLORS[1],
+              borderRadius: 10,
+              paddingVertical: 8,
+              paddingHorizontal: 14,
             }}
           >
-            <Text style={{ color: COLORS.textSecondary, fontSize: 14, fontWeight: '600' }}>
-              Tickets Coming Soon
+            <Share2 size={14} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+              Follow on Instagram
             </Text>
           </View>
-        )}
+        </AnimatedPressable>
+      </View>
+
+      {/* Placeholder message when no posts */}
+      {showPlaceholder && !hasPosts ? (
+        <Text
+          style={{
+            color: COLORS.textSecondary,
+            fontSize: 13,
+            textAlign: 'center',
+            marginBottom: 12,
+            paddingHorizontal: 16,
+          }}
+        >
+          Tap Follow to see the latest posts on Instagram
+        </Text>
+      ) : null}
+
+      {/* Grid */}
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          paddingHorizontal: 12,
+          gap: 6,
+        }}
+      >
+        {gridItems.map((item, index) => {
+          const itemWidth = '31.5%';
+          if (hasPosts) {
+            const post = item as SocialPost;
+            return (
+              <View key={post.id} style={{ width: itemWidth }}>
+                <PostCard post={post} />
+              </View>
+            );
+          }
+          return (
+            <View key={index} style={{ width: itemWidth }}>
+              <SkeletonPostCard />
+            </View>
+          );
+        })}
       </View>
     </View>
   );
 }
 
-function SkeletonEventCard() {
-  return (
-    <View
-      style={{
-        backgroundColor: COLORS.surface,
-        borderRadius: 16,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        marginBottom: 16,
-      }}
-    >
-      <SkeletonLine width="100%" height={180} borderRadius={0} />
-      <View style={{ padding: 16, gap: 10 }}>
-        <SkeletonLine width="75%" height={18} />
-        <SkeletonLine width="50%" height={13} />
-        <SkeletonLine width="60%" height={13} />
-        <SkeletonLine width="100%" height={44} borderRadius={10} style={{ marginTop: 4 }} />
-      </View>
-    </View>
-  );
-}
-
-export default function EventsScreen() {
+export default function SocialScreen() {
   const insets = useSafeAreaInsets();
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<SocialPost[]>([]);
+  const [showPlaceholder, setShowPlaceholder] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadEvents = useCallback(async () => {
+  const loadPosts = useCallback(async () => {
     try {
-      console.log('[Events] Loading events from Supabase');
-      setError(null);
+      console.log('[Social] Loading social_posts from Supabase');
       const { data, error: dbError } = await dbPublic
-        .from('events')
+        .from('social_posts')
         .select('*')
         .eq('is_published', true)
-        .order('event_date', { ascending: true });
+        .order('post_date', { ascending: false });
 
       if (dbError) {
-        console.error('[Events] Supabase error:', dbError.message);
-        setError("Couldn't load events.");
+        const code = dbError.code as string;
+        if (code === 'PGRST200' || code === '42P01') {
+          console.log('[Social] social_posts table not found — showing placeholder layout');
+          setShowPlaceholder(true);
+          return;
+        }
+        console.error('[Social] Supabase error:', dbError.message);
         return;
       }
-      console.log('[Events] Loaded', data?.length ?? 0, 'events');
-      setEvents((data ?? []) as unknown as EventItem[]);
+
+      const loaded = (data ?? []) as unknown as SocialPost[];
+      console.log('[Social] Loaded', loaded.length, 'social posts');
+      setPosts(loaded);
+      setShowPlaceholder(loaded.length === 0);
     } catch (err) {
-      console.error('[Events] Failed to load events:', err);
-      setError("Couldn't load events. Check your connection.");
+      console.error('[Social] Failed to load posts:', err);
+      setShowPlaceholder(true);
     }
   }, []);
 
   useEffect(() => {
-    loadEvents().finally(() => setLoading(false));
-  }, [loadEvents]);
+    loadPosts();
+  }, [loadPosts]);
 
   const handleRefresh = async () => {
-    console.log('[Events] Pull-to-refresh triggered');
+    console.log('[Social] Pull-to-refresh triggered');
     setRefreshing(true);
-    await loadEvents();
+    await loadPosts();
     setRefreshing(false);
   };
 
@@ -316,7 +339,7 @@ export default function EventsScreen() {
             letterSpacing: -0.5,
           }}
         >
-          EVENTS
+          SOCIAL
         </Text>
         <View
           style={{
@@ -338,84 +361,26 @@ export default function EventsScreen() {
         />
       </View>
 
-      {loading ? (
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}>
-          {[0, 1, 2].map((k) => <SkeletonEventCard key={k} />)}
-        </ScrollView>
-      ) : error ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-          <Text style={{ color: COLORS.danger, fontSize: 15, textAlign: 'center' }}>{error}</Text>
-          <AnimatedPressable
-            onPress={() => {
-              console.log('[Events] Retry loading');
-              setLoading(true);
-              loadEvents().finally(() => setLoading(false));
-            }}
-            style={{ marginTop: 16 }}
-          >
-            <View
-              style={{
-                backgroundColor: COLORS.primaryMuted,
-                borderRadius: 10,
-                paddingVertical: 10,
-                paddingHorizontal: 24,
-                borderWidth: 1,
-                borderColor: COLORS.primary,
-              }}
-            >
-              <Text style={{ color: COLORS.primary, fontWeight: '600' }}>Try Again</Text>
-            </View>
-          </AnimatedPressable>
-        </View>
-      ) : events.length === 0 ? (
-        <View style={{ alignItems: 'center', paddingTop: 80 }}>
-          <View
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: 20,
-              backgroundColor: COLORS.primaryMuted,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor: COLORS.primary,
-            }}
-          >
-            <Calendar size={32} color={COLORS.primary} />
-          </View>
-          <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '600', textAlign: 'center' }}>
-            No events yet
-          </Text>
-          <Text
-            style={{
-              color: COLORS.textSecondary,
-              fontSize: 14,
-              textAlign: 'center',
-              marginTop: 8,
-              maxWidth: 260,
-            }}
-          >
-            Check back soon for upcoming shows and events.
-          </Text>
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={COLORS.primary}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-        >
-          {events.map((event) => (
-            <EventCard key={event.id} item={event} />
-          ))}
-        </ScrollView>
-      )}
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={COLORS.primary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {ARTISTS.map((artist) => (
+          <ArtistSocialSection
+            key={artist.name}
+            artist={artist}
+            posts={posts}
+            showPlaceholder={showPlaceholder}
+          />
+        ))}
+      </ScrollView>
     </View>
   );
 }
