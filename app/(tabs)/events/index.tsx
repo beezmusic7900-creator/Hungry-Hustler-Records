@@ -9,6 +9,7 @@ import {
   ImageSourcePropType,
   Platform,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Share2 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
@@ -35,18 +36,21 @@ interface ArtistSection {
   name: string;
   handle: string;
   profileUrl: string;
+  embedUrl: string;
 }
 
 const ARTISTS: ArtistSection[] = [
   {
     name: 'Afroman',
     handle: '@ogafroman',
-    profileUrl: 'https://www.instagram.com/ogafroman',
+    profileUrl: 'https://www.instagram.com/ogafroman/',
+    embedUrl: 'https://www.instagram.com/ogafroman/embed/',
   },
   {
     name: 'OG Daddy V',
     handle: '@ogdaddy_vee',
     profileUrl: 'https://www.instagram.com/ogdaddy_vee/',
+    embedUrl: 'https://www.instagram.com/ogdaddy_vee/embed/',
   },
 ];
 
@@ -70,23 +74,6 @@ function InstagramGradientBorder({ children }: { children: React.ReactNode }) {
     >
       {children}
     </View>
-  );
-}
-
-function SkeletonPostCard() {
-  return (
-    <InstagramGradientBorder>
-      <View
-        style={{
-          backgroundColor: COLORS.surface,
-          borderRadius: 9,
-          overflow: 'hidden',
-          aspectRatio: 1,
-        }}
-      >
-        <SkeletonLine width="100%" height={120} borderRadius={0} />
-      </View>
-    </InstagramGradientBorder>
   );
 }
 
@@ -162,14 +149,104 @@ function PostCard({ post }: { post: SocialPost }) {
   );
 }
 
+function InstagramEmbed({ artist }: { artist: ArtistSection }) {
+  const [webViewLoading, setWebViewLoading] = useState(true);
+  const [webViewError, setWebViewError] = useState(false);
+
+  const handleOpenInstagram = () => {
+    console.log('[Social] Open on Instagram pressed for:', artist.name, artist.profileUrl);
+    Linking.openURL(artist.profileUrl);
+  };
+
+  if (webViewError) {
+    return (
+      <View
+        style={{
+          marginHorizontal: 16,
+          height: 200,
+          backgroundColor: COLORS.surface,
+          borderRadius: 12,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+        }}
+      >
+        <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>
+          Could not load Instagram feed
+        </Text>
+        <AnimatedPressable onPress={handleOpenInstagram}>
+          <View
+            style={{
+              backgroundColor: INSTAGRAM_GRADIENT_COLORS[1],
+              borderRadius: 10,
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+              Open on Instagram
+            </Text>
+          </View>
+        </AnimatedPressable>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={{
+        marginHorizontal: 16,
+        height: 500,
+        backgroundColor: COLORS.surface,
+        borderRadius: 12,
+        overflow: 'hidden',
+      }}
+    >
+      {webViewLoading ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <SkeletonLine width="100%" height={500} borderRadius={12} />
+        </View>
+      ) : null}
+      <WebView
+        source={{ uri: artist.embedUrl }}
+        style={{ flex: 1, backgroundColor: COLORS.surface }}
+        onLoadStart={() => {
+          console.log('[Social] WebView loading:', artist.embedUrl);
+          setWebViewLoading(true);
+          setWebViewError(false);
+        }}
+        onLoad={() => {
+          console.log('[Social] WebView loaded:', artist.name);
+          setWebViewLoading(false);
+        }}
+        onError={() => {
+          console.log('[Social] WebView error for:', artist.name);
+          setWebViewLoading(false);
+          setWebViewError(true);
+        }}
+        onHttpError={() => {
+          console.log('[Social] WebView HTTP error for:', artist.name);
+          setWebViewLoading(false);
+          setWebViewError(true);
+        }}
+        scrollEnabled
+        javaScriptEnabled
+        domStorageEnabled
+        startInLoadingState={false}
+        mixedContentMode="always"
+      />
+    </View>
+  );
+}
+
 function ArtistSocialSection({
   artist,
   posts,
-  showPlaceholder,
 }: {
   artist: ArtistSection;
   posts: SocialPost[];
-  showPlaceholder: boolean;
 }) {
   const handleFollow = () => {
     console.log('[Social] Follow on Instagram pressed for:', artist.name, artist.profileUrl);
@@ -180,7 +257,6 @@ function ArtistSocialSection({
     (p) => p.artist_name?.toLowerCase() === artist.name.toLowerCase()
   );
   const hasPosts = artistPosts.length > 0;
-  const gridItems = hasPosts ? artistPosts : [0, 1, 2, 3, 4, 5];
 
   return (
     <View style={{ marginBottom: 32 }}>
@@ -229,47 +305,27 @@ function ArtistSocialSection({
         </AnimatedPressable>
       </View>
 
-      {/* Placeholder message when no posts */}
-      {showPlaceholder && !hasPosts ? (
-        <Text
+      {/* Published posts grid (shown above WebView when available) */}
+      {hasPosts ? (
+        <View
           style={{
-            color: COLORS.textSecondary,
-            fontSize: 13,
-            textAlign: 'center',
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            paddingHorizontal: 12,
+            gap: 6,
             marginBottom: 12,
-            paddingHorizontal: 16,
           }}
         >
-          Tap Follow to see the latest posts on Instagram
-        </Text>
+          {artistPosts.map((post) => (
+            <View key={post.id} style={{ width: '31.5%' }}>
+              <PostCard post={post} />
+            </View>
+          ))}
+        </View>
       ) : null}
 
-      {/* Grid */}
-      <View
-        style={{
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          paddingHorizontal: 12,
-          gap: 6,
-        }}
-      >
-        {gridItems.map((item, index) => {
-          const itemWidth = '31.5%';
-          if (hasPosts) {
-            const post = item as SocialPost;
-            return (
-              <View key={post.id} style={{ width: itemWidth }}>
-                <PostCard post={post} />
-              </View>
-            );
-          }
-          return (
-            <View key={index} style={{ width: itemWidth }}>
-              <SkeletonPostCard />
-            </View>
-          );
-        })}
-      </View>
+      {/* Instagram embed WebView */}
+      <InstagramEmbed artist={artist} />
     </View>
   );
 }
@@ -387,7 +443,6 @@ export default function SocialScreen() {
             key={artist.name}
             artist={artist}
             posts={posts}
-            showPlaceholder={showPlaceholder}
           />
         ))}
       </ScrollView>

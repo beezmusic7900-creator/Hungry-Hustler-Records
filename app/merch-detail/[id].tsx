@@ -12,7 +12,7 @@ import { ShoppingBag, ExternalLink, CheckCircle, XCircle } from 'lucide-react-na
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabase } from '@/integrations/supabase/client';
+import { supabasePublic } from '@/integrations/supabase/client';
 
 interface MerchItem {
   id: string;
@@ -49,7 +49,7 @@ export default function MerchDetailScreen() {
       console.log(`[MerchDetail] Loading merch item: ${id}`);
       setLoading(true);
       setError(null);
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await supabasePublic
         .from('merch')
         .select('*')
         .eq('id', id as string)

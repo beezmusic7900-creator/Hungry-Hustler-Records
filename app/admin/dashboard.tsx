@@ -16,6 +16,7 @@ import {
   LogOut,
   UserCog,
   Calendar,
+  Share2,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
@@ -168,11 +169,18 @@ export default function DashboardScreen() {
       color: '#14B8A6',
     },
     {
-      title: 'Social',
-      subtitle: 'Instagram & social',
+      title: 'Events',
+      subtitle: 'Shows & tickets',
       icon: <Calendar size={22} color="#F97316" />,
       route: '/admin/events-list',
       color: '#F97316',
+    },
+    {
+      title: 'Social',
+      subtitle: 'Instagram & social',
+      icon: <Share2 size={22} color="#E1306C" />,
+      route: '/admin/social-list',
+      color: '#E1306C',
     },
   ];
 
