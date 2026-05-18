@@ -319,13 +319,6 @@ export default function ArtistFormScreen() {
         multiline
       />
       <FormField
-        label="Image URL"
-        value={imageUrl}
-        onChangeText={setImageUrl}
-        placeholder="https://..."
-        keyboardType="url"
-      />
-      <FormField
         label="Apple Music URL"
         value={appleMusicUrl}
         onChangeText={setAppleMusicUrl}

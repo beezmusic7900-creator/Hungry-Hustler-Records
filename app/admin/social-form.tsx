@@ -7,10 +7,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  Image,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,6 +41,7 @@ export default function SocialFormScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -123,6 +127,48 @@ export default function SocialFormScreen() {
     }
   };
 
+  const handleUploadImage = async () => {
+    console.log('[SocialForm] Upload image pressed');
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      const ext = asset.uri.split('.').pop() ?? 'jpg';
+      const fileName = `social-${Date.now()}.${ext}`;
+
+      try {
+        setUploading(true);
+        console.log(`[SocialForm] Uploading image: ${fileName}`);
+
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+
+        const { error: uploadError } = await supabase.storage
+          .from('images')
+          .upload(fileName, blob, { upsert: true, contentType: asset.mimeType ?? 'image/jpeg' });
+
+        if (uploadError) {
+          console.error('[SocialForm] Upload failed:', uploadError.message);
+          Alert.alert('Upload failed', uploadError.message);
+          return;
+        }
+
+        const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName);
+        setImageUrl(urlData.publicUrl);
+        console.log('[SocialForm] Image uploaded:', urlData.publicUrl);
+      } catch (err) {
+        console.error('[SocialForm] Upload failed:', err);
+        Alert.alert('Upload failed', 'Could not upload the image.');
+      } finally {
+        setUploading(false);
+      }
+    }
+  };
+
   const dateLabel = postDate.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'long',
@@ -201,18 +247,23 @@ export default function SocialFormScreen() {
             />
           </View>
 
-          {/* Image URL */}
+          {/* Post Image */}
           <View>
-            <Text style={labelStyle}>Image URL</Text>
-            <TextInput
-              value={imageUrl}
-              onChangeText={setImageUrl}
-              placeholder="https://..."
-              placeholderTextColor={COLORS.textTertiary}
-              keyboardType="url"
-              autoCapitalize="none"
-              style={inputStyle}
-            />
+            <Text style={labelStyle}>Post Image</Text>
+            {imageUrl ? (
+              <Image
+                source={{ uri: imageUrl }}
+                style={{ width: '100%', height: 160, borderRadius: 12, marginBottom: 10 }}
+                resizeMode="cover"
+              />
+            ) : null}
+            <AnimatedPressable onPress={handleUploadImage} disabled={uploading}>
+              <View style={[inputStyle, { alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }]}>
+                <Text style={{ color: uploading ? COLORS.textTertiary : COLORS.primary, fontSize: 14, fontWeight: '600' }}>
+                  {uploading ? 'Uploading...' : imageUrl ? 'Change Image' : 'Upload Image'}
+                </Text>
+              </View>
+            </AnimatedPressable>
           </View>
 
           {/* Post URL */}

@@ -554,14 +554,6 @@ export default function VideoFormScreen() {
         />
       )}
 
-      <FormField
-        label="Thumbnail URL"
-        value={thumbnailUrl}
-        onChangeText={setThumbnailUrl}
-        placeholder="https://... (or use picker above)"
-        keyboardType="url"
-      />
-
       {/* Published toggle */}
       <View
         style={{
