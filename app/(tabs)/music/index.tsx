@@ -511,9 +511,10 @@ export default function MusicScreen() {
         data.topSongs.length,
         'songs'
       );
-    } catch {
+    } catch (err) {
+      console.warn('[Music] Apple Music unavailable:', err);
       setAmData(null);
-      setAmError(null);
+      setAmError('Apple Music content unavailable');
     } finally {
       setAmLoading(false);
     }
