@@ -140,6 +140,14 @@ export default function RootLayout() {
                     options={{ headerShown: true, title: 'Social Post', ...HEADER_OPTIONS }}
                   />
                   <Stack.Screen
+                    name="admin/news-list"
+                    options={{ headerShown: true, title: 'Manage News', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/news-form"
+                    options={{ headerShown: true, title: 'Article', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
                     name="fan-auth"
                     options={{ headerShown: true, title: 'Fan Account', ...HEADER_OPTIONS }}
                   />

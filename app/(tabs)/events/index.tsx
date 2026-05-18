@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Share2 } from 'lucide-react-native';
+import { Share2, Newspaper } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
@@ -29,6 +29,17 @@ interface SocialPost {
   image_url: string | null;
   post_url: string | null;
   post_date: string | null;
+  is_published: boolean;
+}
+
+interface NewsArticle {
+  id: string;
+  title: string;
+  body: string | null;
+  image_url: string | null;
+  source_url: string | null;
+  artist_name: string | null;
+  article_date: string | null;
   is_published: boolean;
 }
 
@@ -330,11 +341,142 @@ function ArtistSocialSection({
   );
 }
 
+function formatArticleDate(dateStr: string | null): string {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+function NewsSkeletonCard() {
+  return (
+    <View
+      style={{
+        backgroundColor: COLORS.surface,
+        borderRadius: 14,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        marginBottom: 14,
+      }}
+    >
+      <SkeletonLine width="100%" height={180} borderRadius={0} />
+      <View style={{ padding: 14, gap: 8 }}>
+        <SkeletonLine width="80%" height={16} />
+        <SkeletonLine width="100%" height={13} />
+        <SkeletonLine width="60%" height={13} />
+        <SkeletonLine width="40%" height={12} />
+      </View>
+    </View>
+  );
+}
+
+function NewsCard({ article }: { article: NewsArticle }) {
+  const handleReadMore = () => {
+    if (article.source_url) {
+      console.log('[News] Read More pressed:', article.source_url);
+      Linking.openURL(article.source_url);
+    }
+  };
+
+  const dateText = formatArticleDate(article.article_date);
+  const hasImage = !!article.image_url;
+  const hasArtist = !!article.artist_name;
+  const hasSourceUrl = !!article.source_url;
+
+  return (
+    <View
+      style={{
+        backgroundColor: COLORS.surface,
+        borderRadius: 14,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        marginBottom: 14,
+      }}
+    >
+      {hasImage ? (
+        <Image
+          source={resolveImageSource(article.image_url ?? undefined)}
+          style={{ width: '100%', aspectRatio: 16 / 9 }}
+          resizeMode="cover"
+        />
+      ) : null}
+      <View style={{ padding: 14, gap: 8 }}>
+        <Text
+          style={{
+            color: COLORS.text,
+            fontSize: 16,
+            fontWeight: '700',
+            lineHeight: 22,
+            letterSpacing: -0.2,
+          }}
+        >
+          {article.title}
+        </Text>
+        {article.body ? (
+          <Text
+            style={{ color: COLORS.textSecondary, fontSize: 13, lineHeight: 19 }}
+            numberOfLines={2}
+          >
+            {article.body}
+          </Text>
+        ) : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {hasArtist ? (
+            <View
+              style={{
+                backgroundColor: COLORS.primaryMuted,
+                borderRadius: 20,
+                paddingHorizontal: 10,
+                paddingVertical: 3,
+                borderWidth: 1,
+                borderColor: COLORS.primary,
+              }}
+            >
+              <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: '600' }}>
+                {article.artist_name}
+              </Text>
+            </View>
+          ) : null}
+          {dateText ? (
+            <Text style={{ color: COLORS.textTertiary, fontSize: 12 }}>{dateText}</Text>
+          ) : null}
+        </View>
+        {hasSourceUrl ? (
+          <AnimatedPressable onPress={handleReadMore}>
+            <View
+              style={{
+                backgroundColor: COLORS.primaryMuted,
+                borderRadius: 10,
+                paddingVertical: 10,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.primary,
+                marginTop: 2,
+              }}
+            >
+              <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700' }}>
+                Read More
+              </Text>
+            </View>
+          </AnimatedPressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 export default function SocialScreen() {
   const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [showPlaceholder, setShowPlaceholder] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [news, setNews] = useState<NewsArticle[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
 
   const loadPosts = useCallback(async () => {
     try {
@@ -376,14 +518,39 @@ export default function SocialScreen() {
     }
   }, []);
 
+  const loadNews = useCallback(async () => {
+    try {
+      console.log('[News] Loading news_articles from Supabase');
+      const { data, error: dbError } = await dbPublic
+        .from('news_articles')
+        .select('*')
+        .eq('is_published', true)
+        .order('article_date', { ascending: false });
+
+      if (dbError) {
+        console.error('[News] Supabase error:', dbError.message);
+        setNews([]);
+        return;
+      }
+
+      const loaded = (data ?? []) as unknown as NewsArticle[];
+      console.log('[News] Loaded', loaded.length, 'articles');
+      setNews(loaded);
+    } catch (err) {
+      console.error('[News] Failed to load articles:', err);
+      setNews([]);
+    }
+  }, []);
+
   useEffect(() => {
     loadPosts();
-  }, [loadPosts]);
+    loadNews().finally(() => setNewsLoading(false));
+  }, [loadPosts, loadNews]);
 
   const handleRefresh = async () => {
     console.log('[Social] Pull-to-refresh triggered');
     setRefreshing(true);
-    await loadPosts();
+    await Promise.all([loadPosts(), loadNews()]);
     setRefreshing(false);
   };
 
@@ -445,6 +612,58 @@ export default function SocialScreen() {
             posts={posts}
           />
         ))}
+
+        {/* NEWS section */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+          <Text
+            style={{
+              color: COLORS.text,
+              fontSize: 28,
+              fontWeight: '700',
+              letterSpacing: -0.5,
+            }}
+          >
+            NEWS
+          </Text>
+          <View
+            style={{
+              width: 40,
+              height: 3,
+              backgroundColor: COLORS.primary,
+              borderRadius: 2,
+              marginTop: 6,
+              ...Platform.select({
+                native: {
+                  shadowColor: COLORS.primary,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.6,
+                  shadowRadius: 6,
+                },
+                default: {},
+              }),
+            }}
+          />
+        </View>
+
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+          {newsLoading ? (
+            <>
+              <NewsSkeletonCard />
+              <NewsSkeletonCard />
+            </>
+          ) : news.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 40, gap: 12 }}>
+              <Newspaper size={40} color={COLORS.textTertiary} />
+              <Text style={{ color: COLORS.textSecondary, fontSize: 15 }}>
+                No news articles yet
+              </Text>
+            </View>
+          ) : (
+            news.map((article) => (
+              <NewsCard key={article.id} article={article} />
+            ))
+          )}
+        </View>
       </ScrollView>
     </View>
   );

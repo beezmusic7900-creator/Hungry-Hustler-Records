@@ -17,6 +17,7 @@ import {
   UserCog,
   Calendar,
   Share2,
+  Newspaper,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
@@ -181,6 +182,13 @@ export default function DashboardScreen() {
       icon: <Share2 size={22} color="#E1306C" />,
       route: '/admin/social-list',
       color: '#E1306C',
+    },
+    {
+      title: 'News',
+      subtitle: 'Articles & updates',
+      icon: <Newspaper size={22} color="#06B6D4" />,
+      route: '/admin/news-list',
+      color: '#06B6D4',
     },
   ];
 
