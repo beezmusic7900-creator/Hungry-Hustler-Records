@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { WebView } from 'react-native-webview';
-import { Video, ResizeMode } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { COLORS } from '@/constants/Colors';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabasePublic } from '@/integrations/supabase/client';
@@ -34,13 +34,15 @@ function getYouTubeId(url: string): string | null {
 
 function NativeVideoPlayer({ url }: { url: string }) {
   console.log('[VideoPlayer] NativeVideoPlayer rendering for:', url);
+  const player = useVideoPlayer({ uri: url }, (p) => {
+    p.play();
+  });
   return (
-    <Video
-      source={{ uri: url }}
+    <VideoView
+      player={player}
       style={{ flex: 1 }}
-      resizeMode={ResizeMode.CONTAIN}
-      useNativeControls
-      shouldPlay
+      contentFit="contain"
+      nativeControls
     />
   );
 }

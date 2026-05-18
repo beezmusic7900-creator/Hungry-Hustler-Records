@@ -6,7 +6,7 @@ import React, {
   useCallback,
   ReactNode,
 } from 'react';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 
 export interface Song {
   id: string;
@@ -19,8 +19,8 @@ export interface Song {
 interface AudioPlayerContextType {
   currentSong: Song | null;
   isPlaying: boolean;
-  position: number;
-  duration: number;
+  position: number;   // milliseconds
+  duration: number;   // milliseconds
   loading: boolean;
   playSong: (song: Song) => Promise<void>;
   togglePlayPause: () => Promise<void>;
@@ -31,21 +31,21 @@ interface AudioPlayerContextType {
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
 
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const unloadCurrent = useCallback(async () => {
-    if (soundRef.current) {
+  const unloadCurrent = useCallback(() => {
+    if (playerRef.current) {
       try {
-        await soundRef.current.unloadAsync();
+        playerRef.current.remove();
       } catch {
         // ignore
       }
-      soundRef.current = null;
+      playerRef.current = null;
     }
   }, []);
 
@@ -60,31 +60,30 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     setPosition(0);
     setDuration(0);
 
-    await unloadCurrent();
+    unloadCurrent();
 
     try {
-      await Audio.setAudioModeAsync({
+      await setAudioModeAsync({
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
       });
 
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: song.audio_url },
-        { shouldPlay: true },
-        (status) => {
-          if (status.isLoaded) {
-            setPosition(status.positionMillis ?? 0);
-            setDuration(status.durationMillis ?? 0);
-            setIsPlaying(status.isPlaying ?? false);
-            if (status.didJustFinish) {
-              console.log('[AudioPlayer] Song finished:', song.title);
-              setIsPlaying(false);
-              setPosition(0);
-            }
-          }
+      const player = createAudioPlayer({ uri: song.audio_url });
+
+      player.addListener('playbackStatusUpdate', (status) => {
+        // expo-audio reports time in seconds — convert to ms for the existing interface
+        setPosition(Math.round((status.currentTime ?? 0) * 1000));
+        setDuration(Math.round((status.duration ?? 0) * 1000));
+        setIsPlaying(status.playing ?? false);
+        if (status.didJustFinish) {
+          console.log('[AudioPlayer] Song finished:', song.title);
+          setIsPlaying(false);
+          setPosition(0);
         }
-      );
-      soundRef.current = sound;
+      });
+
+      playerRef.current = player;
+      player.play();
       setIsPlaying(true);
       console.log('[AudioPlayer] Playing:', song.title);
     } catch (err) {
@@ -96,29 +95,28 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   }, [unloadCurrent]);
 
   const togglePlayPause = useCallback(async () => {
-    if (!soundRef.current) return;
+    if (!playerRef.current) return;
     try {
-      const status = await soundRef.current.getStatusAsync();
-      if (!status.isLoaded) return;
-      if (status.isPlaying) {
+      if (isPlaying) {
         console.log('[AudioPlayer] Pause');
-        await soundRef.current.pauseAsync();
+        playerRef.current.pause();
         setIsPlaying(false);
       } else {
         console.log('[AudioPlayer] Resume');
-        await soundRef.current.playAsync();
+        playerRef.current.play();
         setIsPlaying(true);
       }
     } catch (err) {
       console.error('[AudioPlayer] togglePlayPause error:', err);
     }
-  }, []);
+  }, [isPlaying]);
 
   const seekTo = useCallback(async (ms: number) => {
-    if (!soundRef.current) return;
-    console.log('[AudioPlayer] seekTo:', ms);
+    if (!playerRef.current) return;
+    const seconds = ms / 1000;
+    console.log('[AudioPlayer] seekTo:', ms, 'ms =', seconds, 's');
     try {
-      await soundRef.current.setPositionAsync(ms);
+      playerRef.current.seekTo(seconds);
       setPosition(ms);
     } catch (err) {
       console.error('[AudioPlayer] seekTo error:', err);
@@ -127,7 +125,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const stop = useCallback(async () => {
     console.log('[AudioPlayer] stop');
-    await unloadCurrent();
+    unloadCurrent();
     setCurrentSong(null);
     setIsPlaying(false);
     setPosition(0);
