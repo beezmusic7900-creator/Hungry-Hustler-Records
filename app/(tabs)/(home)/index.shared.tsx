@@ -7,6 +7,7 @@ import {
   Animated,
   ImageSourcePropType,
   Platform,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,6 +18,16 @@ import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { HHRLogo } from '@/components/HHRLogo';
 import { supabasePublic } from '@/integrations/supabase/client';
+
+interface TourEvent {
+  id: string;
+  title: string;
+  event_date: string | null;
+  city: string | null;
+  venue: string | null;
+  ticket_url: string | null;
+  image_url: string | null;
+}
 
 interface MerchItem {
   id: string;
@@ -120,6 +131,8 @@ export default function HomeScreen() {
   const [featuredMerch, setFeaturedMerch] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tourEvents, setTourEvents] = useState<TourEvent[]>([]);
+  const [tourLoading, setTourLoading] = useState(true);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -158,6 +171,25 @@ export default function HomeScreen() {
           })()
         );
       }
+
+      parallelTasks.push(
+        (async () => {
+          try {
+            console.log('[Home] Loading tour events from Supabase');
+            const { data } = await (supabasePublic as any)
+              .from('events')
+              .select('id, title, event_date, city, venue, ticket_url, image_url')
+              .eq('is_published', true)
+              .gte('event_date', new Date().toISOString())
+              .order('event_date', { ascending: true })
+              .limit(5);
+            setTourEvents(data ?? []);
+            console.log(`[Home] Loaded ${(data ?? []).length} tour events`);
+          } finally {
+            setTourLoading(false);
+          }
+        })()
+      );
 
       await Promise.all(parallelTasks);
 
@@ -378,6 +410,155 @@ export default function HomeScreen() {
                   <MerchPreviewCard key={item.id} item={item} />
                 ))}
           </ScrollView>
+        </View>
+      )}
+
+      {/* Tour Dates */}
+      {(tourLoading || tourEvents.length > 0) && (
+        <View style={{ marginBottom: 28 }}>
+          <Text
+            style={{
+              color: COLORS.textSecondary,
+              fontSize: 11,
+              fontWeight: '600',
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              marginBottom: 12,
+              paddingHorizontal: 20,
+            }}
+          >
+            Tour Dates
+          </Text>
+          {tourLoading
+            ? [0, 1].map((i) => (
+                <SkeletonLine
+                  key={i}
+                  width="auto"
+                  height={72}
+                  borderRadius={12}
+                  style={{ marginHorizontal: 20, marginBottom: 8 }}
+                />
+              ))
+            : tourEvents.map((event) => {
+                const dateObj = event.event_date ? new Date(event.event_date) : null;
+                const monthDisplay = dateObj
+                  ? dateObj.toLocaleDateString('en-US', { month: 'short' })
+                  : '';
+                const dayDisplay = dateObj ? String(dateObj.getDate()) : '';
+                const venueCity =
+                  event.venue && event.city
+                    ? `${event.venue} · ${event.city}`
+                    : event.venue ?? event.city ?? '';
+                return (
+                  <View
+                    key={event.id}
+                    style={{
+                      paddingHorizontal: 20,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <View
+                      style={{
+                        backgroundColor: COLORS.surface,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                        padding: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                      }}
+                    >
+                      {/* Date block */}
+                      <View
+                        style={{
+                          backgroundColor: COLORS.primaryMuted,
+                          borderRadius: 8,
+                          padding: 10,
+                          alignItems: 'center',
+                          width: 52,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: '700',
+                            color: COLORS.primary,
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {monthDisplay}
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 22,
+                            fontWeight: '800',
+                            color: COLORS.text,
+                            lineHeight: 24,
+                          }}
+                        >
+                          {dayDisplay}
+                        </Text>
+                      </View>
+
+                      {/* Event info */}
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 15,
+                            fontWeight: '700',
+                            color: COLORS.text,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {event.title}
+                        </Text>
+                        {venueCity.length > 0 && (
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: COLORS.textSecondary,
+                              marginTop: 2,
+                            }}
+                            numberOfLines={1}
+                          >
+                            {venueCity}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Tickets button */}
+                      {event.ticket_url ? (
+                        <AnimatedPressable
+                          onPress={() => {
+                            console.log(`[Home] Tapped Tickets for event: ${event.title} (${event.id})`);
+                            Linking.openURL(event.ticket_url as string);
+                          }}
+                        >
+                          <View
+                            style={{
+                              backgroundColor: COLORS.primary,
+                              borderRadius: 8,
+                              paddingVertical: 7,
+                              paddingHorizontal: 12,
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                fontWeight: '700',
+                                color: COLORS.background,
+                              }}
+                            >
+                              Tickets
+                            </Text>
+                          </View>
+                        </AnimatedPressable>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
         </View>
       )}
 
