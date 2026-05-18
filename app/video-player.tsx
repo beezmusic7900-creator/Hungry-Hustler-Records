@@ -208,8 +208,8 @@ export default function VideoPlayerScreen() {
                   backgroundColor: '#000',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  pointerEvents: 'none',
                 }}
-                pointerEvents="none"
               >
                 <SkeletonLine width="100%" borderRadius={0} style={{ flex: 1 }} />
               </View>

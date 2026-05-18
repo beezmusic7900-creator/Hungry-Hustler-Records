@@ -73,6 +73,9 @@ export function MiniPlayer() {
             shadowRadius: 12,
             elevation: 8,
           },
+          web: {
+            boxShadow: '0px 4px 12px rgba(0,0,0,0.4)',
+          },
           default: {},
         }),
       }}
