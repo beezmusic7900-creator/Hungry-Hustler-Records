@@ -290,13 +290,23 @@ export default function SocialScreen() {
         .order('post_date', { ascending: false });
 
       if (dbError) {
-        const code = dbError.code as string;
-        if (code === 'PGRST200' || code === '42P01') {
-          console.log('[Social] social_posts table not found — showing placeholder layout');
+        const code = (dbError.code ?? '') as string;
+        const msg = (dbError.message ?? '').toLowerCase();
+        const isTableMissing =
+          code === 'PGRST200' ||
+          code === 'PGRST204' ||
+          code === '42P01' ||
+          msg.includes('schema cache') ||
+          msg.includes('does not exist') ||
+          msg.includes('relation') ||
+          msg.includes('not found');
+        if (isTableMissing) {
+          console.log('[Social] social_posts table not ready — showing placeholder layout');
           setShowPlaceholder(true);
           return;
         }
         console.error('[Social] Supabase error:', dbError.message);
+        setShowPlaceholder(true);
         return;
       }
 
