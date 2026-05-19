@@ -4,11 +4,12 @@ import {
   Text,
   ScrollView,
   Platform,
+  Linking,
   TouchableOpacity,
   useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
-import YoutubeIframe, { PLAYER_STATES } from 'react-native-youtube-iframe';
+import YoutubeIframe from 'react-native-youtube-iframe';
 import { WebView } from 'react-native-webview';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { COLORS } from '@/constants/Colors';
@@ -131,9 +132,9 @@ export default function VideoPlayerScreen() {
     setPlayerError(true);
   }, []);
 
-  const onYTStateChange = useCallback((state: PLAYER_STATES) => {
+  const onYTStateChange = useCallback((state: string) => {
     console.log('[VideoPlayer] YouTube state:', state);
-    if (state === PLAYER_STATES.PLAYING) {
+    if (state === 'playing') {
       setPlayerReady(true);
       setPlayerError(false);
     }
@@ -152,7 +153,7 @@ export default function VideoPlayerScreen() {
     console.log('[VideoPlayer] Opening in YouTube:', ytUrl);
     Linking.openURL(ytUrl);
   };
-  const playerErrorMessage = getPlayerErrorMessage(playerError);
+  const playerErrorMessage = playerError ? 'Failed to load video. Tap retry or open in YouTube.' : '';
 
   const playerHeight = Math.round(width * (9 / 16));
 
