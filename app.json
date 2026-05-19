@@ -52,6 +52,15 @@
       "expo-video",
       "expo-audio",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/cc665abf-a02b-4ce3-85e6-492dfdf3ec20.jpeg",
+          "color": "#00FF66",
+          "sounds": [],
+          "mode": "production"
+        }
+      ],
+      [
         "expo-document-picker",
         {
           "iCloudContainerEnvironment": "Production"
@@ -64,6 +73,9 @@
       "typedRoutes": true
     },
     "extra": {
+      "eas": {
+        "projectId": "bed6240c-fb94-4caa-8672-9be1fc91e091"
+      },
       "router": {},
       "backendUrl": "https://zh8kuu2uzjgumzgbwmaa3fb5a3dwbes5.app.specular.dev"
     }

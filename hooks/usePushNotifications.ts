@@ -53,7 +53,9 @@ async function registerForPushNotifications() {
       return;
     }
 
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: 'bed6240c-fb94-4caa-8672-9be1fc91e091',
+    });
     const token = tokenData.data;
     console.log('[Push] Expo push token:', token);
 
