@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   Platform,
-  Linking,
   TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
@@ -183,14 +182,7 @@ export default function VideoPlayerScreen() {
         setPlayerError(null);
       } else if (msg.type === 'error') {
         console.error('[VideoPlayer] YouTube player error code:', msg.code);
-        const embedBlockedCodes = [150, 151, 152, 153];
-        if (embedBlockedCodes.includes(Number(msg.code)) && resolvedYoutubeId) {
-          // Video blocked for in-app embedding — open in YouTube app automatically
-          console.log('[VideoPlayer] Embed blocked, auto-opening in YouTube');
-          Linking.openURL('https://www.youtube.com/watch?v=' + resolvedYoutubeId);
-        } else {
-          setPlayerError('youtube_error_' + String(msg.code));
-        }
+        setPlayerError('youtube_error_' + String(msg.code));
       } else if (msg.type === 'timeout') {
         console.warn('[VideoPlayer] YouTube IFrame API timed out');
         setPlayerError('youtube_error_timeout');
@@ -205,17 +197,21 @@ export default function VideoPlayerScreen() {
     }
   };
 
-  const playerErrorMessage = playerError
-    ? (playerError.startsWith('youtube_error_')
-        ? 'This video cannot be played in the app.'
-        : 'Video unavailable.')
-    : null;
-
-  const handleOpenInYouTube = () => {
-    const ytUrl = 'https://www.youtube.com/watch?v=' + resolvedYoutubeId;
-    console.log('[VideoPlayer] Opening in YouTube:', ytUrl);
-    Linking.openURL(ytUrl);
+  const getPlayerErrorMessage = (err: string | null): string | null => {
+    if (!err) return null;
+    if (err === 'youtube_error_2') return 'Invalid video. Please contact the admin.';
+    if (err === 'youtube_error_5') return 'Video is being prepared. Please try again soon.';
+    if (err === 'youtube_error_100') return 'This video is no longer available.';
+    if (err === 'youtube_error_101' || err === 'youtube_error_150' ||
+        err === 'youtube_error_151' || err === 'youtube_error_152' ||
+        err === 'youtube_error_153') {
+      return 'Video is being prepared. Please try again soon.';
+    }
+    if (err === 'youtube_error_timeout') return 'Video is loading slowly. Please retry.';
+    if (err === 'youtube_error_-1') return 'Video is being prepared. Please try again soon.';
+    return 'Video is being prepared. Please try again soon.';
   };
+  const playerErrorMessage = getPlayerErrorMessage(playerError);
 
   const handleRetry = () => {
     console.log('[VideoPlayer] Retrying YouTube player');
@@ -306,19 +302,6 @@ export default function VideoPlayerScreen() {
                 <Text style={{ color: COLORS.danger, fontSize: 14, textAlign: 'center' }}>
                   {playerErrorMessage}
                 </Text>
-                <TouchableOpacity
-                  onPress={handleOpenInYouTube}
-                  style={{
-                    backgroundColor: COLORS.primary,
-                    paddingHorizontal: 20,
-                    paddingVertical: 10,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>
-                    Open in YouTube
-                  </Text>
-                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleRetry}
                   style={{
