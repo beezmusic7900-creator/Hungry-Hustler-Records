@@ -4,6 +4,7 @@ import React from "react";
 import { SymbolWeight } from "expo-symbols";
 import {
   OpaqueColorValue,
+  Pressable,
   StyleProp,
   TextStyle,
   ViewStyle,
@@ -42,18 +43,32 @@ export function IconSymbol({
   testID?: any;
   accessibilityLabel?: any;
 }) {
-  return (
+  const hasInteraction = onPress || onClick || onMouseOver || onMouseLeave;
+
+  const icon = (
     <MaterialIcons
-      onPress={onPress}
-      onClick={onClick}
-      onMouseOver={onMouseOver}
-      onMouseLeave={onMouseLeave}
-      testID={testID}
-      accessibilityLabel={accessibilityLabel}
       color={color}
       size={size}
       name={android_material_icon_name}
       style={style as StyleProp<TextStyle>}
     />
   );
+
+  if (hasInteraction) {
+    return (
+      <Pressable
+        onPress={onPress ?? onClick}
+        // @ts-expect-error — onMouseOver/onMouseLeave are valid on web Pressable
+        onMouseOver={onMouseOver}
+        onMouseLeave={onMouseLeave}
+        testID={testID}
+        accessibilityLabel={accessibilityLabel}
+        style={{ alignSelf: 'flex-start' }}
+      >
+        {icon}
+      </Pressable>
+    );
+  }
+
+  return icon;
 }

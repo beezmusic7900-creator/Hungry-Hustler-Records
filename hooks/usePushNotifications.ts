@@ -18,6 +18,8 @@ export function usePushNotifications() {
   const responseListener = useRef<Notifications.EventSubscription | undefined>(undefined);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
     registerForPushNotifications();
 
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
