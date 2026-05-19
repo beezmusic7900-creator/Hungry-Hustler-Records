@@ -32,6 +32,57 @@ function getYouTubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+function buildYouTubeHtml(videoId: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+#player { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="player"></div>
+<script>
+  var tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  var firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+  var player;
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player('player', {
+      videoId: '${videoId}',
+      playerVars: {
+        playsinline: 1,
+        autoplay: 0,
+        controls: 1,
+        rel: 0,
+        fs: 1,
+        iv_load_policy: 3,
+        modestbranding: 0,
+        origin: 'https://www.youtube.com'
+      },
+      events: {
+        onReady: function(e) {
+          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
+        },
+        onError: function(e) {
+          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', code: e.data }));
+        },
+        onStateChange: function(e) {
+          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'state', state: e.data }));
+        }
+      }
+    });
+  }
+</script>
+</body>
+</html>`;
+}
+
 function NativeVideoPlayer({ url }: { url: string }) {
   console.log('[VideoPlayer] NativeVideoPlayer rendering for:', url);
   const player = useVideoPlayer({ uri: url }, (p) => {
@@ -107,32 +158,7 @@ export default function VideoPlayerScreen() {
     : null;
 
   const isYouTube = !!resolvedYoutubeId;
-  const youtubeEmbedUrl = resolvedYoutubeId
-    ? `https://www.youtube.com/embed/${resolvedYoutubeId}?playsinline=1&rel=0&autoplay=1&controls=1&fs=1&iv_load_policy=3`
-    : null;
-
-  const youtubeHtml = resolvedYoutubeId ? `
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; background: #000; }
-html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-iframe { width: 100%; height: 100%; border: none; }
-</style>
-</head>
-<body>
-<iframe
-  src="https://www.youtube.com/embed/${resolvedYoutubeId}?playsinline=1&rel=0&autoplay=1&controls=1&fs=1&iv_load_policy=3"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-  allowfullscreen
-  webkit-playsinline="true"
-  playsinline="true"
-></iframe>
-</body>
-</html>
-` : null;
+  const youtubeHtml = resolvedYoutubeId ? buildYouTubeHtml(resolvedYoutubeId) : null;
 
   const videoTitle = video?.title ?? '';
   const videoDescription = video?.description ?? '';
@@ -141,6 +167,34 @@ iframe { width: 100%; height: 100%; border: none; }
   const [playerError, setPlayerError] = useState<string | null>(null);
   const [playerLoaded, setPlayerLoaded] = useState(false);
   const [playerKey, setPlayerKey] = useState(0);
+
+  const handleYTMessage = (event: { nativeEvent: { data: string } }) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.type === 'ready') {
+        console.log('[VideoPlayer] YouTube player ready');
+        setPlayerLoaded(true);
+        setPlayerError(null);
+      } else if (msg.type === 'error') {
+        console.error('[VideoPlayer] YouTube player error code:', msg.code);
+        // Error codes: 2=invalid id, 5=html5 error, 100=not found, 101/150=embed blocked
+        setPlayerError('youtube_error_' + String(msg.code));
+      } else if (msg.type === 'state') {
+        if (msg.state === 1) { // playing
+          setPlayerLoaded(true);
+          setPlayerError(null);
+        }
+      }
+    } catch {
+      // non-JSON messages, ignore
+    }
+  };
+
+  const playerErrorMessage = playerError
+    ? (playerError.startsWith('youtube_error_')
+        ? 'This video cannot be played in the app.'
+        : 'Video unavailable.')
+    : null;
 
   const handleOpenInYouTube = () => {
     const ytUrl = 'https://www.youtube.com/watch?v=' + resolvedYoutubeId;
@@ -171,28 +225,29 @@ iframe { width: 100%; height: 100%; border: none; }
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: COLORS.danger, fontSize: 14 }}>{error}</Text>
           </View>
-        ) : isYouTube && youtubeEmbedUrl ? (
+        ) : isYouTube && youtubeHtml ? (
           <View style={{ flex: 1 }}>
             {!playerError ? (
               <WebView
                 key={playerKey}
-                source={{ html: youtubeHtml!, baseUrl: 'https://www.youtube.com' }}
+                source={{ html: youtubeHtml, baseUrl: 'https://www.youtube.com' }}
                 style={{ flex: 1, backgroundColor: '#000' }}
                 allowsFullscreenVideo
                 allowsInlineMediaPlayback
                 mediaPlaybackRequiresUserAction={false}
-                userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                javaScriptEnabled
+                domStorageEnabled
                 originWhitelist={['*']}
                 mixedContentMode="always"
                 setSupportMultipleWindows={false}
+                userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                onMessage={handleYTMessage}
                 onLoadStart={() => {
-                  console.log('[VideoPlayer] YouTube WebView load start, videoId:', resolvedYoutubeId);
-                  setPlayerError(null);
+                  console.log('[VideoPlayer] YouTube WebView load start');
                   setPlayerLoaded(false);
                 }}
                 onLoadEnd={() => {
-                  console.log('[VideoPlayer] YouTube WebView loaded');
-                  setPlayerLoaded(true);
+                  console.log('[VideoPlayer] YouTube WebView DOM loaded (waiting for player ready)');
                 }}
                 onError={(e) => {
                   console.error('[VideoPlayer] YouTube WebView error:', e.nativeEvent.description);
@@ -234,7 +289,7 @@ iframe { width: 100%; height: 100%; border: none; }
                 }}
               >
                 <Text style={{ color: COLORS.danger, fontSize: 14, textAlign: 'center' }}>
-                  Video unavailable
+                  {playerErrorMessage}
                 </Text>
                 <TouchableOpacity
                   onPress={handleOpenInYouTube}
