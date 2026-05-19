@@ -62,8 +62,7 @@ html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
         rel: 0,
         fs: 1,
         iv_load_policy: 3,
-        modestbranding: 0,
-        origin: 'https://www.youtube.com'
+        modestbranding: 0
       },
       events: {
         onReady: function(e) {
@@ -78,6 +77,13 @@ html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
       }
     });
   }
+
+  // Safety timeout — if API doesn't load in 10s, report error
+  setTimeout(function() {
+    if (!player) {
+      window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', code: -1 }));
+    }
+  }, 10000);
 </script>
 </body>
 </html>`;
