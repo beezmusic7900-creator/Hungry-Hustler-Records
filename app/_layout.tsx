@@ -12,6 +12,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { COLORS } from "@/constants/Colors";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const DevErrorBoundary = __DEV__
   ? ErrorBoundary
@@ -43,6 +44,11 @@ const HEADER_OPTIONS = {
   headerBackButtonDisplayMode: 'minimal' as const,
 };
 
+function PushNotificationRegistrar() {
+  usePushNotifications();
+  return null;
+}
+
 export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
@@ -64,6 +70,7 @@ export default function RootLayout() {
           <AuthProvider>
             <AudioPlayerProvider>
               <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
+                <PushNotificationRegistrar />
                 <Stack
                   screenOptions={{
                     headerShown: false,
@@ -177,6 +184,18 @@ export default function RootLayout() {
                   />
                   <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
                   <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="fan-rewards"
+                    options={{ headerShown: true, title: 'Fan Rewards', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/notifications"
+                    options={{ headerShown: true, title: 'Notifications', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/rewards-config"
+                    options={{ headerShown: true, title: 'Rewards Config', ...HEADER_OPTIONS }}
+                  />
                 </Stack>
                 <SystemBars style="light" />
               </GestureHandlerRootView>

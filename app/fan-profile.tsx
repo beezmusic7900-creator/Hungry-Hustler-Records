@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Music, ShoppingBag, LogOut, User, Heart, Pencil } from 'lucide-react-native';
+import { Music, ShoppingBag, LogOut, User, Heart, Pencil, Trophy } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
@@ -69,12 +69,47 @@ export default function FanProfileScreen() {
   const [editingName, setEditingName] = useState(false);
   const [savingName, setSavingName] = useState(false);
 
+  const [rewardsSummary, setRewardsSummary] = useState<{ total_points: number; level: string } | null>(null);
+  const [rewardsLoading, setRewardsLoading] = useState(false);
+
   useEffect(() => {
     if (user) {
       loadFavorites();
       loadDisplayName();
+      loadRewardsSummary();
+      // Award daily login points (cooldown prevents farming)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session?.access_token) return;
+        console.log('[FanProfile] Awarding daily login points');
+        fetch('https://egmaxjskylfepliwaeme.supabase.co/functions/v1/award-points', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ action_type: 'daily_login' }),
+        }).catch(() => {});
+      });
     }
   }, [user]);
+
+  const loadRewardsSummary = async () => {
+    if (!user) return;
+    try {
+      setRewardsLoading(true);
+      console.log('[FanProfile] Loading rewards summary for user:', user.id);
+      const { data } = await db
+        .from('fan_rewards')
+        .select('total_points, level')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data) {
+        setRewardsSummary({ total_points: data.total_points ?? 0, level: data.level ?? 'Fan' });
+        console.log('[FanProfile] Rewards summary loaded:', data);
+      }
+    } catch (err) {
+      console.error('[FanProfile] loadRewardsSummary error:', err);
+    } finally {
+      setRewardsLoading(false);
+    }
+  };
 
   const loadDisplayName = async () => {
     if (!user) return;
@@ -434,6 +469,86 @@ export default function FanProfileScreen() {
             </AnimatedPressable>
           </View>
         </View>
+      )}
+
+      {/* Fan Rewards card */}
+      {rewardsLoading ? (
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 14,
+            padding: 16,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <SkeletonLine width={44} height={44} borderRadius={12} />
+          <View style={{ flex: 1, gap: 6 }}>
+            <SkeletonLine width="50%" height={14} />
+            <SkeletonLine width="35%" height={12} />
+          </View>
+          <SkeletonLine width={80} height={14} />
+        </View>
+      ) : (
+        <AnimatedPressable
+          onPress={() => {
+            console.log('[FanProfile] Fan Rewards card pressed — navigating to fan-rewards');
+            router.push('/fan-rewards');
+          }}
+          style={{ marginBottom: 16 }}
+        >
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 14,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 14,
+            }}
+          >
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(245, 158, 11, 0.3)',
+              }}
+            >
+              <Trophy size={22} color="#F59E0B" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700' }}>
+                Fan Rewards
+              </Text>
+              {rewardsSummary ? (
+                <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600', marginTop: 2 }}>
+                  {rewardsSummary.level}
+                  {' · '}
+                  {rewardsSummary.total_points.toLocaleString()}
+                  {' pts'}
+                </Text>
+              ) : (
+                <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+                  Earn points & unlock achievements
+                </Text>
+              )}
+            </View>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>
+              View Rewards →
+            </Text>
+          </View>
+        </AnimatedPressable>
       )}
 
       {/* Favorites section */}

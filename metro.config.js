@@ -7,12 +7,6 @@ const config = getDefaultConfig(__dirname);
 
 config.resolver.unstable_enablePackageExports = true;
 
-// Ensure react-native-web-webview resolves correctly for web platform
-config.resolver.extraNodeModules = {
-  ...config.resolver.extraNodeModules,
-  'react-native-web-webview': require.resolve('react-native-web-webview'),
-};
-
 // Use turborepo to restore the cache when possible
 config.cacheStores = [
     new FileStore({ root: path.join(__dirname, 'node_modules', '.cache', 'metro') }),

@@ -16,9 +16,11 @@ import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabasePublic } from '@/integrations/supabase/client';
 
+import { useFavorite } from '@/hooks/useFavorite';
+import { useRewards } from '@/hooks/useRewards';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dbPublic = supabasePublic as any;
-import { useFavorite } from '@/hooks/useFavorite';
 
 interface VideoItem {
   id: string;
@@ -90,6 +92,7 @@ function VideoFavoriteButton({ videoId }: { videoId: string }) {
 
 function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) {
   const router = useRouter();
+  const { awardPoints } = useRewards();
   const resolvedUrl = item.video_url ?? item.youtube_url ?? '';
   const derivedYoutubeId =
     item.youtube_id ??
@@ -103,6 +106,7 @@ function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) 
   const handlePress = () => {
     console.log(`[Videos] Card pressed: ${item.title} — navigating to video-player id=${item.id}`);
     router.push(`/video-player?id=${item.id}`);
+    awardPoints('watch_video', { reference_id: item.id, description: `Watched: ${item.title}` });
   };
 
   return (

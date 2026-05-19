@@ -20,6 +20,7 @@ import { supabasePublic } from '@/integrations/supabase/client';
 import { apiGet } from '@/utils/api';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { useFavorite } from '@/hooks/useFavorite';
+import { useRewards } from '@/hooks/useRewards';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dbPublic: any = supabasePublic;
@@ -131,6 +132,7 @@ function SongFavoriteButton({ songId }: { songId: string }) {
 function NativeSongRow({ item }: { item: SongItem }) {
   const router = useRouter();
   const { currentSong, isPlaying, playSong } = useAudioPlayer();
+  const { awardPoints } = useRewards();
   const isCurrentSong = currentSong?.id === item.id;
   const isThisPlaying = isCurrentSong && isPlaying;
 
@@ -143,6 +145,7 @@ function NativeSongRow({ item }: { item: SongItem }) {
       cover_url: item.cover_url,
       audio_url: item.audio_url,
     });
+    awardPoints('stream_song', { reference_id: item.id, description: `Streamed: ${item.title}` });
   };
 
   return (

@@ -68,6 +68,16 @@ export function useFavorite(itemType: 'song' | 'video' | 'merch' | 'event', item
           .single();
         if (error) throw error;
         setFavoriteId(data?.id ?? null);
+        // Award points for saving a favorite
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (!session?.access_token) return;
+          console.log('[useFavorite] Awarding save_favorite points for:', itemId);
+          fetch('https://egmaxjskylfepliwaeme.supabase.co/functions/v1/award-points', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+            body: JSON.stringify({ action_type: 'save_favorite', reference_id: itemId }),
+          }).catch(() => {});
+        });
       }
     } catch (err) {
       console.error('[useFavorite] toggleFavorite error:', err);

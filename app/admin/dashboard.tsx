@@ -18,6 +18,8 @@ import {
   Calendar,
   Share2,
   Newspaper,
+  Bell,
+  Trophy,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
@@ -189,6 +191,20 @@ export default function DashboardScreen() {
       icon: <Newspaper size={22} color="#06B6D4" />,
       route: '/admin/news-list',
       color: '#06B6D4',
+    },
+    {
+      title: 'Notifications',
+      subtitle: 'Push campaigns',
+      icon: <Bell size={22} color="#8B5CF6" />,
+      route: '/admin/notifications',
+      color: '#8B5CF6',
+    },
+    {
+      title: 'Rewards',
+      subtitle: 'Points & badges',
+      icon: <Trophy size={22} color="#F59E0B" />,
+      route: '/admin/rewards-config',
+      color: '#F59E0B',
     },
   ];
 
