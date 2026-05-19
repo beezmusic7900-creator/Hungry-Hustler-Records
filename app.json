@@ -52,12 +52,6 @@
       "expo-video",
       "expo-audio",
       [
-        "react-native-webview",
-        {
-          "useSharedKernel": true
-        }
-      ],
-      [
         "expo-document-picker",
         {
           "iCloudContainerEnvironment": "Production"
