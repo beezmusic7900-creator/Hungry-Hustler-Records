@@ -32,6 +32,17 @@ interface SocialPost {
   is_published: boolean;
 }
 
+interface TourEvent {
+  id: string;
+  title: string;
+  event_date: string | null;
+  city: string | null;
+  venue: string | null;
+  ticket_url: string | null;
+  image_url: string | null;
+  description: string | null;
+}
+
 interface NewsArticle {
   id: string;
   title: string;
@@ -477,6 +488,8 @@ export default function SocialScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
+  const [events, setEvents] = useState<TourEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
 
   const loadPosts = useCallback(async () => {
     try {
@@ -518,6 +531,32 @@ export default function SocialScreen() {
     }
   }, []);
 
+  const loadEvents = useCallback(async () => {
+    try {
+      console.log('[Events] Loading events from Supabase');
+      const { data, error: dbError } = await dbPublic
+        .from('events')
+        .select('id, title, event_date, city, venue, ticket_url, image_url, description')
+        .eq('is_published', true)
+        .order('event_date', { ascending: true });
+
+      if (dbError) {
+        console.error('[Events] Error:', dbError.message);
+        setEvents([]);
+        return;
+      }
+
+      const loaded = (data ?? []) as unknown as TourEvent[];
+      console.log(`[Events] Loaded ${loaded.length} events`);
+      setEvents(loaded);
+    } catch (err) {
+      console.error('[Events] Error:', err);
+      setEvents([]);
+    } finally {
+      setEventsLoading(false);
+    }
+  }, []);
+
   const loadNews = useCallback(async () => {
     try {
       console.log('[News] Loading news_articles from Supabase');
@@ -545,12 +584,13 @@ export default function SocialScreen() {
   useEffect(() => {
     loadPosts();
     loadNews().finally(() => setNewsLoading(false));
-  }, [loadPosts, loadNews]);
+    loadEvents();
+  }, [loadPosts, loadNews, loadEvents]);
 
   const handleRefresh = async () => {
     console.log('[Social] Pull-to-refresh triggered');
     setRefreshing(true);
-    await Promise.all([loadPosts(), loadNews()]);
+    await Promise.all([loadPosts(), loadNews(), loadEvents()]);
     setRefreshing(false);
   };
 
@@ -605,6 +645,182 @@ export default function SocialScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* EVENTS section */}
+        {(eventsLoading || events.length > 0) && (
+          <View style={{ marginBottom: 28 }}>
+            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+              <Text
+                style={{
+                  color: COLORS.text,
+                  fontSize: 28,
+                  fontWeight: '700',
+                  letterSpacing: -0.5,
+                }}
+              >
+                EVENTS
+              </Text>
+              <View
+                style={{
+                  width: 40,
+                  height: 3,
+                  backgroundColor: COLORS.primary,
+                  borderRadius: 2,
+                  marginTop: 6,
+                  ...Platform.select({
+                    native: {
+                      shadowColor: COLORS.primary,
+                      shadowOffset: { width: 0, height: 0 },
+                      shadowOpacity: 0.6,
+                      shadowRadius: 6,
+                    },
+                    default: {},
+                  }),
+                }}
+              />
+            </View>
+
+            {eventsLoading ? (
+              <>
+                <SkeletonLine
+                  width="auto"
+                  height={72}
+                  borderRadius={12}
+                  style={{ marginHorizontal: 20, marginBottom: 8 }}
+                />
+                <SkeletonLine
+                  width="auto"
+                  height={72}
+                  borderRadius={12}
+                  style={{ marginHorizontal: 20, marginBottom: 8 }}
+                />
+              </>
+            ) : (
+              events.map((event) => {
+                const dateObj = event.event_date ? new Date(event.event_date) : null;
+                const monthDisplay = dateObj
+                  ? dateObj.toLocaleDateString('en-US', { month: 'short' })
+                  : 'TBA';
+                const dayDisplay = dateObj ? String(dateObj.getDate()) : '';
+                const venueCity =
+                  event.venue && event.city
+                    ? `${event.venue} · ${event.city}`
+                    : event.venue ?? event.city ?? '';
+                const hasVenueCity = venueCity.length > 0;
+                const hasTicketUrl = !!event.ticket_url;
+
+                return (
+                  <View
+                    key={event.id}
+                    style={{ paddingHorizontal: 20, marginBottom: 8 }}
+                  >
+                    <View
+                      style={{
+                        backgroundColor: COLORS.surface,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                        padding: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                      }}
+                    >
+                      {/* Date block */}
+                      <View
+                        style={{
+                          backgroundColor: COLORS.primaryMuted,
+                          borderRadius: 8,
+                          padding: 10,
+                          alignItems: 'center',
+                          width: 52,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: '700',
+                            color: COLORS.primary,
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {monthDisplay}
+                        </Text>
+                        {dayDisplay ? (
+                          <Text
+                            style={{
+                              fontSize: 22,
+                              fontWeight: '800',
+                              color: COLORS.text,
+                              lineHeight: 24,
+                            }}
+                          >
+                            {dayDisplay}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      {/* Event info */}
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 15,
+                            fontWeight: '700',
+                            color: COLORS.text,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {event.title}
+                        </Text>
+                        {hasVenueCity ? (
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: COLORS.textSecondary,
+                              marginTop: 2,
+                            }}
+                            numberOfLines={1}
+                          >
+                            {venueCity}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      {/* Tickets button */}
+                      {hasTicketUrl ? (
+                        <AnimatedPressable
+                          onPress={() => {
+                            console.log(`[Events] Tickets pressed for: ${event.title} (${event.id})`);
+                            Linking.openURL(event.ticket_url as string);
+                          }}
+                        >
+                          <View
+                            style={{
+                              backgroundColor: COLORS.primary,
+                              borderRadius: 8,
+                              paddingVertical: 7,
+                              paddingHorizontal: 12,
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                fontWeight: '700',
+                                color: COLORS.background,
+                              }}
+                            >
+                              Tickets
+                            </Text>
+                          </View>
+                        </AnimatedPressable>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
         {ARTISTS.map((artist) => (
           <ArtistSocialSection
             key={artist.name}

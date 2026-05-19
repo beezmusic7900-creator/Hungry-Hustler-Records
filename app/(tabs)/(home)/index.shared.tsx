@@ -180,7 +180,6 @@ export default function HomeScreen() {
               .from('events')
               .select('id, title, event_date, city, venue, ticket_url, image_url')
               .eq('is_published', true)
-              .gte('event_date', new Date().toISOString())
               .order('event_date', { ascending: true })
               .limit(5);
             setTourEvents(data ?? []);

@@ -112,10 +112,11 @@ export default function EventFormScreen() {
       } else {
         const { error: insertErr } = await db
           .from('events')
-          .insert({ ...payload, created_by: user.id });
+          .insert(payload);
         if (insertErr) throw insertErr;
         console.log('[EventForm] Event created');
       }
+      Alert.alert('Success', isEdit ? 'Event updated!' : 'Event created!');
       router.back();
     } catch (err: unknown) {
       console.error('[EventForm] Save error:', err);
@@ -321,7 +322,7 @@ export default function EventFormScreen() {
               borderColor: COLORS.border,
             }}
           >
-            <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '600' }}>Published</Text>
+            <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '600' }}>Published (must be ON to show in app)</Text>
             <Switch
               value={isPublished}
               onValueChange={(val) => {
