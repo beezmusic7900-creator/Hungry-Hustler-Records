@@ -78,10 +78,10 @@ html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
     });
   }
 
-  // Safety timeout — if API doesn't load in 10s, report error
+  // Safety timeout — if IFrame API doesn't load in 10s, try direct embed fallback
   setTimeout(function() {
     if (!player) {
-      window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', code: -1 }));
+      window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'timeout' }));
     }
   }, 10000);
 </script>
@@ -183,8 +183,17 @@ export default function VideoPlayerScreen() {
         setPlayerError(null);
       } else if (msg.type === 'error') {
         console.error('[VideoPlayer] YouTube player error code:', msg.code);
-        // Error codes: 2=invalid id, 5=html5 error, 100=not found, 101/150=embed blocked
-        setPlayerError('youtube_error_' + String(msg.code));
+        const embedBlockedCodes = [150, 151, 152, 153];
+        if (embedBlockedCodes.includes(Number(msg.code)) && resolvedYoutubeId) {
+          // Video blocked for in-app embedding — open in YouTube app automatically
+          console.log('[VideoPlayer] Embed blocked, auto-opening in YouTube');
+          Linking.openURL('https://www.youtube.com/watch?v=' + resolvedYoutubeId);
+        } else {
+          setPlayerError('youtube_error_' + String(msg.code));
+        }
+      } else if (msg.type === 'timeout') {
+        console.warn('[VideoPlayer] YouTube IFrame API timed out');
+        setPlayerError('youtube_error_timeout');
       } else if (msg.type === 'state') {
         if (msg.state === 1) { // playing
           setPlayerLoaded(true);
