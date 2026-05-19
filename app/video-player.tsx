@@ -108,8 +108,31 @@ export default function VideoPlayerScreen() {
 
   const isYouTube = !!resolvedYoutubeId;
   const youtubeEmbedUrl = resolvedYoutubeId
-    ? `https://www.youtube.com/embed/${resolvedYoutubeId}?playsinline=1&rel=0&modestbranding=1&enablejsapi=1&origin=https://hungry-hustler.app`
+    ? `https://www.youtube.com/embed/${resolvedYoutubeId}?playsinline=1&rel=0&autoplay=1&controls=1&fs=1&iv_load_policy=3`
     : null;
+
+  const youtubeHtml = resolvedYoutubeId ? `
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; background: #000; }
+html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+iframe { width: 100%; height: 100%; border: none; }
+</style>
+</head>
+<body>
+<iframe
+  src="https://www.youtube.com/embed/${resolvedYoutubeId}?playsinline=1&rel=0&autoplay=1&controls=1&fs=1&iv_load_policy=3"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+  allowfullscreen
+  webkit-playsinline="true"
+  playsinline="true"
+></iframe>
+</body>
+</html>
+` : null;
 
   const videoTitle = video?.title ?? '';
   const videoDescription = video?.description ?? '';
@@ -118,27 +141,6 @@ export default function VideoPlayerScreen() {
   const [playerError, setPlayerError] = useState<string | null>(null);
   const [playerLoaded, setPlayerLoaded] = useState(false);
   const [playerKey, setPlayerKey] = useState(0);
-
-  const injectedJS = `
-    window.onYouTubeIframeAPIReady = function() {
-      var player = new YT.Player('player', {
-        events: { 'onError': function(e) { window.ReactNativeWebView.postMessage(JSON.stringify({type:'ytError',code:e.data})); } }
-      });
-    };
-    true;
-  `;
-
-  const handleYTMessage = (event: { nativeEvent: { data: string } }) => {
-    try {
-      const msg = JSON.parse(event.nativeEvent.data);
-      if (msg.type === 'ytError') {
-        console.error('[VideoPlayer] YouTube player error code:', msg.code);
-        setPlayerError('Video unavailable (YouTube error ' + String(msg.code) + ')');
-      }
-    } catch {
-      // non-JSON messages from the page, ignore
-    }
-  };
 
   const handleOpenInYouTube = () => {
     const ytUrl = 'https://www.youtube.com/watch?v=' + resolvedYoutubeId;
@@ -174,15 +176,17 @@ export default function VideoPlayerScreen() {
             {!playerError ? (
               <WebView
                 key={playerKey}
-                source={{ uri: youtubeEmbedUrl }}
+                source={{ html: youtubeHtml!, baseUrl: 'https://www.youtube.com' }}
                 style={{ flex: 1, backgroundColor: '#000' }}
                 allowsFullscreenVideo
                 allowsInlineMediaPlayback
                 mediaPlaybackRequiresUserAction={false}
-                injectedJavaScript={injectedJS}
-                onMessage={handleYTMessage}
+                userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                originWhitelist={['*']}
+                mixedContentMode="always"
+                setSupportMultipleWindows={false}
                 onLoadStart={() => {
-                  console.log('[VideoPlayer] YouTube WebView load start:', youtubeEmbedUrl);
+                  console.log('[VideoPlayer] YouTube WebView load start, videoId:', resolvedYoutubeId);
                   setPlayerError(null);
                   setPlayerLoaded(false);
                 }}
@@ -195,8 +199,11 @@ export default function VideoPlayerScreen() {
                   setPlayerError(e.nativeEvent.description);
                 }}
                 onHttpError={(e) => {
-                  console.error('[VideoPlayer] YouTube WebView HTTP error:', e.nativeEvent.statusCode);
-                  setPlayerError('HTTP ' + String(e.nativeEvent.statusCode));
+                  const status = e.nativeEvent.statusCode;
+                  if (status >= 400) {
+                    console.error('[VideoPlayer] YouTube WebView HTTP error:', status);
+                    setPlayerError('HTTP ' + String(status));
+                  }
                 }}
               />
             ) : null}
