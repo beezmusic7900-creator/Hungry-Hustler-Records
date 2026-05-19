@@ -20,6 +20,7 @@ export function useFavorite(itemType: 'song' | 'video' | 'merch' | 'event', item
       return;
     }
     checkFavorite();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, itemId, itemType]);
 
   const checkFavorite = async () => {

@@ -35,6 +35,7 @@ export default function AdminTabScreen() {
       duration: 400,
       useNativeDriver: true,
     }).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // If already logged in, show dashboard shortcut

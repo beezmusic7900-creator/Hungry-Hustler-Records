@@ -43,6 +43,7 @@ export default function MerchDetailScreen() {
 
   useEffect(() => {
     if (id) loadItem();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadItem = async () => {

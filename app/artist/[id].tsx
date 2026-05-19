@@ -236,6 +236,7 @@ export default function ArtistDetailScreen() {
 
   useEffect(() => {
     if (id) loadArtist();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadArtist = async () => {

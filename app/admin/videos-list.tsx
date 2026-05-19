@@ -51,6 +51,7 @@ export default function AdminVideosListScreen() {
       return;
     }
     loadVideos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   const loadVideos = async () => {

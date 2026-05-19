@@ -57,6 +57,7 @@ export default function UsersScreen() {
     if (user) {
       checkRoleAndLoad();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   const checkRoleAndLoad = async () => {

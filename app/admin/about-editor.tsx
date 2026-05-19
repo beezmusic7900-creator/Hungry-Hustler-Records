@@ -88,6 +88,7 @@ export default function AboutEditorScreen() {
       return;
     }
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   const loadData = async () => {

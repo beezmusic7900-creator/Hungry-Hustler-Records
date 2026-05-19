@@ -1,5 +1,5 @@
 import { Alert } from 'react-native';
-// @ts-expect-error - deep import required until polyfillGlobal is exported from react-native public API
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 import { polyfillGlobal } from 'react-native/Libraries/Utilities/PolyfillFunctions';
 
 // Add global alert() on iOS/Android — it doesn't exist by default in React Native.
@@ -8,6 +8,7 @@ polyfillGlobal('alert', () => (message?: string) => {
   Alert.alert('', String(message ?? ''));
 });
 
+// @ts-expect-error - module augmentation for untyped deep import
 declare module 'react-native/Libraries/Utilities/PolyfillFunctions' {
   export function polyfillGlobal(name: string, getValue: () => unknown): void;
 }

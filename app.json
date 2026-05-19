@@ -6,9 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/images/cc665abf-a02b-4ce3-85e6-492dfdf3ec20.jpeg",
     "userInterfaceStyle": "automatic",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
     "splash": {
       "image": "./assets/images/cc665abf-a02b-4ce3-85e6-492dfdf3ec20.jpeg",
       "resizeMode": "contain",

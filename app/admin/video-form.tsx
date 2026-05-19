@@ -124,6 +124,7 @@ export default function VideoFormScreen() {
     }
     loadArtists();
     if (isEditing) loadVideo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   const loadVideo = async () => {
