@@ -264,6 +264,20 @@ export default function VideoFormScreen() {
     }
   };
 
+  const validateYouTubeEmbed = async (videoId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+        { method: 'GET' }
+      );
+      // 200 = embeddable, 401/403/404 = not embeddable or private
+      return response.ok;
+    } catch {
+      // Network error — allow save but warn
+      return true;
+    }
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       Alert.alert('Validation', 'Video title is required.');
@@ -303,6 +317,23 @@ export default function VideoFormScreen() {
       }
 
       const youtubeId = getYouTubeId(finalVideoUrl);
+
+      // Validate YouTube embed if this is a YouTube video
+      if (youtubeId && !useFileUpload) {
+        console.log('[VideoForm] Validating YouTube embed for:', youtubeId);
+        const isEmbeddable = await validateYouTubeEmbed(youtubeId);
+        if (!isEmbeddable) {
+          Alert.alert(
+            'Video Not Embeddable',
+            'This YouTube video cannot be played inside the app. The video may be private, age-restricted, or the owner has disabled embedding.\n\nPlease use a different video or upload an MP4 file instead.',
+            [{ text: 'OK' }]
+          );
+          setSaving(false);
+          return;
+        }
+        console.log('[VideoForm] YouTube embed validated OK');
+      }
+
       const payload = {
         title: title.trim(),
         video_url: finalVideoUrl,
@@ -553,14 +584,27 @@ export default function VideoFormScreen() {
           </AnimatedPressable>
         </View>
       ) : (
-        <FormField
-          label="Video URL"
-          value={videoUrl}
-          onChangeText={setVideoUrl}
-          placeholder="https://youtube.com/watch?v=... or direct URL"
-          keyboardType="url"
-          required
-        />
+        <>
+          <FormField
+            label="Video URL"
+            value={videoUrl}
+            onChangeText={setVideoUrl}
+            placeholder="https://youtube.com/watch?v=... or direct URL"
+            keyboardType="url"
+            required
+          />
+          {!useFileUpload && (
+            <Text style={{
+              color: COLORS.textSecondary,
+              fontSize: 12,
+              marginTop: -8,
+              marginBottom: 16,
+              paddingHorizontal: 4,
+            }}>
+              Only publicly embeddable YouTube videos will work in the app. Private, age-restricted, or embedding-disabled videos will be rejected.
+            </Text>
+          )}
+        </>
       )}
 
       {/* AI / Fan Lyrics */}

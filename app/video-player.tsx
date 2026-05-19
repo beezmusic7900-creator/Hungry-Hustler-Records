@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   Platform,
-  Linking,
   TouchableOpacity,
   useWindowDimensions,
 } from 'react-native';
@@ -153,6 +152,7 @@ export default function VideoPlayerScreen() {
     console.log('[VideoPlayer] Opening in YouTube:', ytUrl);
     Linking.openURL(ytUrl);
   };
+  const playerErrorMessage = getPlayerErrorMessage(playerError);
 
   const playerHeight = Math.round(width * (9 / 16));
 
@@ -234,19 +234,6 @@ export default function VideoPlayerScreen() {
                 <Text style={{ color: COLORS.danger, fontSize: 14, textAlign: 'center' }}>
                   This video cannot be played in the app.
                 </Text>
-                <TouchableOpacity
-                  onPress={handleOpenInYouTube}
-                  style={{
-                    backgroundColor: COLORS.primary,
-                    paddingHorizontal: 20,
-                    paddingVertical: 10,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>
-                    Open in YouTube
-                  </Text>
-                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleRetry}
                   style={{
