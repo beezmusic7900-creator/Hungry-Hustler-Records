@@ -91,6 +91,8 @@ export default function MusicFormScreen() {
   const [isPublished, setIsPublished] = useState(true);
   const [audioUrl, setAudioUrl] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
+  const [lyrics, setLyrics] = useState('');
+  const [lyricsIsOfficial, setLyricsIsOfficial] = useState(false);
 
   // Local file selections (not yet uploaded)
   const [pendingAudioUri, setPendingAudioUri] = useState<string | null>(null);
@@ -141,6 +143,8 @@ export default function MusicFormScreen() {
       setIsPublished(data.is_published ?? true);
       setAudioUrl(data.audio_url ?? '');
       setCoverUrl(data.cover_url ?? '');
+      setLyrics((data as any).lyrics ?? '');
+      setLyricsIsOfficial((data as any).lyrics_is_official ?? false);
     } catch (err) {
       console.error('[MusicForm] Load failed:', err);
       Alert.alert('Error', 'Could not load song data.');
@@ -294,6 +298,8 @@ export default function MusicFormScreen() {
         is_published: isPublished,
         audio_url: finalAudioUrl,
         cover_url: finalCoverUrl,
+        lyrics: lyrics.trim() || null,
+        lyrics_is_official: lyricsIsOfficial,
       };
 
       if (isEditing) {
@@ -437,6 +443,66 @@ export default function MusicFormScreen() {
         placeholder="Leave blank for FREE"
         keyboardType="decimal-pad"
       />
+
+      {/* Lyrics */}
+      <View style={{ marginBottom: 16 }}>
+        <Text
+          style={{
+            color: COLORS.textSecondary,
+            fontSize: 13,
+            fontWeight: '500',
+            marginBottom: 8,
+          }}
+        >
+          Lyrics
+        </Text>
+        <TextInput
+          value={lyrics}
+          onChangeText={setLyrics}
+          placeholder="Paste song lyrics here..."
+          placeholderTextColor={COLORS.textTertiary}
+          multiline
+          numberOfLines={8}
+          textAlignVertical="top"
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={{
+            backgroundColor: COLORS.surfaceSecondary,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            color: COLORS.text,
+            fontSize: 14,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            minHeight: 160,
+          }}
+        />
+      </View>
+
+      {/* Official Lyrics toggle */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 20,
+          paddingVertical: 4,
+        }}
+      >
+        <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '500' }}>
+          Mark as Official Lyrics
+        </Text>
+        <Switch
+          value={lyricsIsOfficial}
+          onValueChange={(v) => {
+            console.log(`[MusicForm] Official lyrics toggle: ${v}`);
+            setLyricsIsOfficial(v);
+          }}
+          trackColor={{ false: COLORS.border, true: COLORS.primary }}
+          thumbColor={lyricsIsOfficial ? COLORS.background : COLORS.textSecondary}
+        />
+      </View>
 
       {/* Published toggle */}
       <View

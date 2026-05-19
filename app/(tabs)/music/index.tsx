@@ -10,6 +10,7 @@ import {
   RefreshControl,
   ImageSourcePropType,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Music, Play, Pause, ExternalLink, Heart } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
@@ -128,6 +129,7 @@ function SongFavoriteButton({ songId }: { songId: string }) {
 }
 
 function NativeSongRow({ item }: { item: SongItem }) {
+  const router = useRouter();
   const { currentSong, isPlaying, playSong } = useAudioPlayer();
   const isCurrentSong = currentSong?.id === item.id;
   const isThisPlaying = isCurrentSong && isPlaying;
@@ -197,6 +199,27 @@ function NativeSongRow({ item }: { item: SongItem }) {
 
       {/* Favorite */}
       <SongFavoriteButton songId={item.id} />
+
+      {/* Lyrics button */}
+      <AnimatedPressable
+        onPress={() => {
+          console.log('[Music] Lyrics button pressed for:', item.title);
+          router.push(`/lyrics?songId=${item.id}&songTitle=${encodeURIComponent(item.title)}&artist=${encodeURIComponent(item.artist)}`);
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.surfaceSecondary,
+            borderRadius: 6,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}
+        >
+          <Text style={{ color: COLORS.textSecondary, fontSize: 10, fontWeight: '600' }}>LYRICS</Text>
+        </View>
+      </AnimatedPressable>
 
       {/* Play button */}
       <AnimatedPressable onPress={handlePlay}>

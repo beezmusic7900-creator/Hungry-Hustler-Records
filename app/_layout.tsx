@@ -167,6 +167,14 @@ export default function RootLayout() {
                     name="video-player"
                     options={{ headerShown: true, title: 'Video', ...HEADER_OPTIONS }}
                   />
+                  <Stack.Screen
+                    name="lyrics"
+                    options={{ headerShown: true, title: 'Lyrics', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="video-lyrics"
+                    options={{ headerShown: true, title: 'Lyrics', ...HEADER_OPTIONS }}
+                  />
                   <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
                   <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
                 </Stack>

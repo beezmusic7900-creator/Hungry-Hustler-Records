@@ -6,10 +6,12 @@ import {
   Image,
   ImageSourcePropType,
   RefreshControl,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Music, ShoppingBag, LogOut, User, Heart } from 'lucide-react-native';
+import { Music, ShoppingBag, LogOut, User, Heart, Pencil } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
@@ -63,9 +65,58 @@ export default function FanProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [displayName, setDisplayName] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [savingName, setSavingName] = useState(false);
+
   useEffect(() => {
-    if (user) loadFavorites();
+    if (user) {
+      loadFavorites();
+      loadDisplayName();
+    }
   }, [user]);
+
+  const loadDisplayName = async () => {
+    if (!user) return;
+    try {
+      console.log('[FanProfile] Loading display name for user:', user.id);
+      const { data } = await db
+        .from('fan_profiles')
+        .select('display_name')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (data?.display_name) {
+        setDisplayName(data.display_name);
+        console.log('[FanProfile] Display name loaded:', data.display_name);
+      }
+    } catch (err) {
+      console.error('[FanProfile] loadDisplayName error:', err);
+    }
+  };
+
+  const handleSaveDisplayName = async () => {
+    if (!user) return;
+    console.log('[FanProfile] Save display name pressed:', displayName.trim());
+    setSavingName(true);
+    try {
+      const { error: upsertErr } = await db
+        .from('fan_profiles')
+        .upsert({ id: user.id, display_name: displayName.trim(), updated_at: new Date().toISOString() });
+      if (upsertErr) {
+        console.error('[FanProfile] Save display name error:', upsertErr.message);
+        Alert.alert('Error', upsertErr.message);
+      } else {
+        console.log('[FanProfile] Display name saved successfully');
+        setEditingName(false);
+        Alert.alert('Saved', 'Display name updated.');
+      }
+    } catch (err) {
+      console.error('[FanProfile] handleSaveDisplayName error:', err);
+      Alert.alert('Error', 'Could not save display name.');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const loadFavorites = useCallback(async () => {
     if (!user) return;
@@ -226,7 +277,7 @@ export default function FanProfileScreen() {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: 28,
+          marginBottom: 20,
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -250,30 +301,140 @@ export default function FanProfileScreen() {
                 {userName}
               </Text>
             ) : null}
+            {displayName ? (
+              <Text style={{ color: COLORS.primary, fontSize: 14, fontWeight: '600', marginTop: 1 }}>
+                {displayName}
+              </Text>
+            ) : null}
             <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 2 }}>
               {userEmail}
             </Text>
           </View>
         </View>
 
-        {/* Sign out */}
-        <AnimatedPressable onPress={handleSignOut}>
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              backgroundColor: 'rgba(255, 68, 68, 0.12)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: 'rgba(255, 68, 68, 0.3)',
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {/* Edit name button */}
+          <AnimatedPressable
+            onPress={() => {
+              console.log('[FanProfile] Edit display name pressed');
+              setEditingName(true);
             }}
           >
-            <LogOut size={18} color={COLORS.danger} />
-          </View>
-        </AnimatedPressable>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                backgroundColor: COLORS.surfaceSecondary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              <Pencil size={16} color={COLORS.textSecondary} />
+            </View>
+          </AnimatedPressable>
+
+          {/* Sign out */}
+          <AnimatedPressable onPress={handleSignOut}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                backgroundColor: 'rgba(255, 68, 68, 0.12)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 68, 68, 0.3)',
+              }}
+            >
+              <LogOut size={18} color={COLORS.danger} />
+            </View>
+          </AnimatedPressable>
+        </View>
       </View>
+
+      {/* Display name edit section */}
+      {editingName && (
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 14,
+            padding: 16,
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}
+        >
+          <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '500', marginBottom: 8 }}>
+            Display Name
+          </Text>
+          <TextInput
+            value={displayName}
+            onChangeText={setDisplayName}
+            placeholder="Enter a display name"
+            placeholderTextColor={COLORS.textTertiary}
+            autoCapitalize="words"
+            autoCorrect={false}
+            style={{
+              backgroundColor: COLORS.surfaceSecondary,
+              borderRadius: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              color: COLORS.text,
+              fontSize: 15,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              marginBottom: 12,
+            }}
+          />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <AnimatedPressable
+              onPress={handleSaveDisplayName}
+              disabled={savingName}
+              style={{ flex: 1 }}
+            >
+              <View
+                style={{
+                  backgroundColor: COLORS.primary,
+                  borderRadius: 10,
+                  paddingVertical: 11,
+                  alignItems: 'center',
+                  opacity: savingName ? 0.7 : 1,
+                }}
+              >
+                <Text style={{ color: COLORS.background, fontSize: 14, fontWeight: '700' }}>
+                  {savingName ? 'Saving...' : 'Save'}
+                </Text>
+              </View>
+            </AnimatedPressable>
+            <AnimatedPressable
+              onPress={() => {
+                console.log('[FanProfile] Cancel edit display name');
+                setEditingName(false);
+              }}
+              style={{ flex: 1 }}
+            >
+              <View
+                style={{
+                  backgroundColor: COLORS.surfaceSecondary,
+                  borderRadius: 10,
+                  paddingVertical: 11,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                }}
+              >
+                <Text style={{ color: COLORS.textSecondary, fontSize: 14, fontWeight: '600' }}>
+                  Cancel
+                </Text>
+              </View>
+            </AnimatedPressable>
+          </View>
+        </View>
+      )}
 
       {/* Favorites section */}
       <View style={{ marginBottom: 8 }}>

@@ -7,6 +7,7 @@ import {
   Platform,
   ScrollView,
   Animated,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +16,7 @@ import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { HHRLogo } from '@/components/HHRLogo';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 type Mode = 'signin' | 'signup';
 
@@ -47,6 +49,27 @@ export default function FanAuthScreen() {
     setError(null);
   };
 
+  const handleForgotPassword = async () => {
+    console.log('[FanAuth] Forgot password pressed');
+    if (!email.trim()) {
+      setError('Enter your email address first.');
+      return;
+    }
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
+      if (resetError) {
+        console.error('[FanAuth] Password reset error:', resetError.message);
+        setError(resetError.message);
+      } else {
+        console.log('[FanAuth] Password reset email sent to:', email.trim());
+        Alert.alert('Check your email', 'A password reset link has been sent to ' + email.trim());
+      }
+    } catch (err) {
+      console.error('[FanAuth] Password reset failed:', err);
+      setError('Failed to send reset email. Please try again.');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
       setError('Please enter your email and password.');
@@ -65,13 +88,31 @@ export default function FanAuthScreen() {
       if (mode === 'signin') {
         await signInWithEmail(email.trim(), password);
         console.log('[FanAuth] Sign in success');
+        router.replace('/(tabs)/(home)');
       } else {
         await signUpWithEmail(email.trim(), password, name.trim() || undefined);
-        // Auto sign in after signup
-        await signInWithEmail(email.trim(), password);
-        console.log('[FanAuth] Sign up + sign in success');
+        console.log('[FanAuth] Sign up success, attempting auto sign-in');
+        try {
+          await signInWithEmail(email.trim(), password);
+          console.log('[FanAuth] Auto sign-in success');
+          router.replace('/(tabs)/(home)');
+        } catch (signInErr: unknown) {
+          const signInMsg = signInErr instanceof Error ? signInErr.message : '';
+          if (signInMsg.toLowerCase().includes('email not confirmed')) {
+            console.log('[FanAuth] Email confirmation required');
+            Alert.alert(
+              'Account created!',
+              'Please check your email to confirm your account, then sign in.'
+            );
+            setName('');
+            setEmail('');
+            setPassword('');
+            setMode('signin');
+          } else {
+            throw signInErr;
+          }
+        }
       }
-      router.replace('/(tabs)/(home)');
     } catch (err: unknown) {
       console.error('[FanAuth] Auth error:', err);
       const msg = err instanceof Error ? err.message : 'Authentication failed. Please try again.';
@@ -321,6 +362,24 @@ export default function FanAuthScreen() {
                 </AnimatedPressable>
               </View>
             </View>
+
+            {/* Forgot Password (sign-in only) */}
+            {modeSignIn && (
+              <AnimatedPressable
+                onPress={handleForgotPassword}
+                style={{ alignSelf: 'flex-end', marginTop: 6 }}
+              >
+                <Text
+                  style={{
+                    color: COLORS.primary,
+                    fontSize: 13,
+                    fontWeight: '600',
+                  }}
+                >
+                  Forgot Password?
+                </Text>
+              </AnimatedPressable>
+            )}
 
             {/* Error */}
             {error ? (

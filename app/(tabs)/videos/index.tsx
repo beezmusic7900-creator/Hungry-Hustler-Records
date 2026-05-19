@@ -192,6 +192,29 @@ function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) 
               {item.description}
             </Text>
           ) : null}
+          <View style={{ marginTop: 8 }}>
+            <AnimatedPressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                console.log('[Videos] Lyrics button pressed for:', item.title);
+                router.push(`/video-lyrics?videoId=${item.id}&videoTitle=${encodeURIComponent(item.title)}`);
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: COLORS.surfaceSecondary,
+                  borderRadius: 6,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  alignSelf: 'flex-start',
+                }}
+              >
+                <Text style={{ color: COLORS.textSecondary, fontSize: 10, fontWeight: '600' }}>LYRICS</Text>
+              </View>
+            </AnimatedPressable>
+          </View>
         </View>
       </View>
     </AnimatedPressable>

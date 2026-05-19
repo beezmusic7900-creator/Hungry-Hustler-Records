@@ -98,6 +98,9 @@ export default function VideoFormScreen() {
   const [useFileUpload, setUseFileUpload] = useState(false);
   const [artistId, setArtistId] = useState<string | null>(null);
   const [artists, setArtists] = useState<Artist[]>([]);
+  const [lyrics, setLyrics] = useState('');
+  const [lyricsLabel, setLyricsLabel] = useState('AI Generated Lyrics');
+  const [lyricsIsApproved, setLyricsIsApproved] = useState(false);
 
   const [pendingVideoUri, setPendingVideoUri] = useState<string | null>(null);
   const [pendingVideoName, setPendingVideoName] = useState<string | null>(null);
@@ -145,6 +148,9 @@ export default function VideoFormScreen() {
       setThumbnailUrl(anyData.thumbnail_url ?? '');
       setIsPublished(anyData.is_published ?? true);
       setArtistId(anyData.artist_id ?? null);
+      setLyrics(anyData.lyrics ?? '');
+      setLyricsLabel(anyData.lyrics_label ?? 'AI Generated Lyrics');
+      setLyricsIsApproved(anyData.lyrics_is_approved ?? false);
     } catch (err) {
       console.error('[VideoForm] Load failed:', err);
       Alert.alert('Error', 'Could not load video data.');
@@ -306,6 +312,9 @@ export default function VideoFormScreen() {
         source_type: youtubeId ? 'youtube' : 'upload',
         is_published: isPublished,
         artist_id: artistId,
+        lyrics: lyrics.trim() || null,
+        lyrics_label: lyricsLabel.trim() || 'AI Generated Lyrics',
+        lyrics_is_approved: lyricsIsApproved,
       };
 
       if (isEditing) {
@@ -553,6 +562,98 @@ export default function VideoFormScreen() {
           required
         />
       )}
+
+      {/* AI / Fan Lyrics */}
+      <View style={{ marginBottom: 16 }}>
+        <Text
+          style={{
+            color: COLORS.textSecondary,
+            fontSize: 13,
+            fontWeight: '500',
+            marginBottom: 8,
+          }}
+        >
+          AI / Fan Lyrics
+        </Text>
+        <TextInput
+          value={lyrics}
+          onChangeText={setLyrics}
+          placeholder="Paste AI-generated or fan lyrics here..."
+          placeholderTextColor={COLORS.textTertiary}
+          multiline
+          numberOfLines={8}
+          textAlignVertical="top"
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={{
+            backgroundColor: COLORS.surfaceSecondary,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            color: COLORS.text,
+            fontSize: 14,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            minHeight: 160,
+          }}
+        />
+      </View>
+
+      {/* Lyrics Label */}
+      <View style={{ marginBottom: 16 }}>
+        <Text
+          style={{
+            color: COLORS.textSecondary,
+            fontSize: 13,
+            fontWeight: '500',
+            marginBottom: 8,
+          }}
+        >
+          Lyrics Label
+        </Text>
+        <TextInput
+          value={lyricsLabel}
+          onChangeText={setLyricsLabel}
+          placeholder="AI Generated Lyrics"
+          placeholderTextColor={COLORS.textTertiary}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={{
+            backgroundColor: COLORS.surfaceSecondary,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            color: COLORS.text,
+            fontSize: 15,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}
+        />
+      </View>
+
+      {/* Approved for public display toggle */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 20,
+          paddingVertical: 4,
+        }}
+      >
+        <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '500' }}>
+          Approved for public display
+        </Text>
+        <Switch
+          value={lyricsIsApproved}
+          onValueChange={(v) => {
+            console.log(`[VideoForm] Lyrics approved toggle: ${v}`);
+            setLyricsIsApproved(v);
+          }}
+          trackColor={{ false: COLORS.border, true: COLORS.primary }}
+          thumbColor={lyricsIsApproved ? COLORS.background : COLORS.textSecondary}
+        />
+      </View>
 
       {/* Published toggle */}
       <View
