@@ -7,6 +7,32 @@ const config = getDefaultConfig(__dirname);
 
 config.resolver.unstable_enablePackageExports = true;
 
+// Stub out @supabase/tracing's extract module which uses dynamic import(variable)
+// that Hermes cannot compile. The tracing feature is not needed in React Native.
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (
+    moduleName.includes('@supabase/tracing') &&
+    (moduleName.endsWith('extract') || moduleName.endsWith('extract.js'))
+  ) {
+    return {
+      filePath: path.resolve(__dirname, 'utils/supabase-tracing-stub.js'),
+      type: 'sourceFile',
+    };
+  }
+  // Also intercept the internal path used by the bundled supabase-js dist
+  if (
+    context.originModulePath &&
+    context.originModulePath.includes('@supabase') &&
+    (moduleName === './extract' || moduleName === './extract.js')
+  ) {
+    return {
+      filePath: path.resolve(__dirname, 'utils/supabase-tracing-stub.js'),
+      type: 'sourceFile',
+    };
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 // Use turborepo to restore the cache when possible
 config.cacheStores = [
     new FileStore({ root: path.join(__dirname, 'node_modules', '.cache', 'metro') }),
