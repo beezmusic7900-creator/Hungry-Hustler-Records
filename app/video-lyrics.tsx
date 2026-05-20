@@ -33,6 +33,7 @@ export default function VideoLyricsScreen() {
   useEffect(() => {
     if (!videoId) return;
     loadLyrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
 
   const loadLyrics = async () => {

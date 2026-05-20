@@ -88,6 +88,7 @@ export default function FanProfileScreen() {
         }).catch(() => {});
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadRewardsSummary = async () => {

@@ -47,6 +47,7 @@ export default function AdminArtistsScreen() {
       return;
     }
     loadArtists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   const loadArtists = async () => {

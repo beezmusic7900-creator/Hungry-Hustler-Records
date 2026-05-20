@@ -41,6 +41,7 @@ export default function FanAuthScreen() {
       duration: 400,
       useNativeDriver: Platform.OS !== 'web',
     }).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleModeSwitch = (newMode: Mode) => {

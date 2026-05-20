@@ -3,21 +3,25 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '@/integrations/supabase/client';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 export function usePushNotifications() {
   const notificationListener = useRef<Notifications.EventSubscription | undefined>(undefined);
   const responseListener = useRef<Notifications.EventSubscription | undefined>(undefined);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
     registerForPushNotifications();
 
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
@@ -53,7 +57,9 @@ async function registerForPushNotifications() {
       return;
     }
 
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: 'bed6240c-fb94-4caa-8672-9be1fc91e091',
+    });
     const token = tokenData.data;
     console.log('[Push] Expo push token:', token);
 

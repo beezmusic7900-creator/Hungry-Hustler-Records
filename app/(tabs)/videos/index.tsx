@@ -7,6 +7,7 @@ import {
   RefreshControl,
   ImageSourcePropType,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -160,10 +161,18 @@ function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) 
                 backgroundColor: COLORS.primary,
                 alignItems: 'center',
                 justifyContent: 'center',
-                shadowColor: COLORS.primary,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.5,
-                shadowRadius: 10,
+                ...Platform.select({
+                  native: {
+                    shadowColor: COLORS.primary,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.5,
+                    shadowRadius: 10,
+                  },
+                  web: {
+                    boxShadow: '0px 0px 10px rgba(0,255,102,0.5)',
+                  },
+                  default: {},
+                }),
               }}
             >
               <Play size={20} color="#FFFFFF" fill="#FFFFFF" />
@@ -351,10 +360,18 @@ export default function VideosScreen() {
             backgroundColor: COLORS.primary,
             borderRadius: 2,
             marginTop: 6,
-            shadowColor: COLORS.primary,
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.6,
-            shadowRadius: 6,
+            ...Platform.select({
+              native: {
+                shadowColor: COLORS.primary,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.6,
+                shadowRadius: 6,
+              },
+              web: {
+                boxShadow: '0px 0px 6px rgba(0,255,102,0.6)',
+              },
+              default: {},
+            }),
           }}
         />
       </View>
@@ -487,10 +504,18 @@ export default function VideosScreen() {
                       backgroundColor: COLORS.primary,
                       borderRadius: 2,
                       marginTop: 6,
-                      shadowColor: COLORS.primary,
-                      shadowOffset: { width: 0, height: 0 },
-                      shadowOpacity: 0.6,
-                      shadowRadius: 6,
+                      ...Platform.select({
+                        native: {
+                          shadowColor: COLORS.primary,
+                          shadowOffset: { width: 0, height: 0 },
+                          shadowOpacity: 0.6,
+                          shadowRadius: 6,
+                        },
+                        web: {
+                          boxShadow: '0px 0px 6px rgba(0,255,102,0.6)',
+                        },
+                        default: {},
+                      }),
                     }}
                   />
                 </View>

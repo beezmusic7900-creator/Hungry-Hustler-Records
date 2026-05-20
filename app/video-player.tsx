@@ -78,6 +78,7 @@ export default function VideoPlayerScreen() {
 
   useEffect(() => {
     if (id) loadVideo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadVideo = async () => {

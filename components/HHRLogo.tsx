@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Image, ImageSourcePropType } from 'react-native';
+import { View, Image, ImageSourcePropType, Platform } from 'react-native';
 
 const logoSource: ImageSourcePropType = require('../assets/images/cc665abf-a02b-4ce3-85e6-492dfdf3ec20.jpeg');
 
@@ -18,12 +18,18 @@ export function HHRLogo({ size = 'medium', showGlow = true }: HHRLogoProps) {
   const dimension = SIZE_MAP[size];
 
   const glowStyle = showGlow
-    ? {
-        shadowColor: '#FFD700',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-      }
+    ? Platform.select({
+        native: {
+          shadowColor: '#FFD700',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.5,
+          shadowRadius: 16,
+        },
+        web: {
+          filter: 'drop-shadow(0px 0px 8px rgba(255,215,0,0.5))',
+        },
+        default: {},
+      })
     : {};
 
   return (
