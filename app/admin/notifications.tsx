@@ -109,6 +109,7 @@ export default function AdminNotificationsScreen() {
     if (!authLoading && !user) {
       router.replace('/(tabs)/admin' as never);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   useEffect(() => {

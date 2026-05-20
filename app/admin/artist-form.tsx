@@ -98,6 +98,7 @@ export default function ArtistFormScreen() {
       return;
     }
     if (isEditing) loadArtist();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   const loadArtist = async () => {

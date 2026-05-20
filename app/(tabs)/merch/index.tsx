@@ -99,6 +99,7 @@ function MerchCard({ item, index, onPress }: { item: MerchItem; index: number; o
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSizePress = (size: string) => {

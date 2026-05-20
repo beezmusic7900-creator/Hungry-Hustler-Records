@@ -137,6 +137,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadHome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadHome = async () => {

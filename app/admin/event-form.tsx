@@ -46,6 +46,7 @@ export default function EventFormScreen() {
   useEffect(() => {
     navigation.setOptions({ title: isEdit ? 'Edit Event' : 'New Event' });
     if (isEdit) loadEvent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadEvent = async () => {

@@ -64,8 +64,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
     try {
       await setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
       });
 
       const player = createAudioPlayer({ uri: song.audio_url });

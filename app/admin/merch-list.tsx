@@ -46,6 +46,7 @@ export default function AdminMerchListScreen() {
       return;
     }
     loadItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   const loadItems = async () => {

@@ -111,6 +111,7 @@ export default function MusicFormScreen() {
       return;
     }
     if (isEditing) loadSong();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   const loadSong = async () => {

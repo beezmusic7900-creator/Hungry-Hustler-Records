@@ -56,6 +56,7 @@ function ArtistCard({ artist, index }: { artist: Artist; index: number }) {
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePress = () => {

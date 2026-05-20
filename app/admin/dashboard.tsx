@@ -105,6 +105,7 @@ export default function DashboardScreen() {
     if (!authLoading && !user) {
       router.replace('/(tabs)/admin');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   useEffect(() => {

@@ -6,6 +6,7 @@ import {
   Image,
   Linking,
   ImageSourcePropType,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { ShoppingBag, ExternalLink, CheckCircle, XCircle } from 'lucide-react-native';
@@ -42,6 +43,7 @@ export default function MerchDetailScreen() {
 
   useEffect(() => {
     if (id) loadItem();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadItem = async () => {
@@ -237,10 +239,18 @@ export default function MerchDetailScreen() {
                     flexDirection: 'row',
                     justifyContent: 'center',
                     gap: 8,
-                    shadowColor: COLORS.primary,
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.4,
-                    shadowRadius: 12,
+                    ...Platform.select({
+                      native: {
+                        shadowColor: COLORS.primary,
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: 0.4,
+                        shadowRadius: 12,
+                      },
+                      web: {
+                        boxShadow: '0px 0px 12px rgba(0,255,102,0.4)',
+                      },
+                      default: {},
+                    }),
                   }}
                 >
                   <ExternalLink size={18} color={COLORS.background} />

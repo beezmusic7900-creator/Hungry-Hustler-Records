@@ -33,6 +33,7 @@ export default function LyricsScreen() {
   useEffect(() => {
     if (!songId) return;
     loadLyrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [songId]);
 
   const loadLyrics = async () => {

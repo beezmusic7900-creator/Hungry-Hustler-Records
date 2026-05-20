@@ -104,6 +104,7 @@ export default function MerchFormScreen() {
       return;
     }
     if (isEditing) loadItem();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   const loadItem = async () => {
