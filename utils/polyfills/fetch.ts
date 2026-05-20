@@ -1,6 +1,6 @@
 import { fetch as expoFetch } from 'expo/fetch';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-import { polyfillGlobal } from 'react-native/Libraries/Utilities/PolyfillFunctions';
+const { polyfillGlobal } = require('react-native/Libraries/Utilities/PolyfillFunctions');
 
 // Replace global fetch with expo/fetch which supports streaming response bodies
 polyfillGlobal('fetch', () => expoFetch);
@@ -20,7 +20,4 @@ Promise.all([
   }
 });
 
-// @ts-expect-error - module augmentation for untyped deep import
-declare module 'react-native/Libraries/Utilities/PolyfillFunctions' {
-  export function polyfillGlobal(name: string, getValue: () => unknown): void;
-}
+

@@ -7,21 +7,15 @@ const config = getDefaultConfig(__dirname);
 
 config.resolver.unstable_enablePackageExports = true;
 
-// Force Metro to use the CJS build of @supabase/supabase-js instead of the
-// ESM build. The ESM build contains import(OTEL_PKG) — a dynamic import with
-// a variable — which Hermes cannot compile. The CJS build uses require(s)
-// which is safe. We do this by intercepting the module resolution and
-// redirecting to the .cjs file directly.
+// Force @supabase/supabase-js to use CJS build to avoid Hermes-incompatible
+// dynamic import(OTEL_PKG) in the ESM build
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  // Redirect @supabase/supabase-js to its CJS build to avoid the
-  // import(OTEL_PKG) dynamic import in the ESM build that Hermes rejects.
   if (moduleName === '@supabase/supabase-js') {
     return {
-      filePath: path.resolve(__dirname, 'node_modules/@supabase/supabase-js/dist/index.cjs'),
+      filePath: path.resolve(__dirname, 'node_modules/@supabase/supabase-js/dist/main/index.js'),
       type: 'sourceFile',
     };
   }
-  // Fall through to default resolver for everything else.
   return context.resolveRequest(context, moduleName, platform);
 };
 
