@@ -62,7 +62,8 @@
         {
           "iCloudContainerEnvironment": "Production"
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "scheme": "hungryhustler",
     "newArchEnabled": true,
