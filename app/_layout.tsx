@@ -1,5 +1,10 @@
 import "react-native-reanimated";
 import React, { useEffect } from "react";
+import { LogBox, Platform } from 'react-native';
+
+if (Platform.OS === 'web') {
+  LogBox.ignoreLogs(['useNativeDriver']);
+}
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";

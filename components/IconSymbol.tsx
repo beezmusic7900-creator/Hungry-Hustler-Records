@@ -4,8 +4,10 @@ import React from "react";
 import { SymbolWeight } from "expo-symbols";
 import {
   OpaqueColorValue,
+  Platform,
   Pressable,
   StyleProp,
+  StyleSheet,
   TextStyle,
   ViewStyle,
 } from "react-native";
@@ -45,12 +47,21 @@ export function IconSymbol({
 }) {
   const hasInteraction = onPress || onClick || onMouseOver || onMouseLeave;
 
+  const flatStyle = style ? StyleSheet.flatten(style) : undefined;
+  const safeStyle = Platform.OS === 'web' && flatStyle
+    ? Object.fromEntries(
+        Object.entries(flatStyle).filter(([k]) =>
+          !['shadowColor', 'shadowOffset', 'shadowOpacity', 'shadowRadius', 'elevation', 'includeFontPadding', 'textAlignVertical'].includes(k)
+        )
+      )
+    : flatStyle;
+
   const icon = (
     <MaterialIcons
       color={color}
       size={size}
       name={android_material_icon_name}
-      style={style as StyleProp<TextStyle>}
+      style={safeStyle as StyleProp<TextStyle>}
     />
   );
 
