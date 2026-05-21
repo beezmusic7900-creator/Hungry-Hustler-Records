@@ -17,7 +17,6 @@ import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabasePublic } from '@/integrations/supabase/client';
-import { apiGet } from '@/utils/api';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { useFavorite } from '@/hooks/useFavorite';
 import { useRewards } from '@/hooks/useRewards';
@@ -526,24 +525,8 @@ export default function MusicScreen() {
   }, []);
 
   const loadAppleMusic = useCallback(async () => {
-    try {
-      setAmError(null);
-      const data = await apiGet<AppleMusicData>('/api/apple-music/artist');
-      setAmData(data);
-      console.log(
-        '[Music] Apple Music loaded:',
-        data.albums.length,
-        'albums,',
-        data.topSongs.length,
-        'songs'
-      );
-    } catch (err) {
-      console.warn('[Music] Apple Music unavailable:', err);
-      setAmData(null);
-      setAmError('Apple Music content unavailable');
-    } finally {
-      setAmLoading(false);
-    }
+    setAmData(null);
+    setAmLoading(false);
   }, []);
 
   useEffect(() => {

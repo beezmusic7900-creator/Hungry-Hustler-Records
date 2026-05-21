@@ -7,18 +7,6 @@ const config = getDefaultConfig(__dirname);
 
 config.resolver.unstable_enablePackageExports = true;
 
-// Force @supabase/supabase-js to use CJS build to avoid Hermes-incompatible
-// dynamic import(OTEL_PKG) in the ESM build
-config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName === '@supabase/supabase-js') {
-    return {
-      filePath: path.resolve(__dirname, 'node_modules/@supabase/supabase-js/dist/main/index.js'),
-      type: 'sourceFile',
-    };
-  }
-  return context.resolveRequest(context, moduleName, platform);
-};
-
 // Use turborepo to restore the cache when possible
 config.cacheStores = [
     new FileStore({ root: path.join(__dirname, 'node_modules', '.cache', 'metro') }),
