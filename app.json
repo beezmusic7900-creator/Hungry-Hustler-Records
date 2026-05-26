@@ -72,6 +72,9 @@
       "typedRoutes": true
     },
     "extra": {
+			"eas": {
+    "projectId": "bed6240c-fb94-4caa-8672-9be1fc91e091"
+  },
       "router": {},
       "backendUrl": "https://zh8kuu2uzjgumzgbwmaa3fb5a3dwbes5.app.specular.dev"
     }
