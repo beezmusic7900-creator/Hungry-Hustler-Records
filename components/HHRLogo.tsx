@@ -36,7 +36,7 @@ export function HHRLogo({ size = 'medium', showGlow = true }: HHRLogoProps) {
     <View style={[{ width: dimension, height: dimension }, glowStyle]}>
       <Image
         source={logoSource}
-        style={{ width: dimension, height: dimension }}
+        style={{ width: 279, height: 232 }}
         resizeMode="contain"
       />
     </View>

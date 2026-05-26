@@ -297,8 +297,8 @@ export default function HomeScreen() {
           ) : (
             <View
               style={{
-                width: '100%',
-                height: 200,
+                width: -36,
+                height: null,
                 backgroundColor: COLORS.surfaceSecondary,
               }}
             />
