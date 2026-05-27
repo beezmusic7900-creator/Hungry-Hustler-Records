@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,16 @@ import {
   Image,
   ImageSourcePropType,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Trophy, Clock, Gift } from 'lucide-react-native';
+import { Trophy, Clock, Gift, Heart } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
+const SUPABASE_URL = 'https://egmaxjskylfepliwaeme.supabase.co';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
@@ -26,6 +29,18 @@ interface FanContest {
   starts_at: string | null;
   ends_at: string | null;
   is_active: boolean;
+}
+
+interface TopEntry {
+  id: string;
+  user_id: string;
+  title: string;
+  thumbnail_url: string | null;
+  like_count: number;
+  fan_profiles?: {
+    display_name: string | null;
+    username: string | null;
+  } | null;
 }
 
 function resolveImageSource(
@@ -47,16 +62,16 @@ function daysUntil(dateStr: string | null): string {
 
 export default function ContestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [contest, setContest] = useState<FanContest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [topEntries, setTopEntries] = useState<TopEntry[]>([]);
+  const [entriesLoading, setEntriesLoading] = useState(false);
 
-  useEffect(() => {
-    if (id) loadContest();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  const loadContest = async () => {
+  const loadContest = useCallback(async () => {
+    if (!id) return;
     try {
       console.log('[Contest] Loading contest:', id);
       setLoading(true);
@@ -76,9 +91,51 @@ export default function ContestDetailScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  const loadTopEntries = useCallback(async () => {
+    if (!id) return;
+    try {
+      setEntriesLoading(true);
+      console.log('[Contest] Loading top entries for contest:', id);
+      const { data, error } = await db
+        .from('submissions')
+        .select('id, user_id, title, thumbnail_url, like_count, fan_profiles(display_name, username)')
+        .eq('contest_id', id)
+        .in('status', ['approved', 'featured'])
+        .order('like_count', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('[Contest] Top entries error:', error.message);
+      } else {
+        setTopEntries((data ?? []) as TopEntry[]);
+        console.log('[Contest] Loaded', (data ?? []).length, 'top entries');
+      }
+    } catch (err) {
+      console.error('[Contest] loadTopEntries error:', err);
+    } finally {
+      setEntriesLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      loadContest();
+      loadTopEntries();
+    }
+  }, [id, loadContest, loadTopEntries]);
 
   const endsText = daysUntil(contest?.ends_at ?? null);
+
+  const handleSubmitEntry = () => {
+    console.log('[Contest] Submit entry pressed for contest:', id);
+    if (!user) {
+      router.push('/fan-auth');
+      return;
+    }
+    router.push(`/submit/upload?type=contest_entry&contest_id=${id}`);
+  };
 
   return (
     <ScrollView
@@ -211,40 +268,165 @@ export default function ContestDetailScreen() {
               </View>
             ) : null}
 
-            {/* Coming soon banner */}
-            <View
-              style={{
-                backgroundColor: COLORS.surface,
-                borderRadius: 14,
-                padding: 20,
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                gap: 10,
-              }}
-            >
-              <Text style={{ fontSize: 32 }}>🚀</Text>
-              <Text
-                style={{
-                  color: COLORS.text,
-                  fontSize: 16,
-                  fontWeight: '700',
-                  textAlign: 'center',
-                }}
-              >
-                Submissions open soon
-              </Text>
-              <Text
-                style={{
-                  color: COLORS.textSecondary,
-                  fontSize: 14,
-                  textAlign: 'center',
-                  lineHeight: 20,
-                  maxWidth: 280,
-                }}
-              >
-                Contest submissions will be available in the next update. Stay tuned!
-              </Text>
+            {/* Submit Entry CTA */}
+            {contest.is_active && (
+              <AnimatedPressable onPress={handleSubmitEntry} style={{ marginBottom: 24 }}>
+                <View
+                  style={{
+                    backgroundColor: COLORS.primary,
+                    borderRadius: 14,
+                    paddingVertical: 16,
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <Text style={{ color: COLORS.background, fontSize: 16, fontWeight: '800' }}>
+                    Submit Your Entry
+                  </Text>
+                  <Text style={{ color: `${COLORS.background}99`, fontSize: 12 }}>
+                    Tap to upload your submission
+                  </Text>
+                </View>
+              </AnimatedPressable>
+            )}
+
+            {/* Top Entries Leaderboard */}
+            <View style={{ marginBottom: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Trophy size={16} color="#F59E0B" />
+                  <Text style={{ color: COLORS.text, fontSize: 17, fontWeight: '700' }}>
+                    Top Entries
+                  </Text>
+                </View>
+                <AnimatedPressable
+                  onPress={() => {
+                    console.log('[Contest] View all entries pressed');
+                    router.push(`/submissions?contest_id=${id}`);
+                  }}
+                >
+                  <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '600' }}>
+                    View All →
+                  </Text>
+                </AnimatedPressable>
+              </View>
+
+              {entriesLoading ? (
+                <View style={{ gap: 8 }}>
+                  {[0, 1, 2].map((k) => (
+                    <View
+                      key={k}
+                      style={{
+                        backgroundColor: COLORS.surface,
+                        borderRadius: 12,
+                        padding: 12,
+                        flexDirection: 'row',
+                        gap: 10,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      <SkeletonLine width={48} height={48} borderRadius={8} />
+                      <View style={{ flex: 1, gap: 6 }}>
+                        <SkeletonLine width="60%" height={13} />
+                        <SkeletonLine width="40%" height={11} />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : topEntries.length === 0 ? (
+                <View
+                  style={{
+                    backgroundColor: COLORS.surface,
+                    borderRadius: 14,
+                    padding: 24,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                  }}
+                >
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 14, textAlign: 'center' }}>
+                    No entries yet — be the first to submit!
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {topEntries.map((entry, index) => {
+                    const rankText = `#${index + 1}`;
+                    const ownerName = entry.fan_profiles?.display_name ?? entry.fan_profiles?.username ?? 'Fan';
+                    const likeText = String(entry.like_count);
+
+                    return (
+                      <AnimatedPressable
+                        key={entry.id}
+                        onPress={() => {
+                          console.log('[Contest] Entry tapped:', entry.id);
+                          router.push(`/submissions/${entry.id}`);
+                        }}
+                      >
+                        <View
+                          style={{
+                            backgroundColor: COLORS.surface,
+                            borderRadius: 12,
+                            padding: 12,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 12,
+                            borderWidth: 1,
+                            borderColor: index === 0 ? 'rgba(245,158,11,0.4)' : COLORS.border,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: index === 0 ? '#F59E0B' : COLORS.textSecondary,
+                              fontSize: 15,
+                              fontWeight: '800',
+                              width: 28,
+                            }}
+                          >
+                            {rankText}
+                          </Text>
+                          <View
+                            style={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: 8,
+                              backgroundColor: COLORS.surfaceSecondary,
+                              overflow: 'hidden',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {entry.thumbnail_url ? (
+                              <Image
+                                source={resolveImageSource(entry.thumbnail_url)}
+                                style={{ width: 48, height: 48 }}
+                                resizeMode="cover"
+                              />
+                            ) : (
+                              <Text style={{ fontSize: 22 }}>🎬</Text>
+                            )}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '700' }} numberOfLines={1}>
+                              {entry.title}
+                            </Text>
+                            <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>
+                              {ownerName}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Heart size={13} color={COLORS.danger} fill={COLORS.danger} />
+                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' }}>
+                              {likeText}
+                            </Text>
+                          </View>
+                        </View>
+                      </AnimatedPressable>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           </>
         ) : (

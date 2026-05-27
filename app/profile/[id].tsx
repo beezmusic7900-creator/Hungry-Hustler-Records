@@ -6,6 +6,8 @@ import {
   Image,
   ImageSourcePropType,
   RefreshControl,
+  Alert,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,13 +21,17 @@ import {
   Heart,
   Star,
   MessageCircle,
+  MoreHorizontal,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
+import { ReportModal } from '@/components/ReportModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRewards } from '@/hooks/useRewards';
+
+
 
 const SUPABASE_URL = 'https://egmaxjskylfepliwaeme.supabase.co';
 
@@ -126,6 +132,8 @@ export default function PublicProfileScreen() {
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [followLoading, setFollowLoading] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [badges, setBadges] = useState<BadgeDetail[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -415,8 +423,9 @@ export default function PublicProfileScreen() {
   const followingText = `${followingCount.toLocaleString()} following`;
 
   return (
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
     <ScrollView
-      style={{ flex: 1, backgroundColor: COLORS.background }}
+      style={{ flex: 1 }}
       contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 100, paddingHorizontal: 20 }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />
@@ -523,35 +532,58 @@ export default function PublicProfileScreen() {
         </AnimatedPressable>
       </View>
 
-      {/* Follow button */}
+      {/* Follow + menu row */}
       {!isOwnProfile && user && (
-        <AnimatedPressable
-          onPress={handleToggleFollow}
-          disabled={followLoading}
-          style={{ marginBottom: 20 }}
-        >
-          <View
-            style={{
-              backgroundColor: isFollowing ? COLORS.surfaceSecondary : COLORS.primary,
-              borderRadius: 12,
-              paddingVertical: 12,
-              alignItems: 'center',
-              borderWidth: 1,
-              borderColor: isFollowing ? COLORS.border : COLORS.primary,
-              opacity: followLoading ? 0.7 : 1,
-            }}
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+          <AnimatedPressable
+            onPress={handleToggleFollow}
+            disabled={followLoading}
+            style={{ flex: 1 }}
           >
-            <Text
+            <View
               style={{
-                color: isFollowing ? COLORS.textSecondary : COLORS.background,
-                fontSize: 14,
-                fontWeight: '700',
+                backgroundColor: isFollowing ? COLORS.surfaceSecondary : COLORS.primary,
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: isFollowing ? COLORS.border : COLORS.primary,
+                opacity: followLoading ? 0.7 : 1,
               }}
             >
-              {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
-            </Text>
-          </View>
-        </AnimatedPressable>
+              <Text
+                style={{
+                  color: isFollowing ? COLORS.textSecondary : COLORS.background,
+                  fontSize: 14,
+                  fontWeight: '700',
+                }}
+              >
+                {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+              </Text>
+            </View>
+          </AnimatedPressable>
+          <AnimatedPressable
+            onPress={() => {
+              console.log('[PublicProfile] Menu pressed for user:', id);
+              setShowMenu(true);
+            }}
+          >
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: COLORS.surface,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              <MoreHorizontal size={20} color={COLORS.textSecondary} />
+            </View>
+          </AnimatedPressable>
+        </View>
       )}
 
       {/* Badges */}
@@ -685,5 +717,89 @@ export default function PublicProfileScreen() {
         )}
       </View>
     </ScrollView>
+
+    {/* Three-dot menu modal */}
+    <Modal
+      visible={showMenu}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowMenu(false)}
+    >
+      <AnimatedPressable
+        onPress={() => setShowMenu(false)}
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: 24,
+            paddingBottom: 40,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}
+        >
+          <AnimatedPressable
+            onPress={() => {
+              setShowMenu(false);
+              setShowReport(true);
+            }}
+          >
+            <View style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.divider }}>
+              <Text style={{ color: COLORS.danger, fontSize: 15, fontWeight: '600' }}>🚩 Report user</Text>
+            </View>
+          </AnimatedPressable>
+          <AnimatedPressable
+            onPress={() => {
+              setShowMenu(false);
+              const profileName = profile?.display_name ?? profile?.username ?? 'this user';
+              Alert.alert(
+                `Block ${profileName}?`,
+                "You won't see their content anymore.",
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Block',
+                    style: 'destructive',
+                    onPress: async () => {
+                      console.log('[PublicProfile] Blocking user:', id);
+                      try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (!session?.access_token) return;
+                        await fetch(`${SUPABASE_URL}/functions/v1/block-user`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.access_token}`,
+                          },
+                          body: JSON.stringify({ blocked_id: id, action: 'block' }),
+                        });
+                        router.back();
+                      } catch (err) {
+                        console.error('[PublicProfile] Block error:', err);
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <View style={{ paddingVertical: 14 }}>
+              <Text style={{ color: COLORS.danger, fontSize: 15, fontWeight: '600' }}>🚫 Block user</Text>
+            </View>
+          </AnimatedPressable>
+        </View>
+      </AnimatedPressable>
+    </Modal>
+
+    {/* Report modal */}
+    <ReportModal
+      targetType="user"
+      targetId={id ?? ''}
+      visible={showReport}
+      onClose={() => setShowReport(false)}
+    />
+    </View>
   );
 }

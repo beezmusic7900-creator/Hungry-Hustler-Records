@@ -19,6 +19,7 @@ import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { ReactionBar } from '@/components/ReactionBar';
 import { CommentThread } from '@/components/CommentThread';
 import { supabasePublic } from '@/integrations/supabase/client';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 interface VideoItem {
   id: string;
@@ -80,9 +81,14 @@ export default function VideoPlayerScreen() {
   const [playerError, setPlayerError] = useState(false);
   const [playerKey, setPlayerKey] = useState(0);
   const [showComments, setShowComments] = useState(false);
+  const { trackEvent } = useAnalytics();
 
   useEffect(() => {
-    if (id) loadVideo();
+    trackEvent('screen_view', { screen: 'video_player' });
+    if (id) {
+      loadVideo();
+      trackEvent('video_play', { video_id: id });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 

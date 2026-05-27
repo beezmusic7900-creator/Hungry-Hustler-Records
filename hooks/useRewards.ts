@@ -21,7 +21,11 @@ export type ActionType =
   | 'ask_artist'
   | 'vote_poll'
   | 'follow_user'
-  | 'attend_event';
+  | 'attend_event'
+  | 'submit_content'
+  | 'submission_approved'
+  | 'submission_featured'
+  | 'report_content';
 
 interface BadgeDetail {
   name: string;

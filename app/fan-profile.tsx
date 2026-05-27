@@ -898,6 +898,102 @@ export default function FanProfileScreen() {
         </View>
       </AnimatedPressable>
 
+      {/* My Submissions card */}
+      <AnimatedPressable
+        onPress={() => {
+          console.log('[FanProfile] My Submissions pressed');
+          router.push('/submit/my-submissions');
+        }}
+        style={{ marginBottom: 12 }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 14,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: 'rgba(124, 58, 237, 0.12)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(124, 58, 237, 0.3)',
+            }}
+          >
+            <Lock size={22} color="#7C3AED" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700' }}>
+              My Submissions
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+              Track your submitted content
+            </Text>
+          </View>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>
+            →
+          </Text>
+        </View>
+      </AnimatedPressable>
+
+      {/* Blocked Users card */}
+      <AnimatedPressable
+        onPress={() => {
+          console.log('[FanProfile] Blocked Users pressed');
+          router.push('/blocked-users');
+        }}
+        style={{ marginBottom: 12 }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 14,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: 'rgba(255, 68, 68, 0.08)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 68, 68, 0.2)',
+            }}
+          >
+            <User size={22} color={COLORS.danger} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700' }}>
+              Blocked Users
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+              Manage who you've blocked
+            </Text>
+          </View>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>
+            →
+          </Text>
+        </View>
+      </AnimatedPressable>
+
       {/* Notification Preferences card */}
       <AnimatedPressable
         onPress={() => {

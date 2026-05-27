@@ -35,6 +35,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ReactionBar } from '@/components/ReactionBar';
 import { CommentThread } from '@/components/CommentThread';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -81,6 +82,7 @@ export default function PlayerScreen() {
     playSong,
   } = useAudioPlayer();
 
+  const { trackEvent } = useAnalytics();
   const seekBarRef = useRef<View>(null);
   const seekBarWidth = useRef(0);
 
@@ -131,7 +133,13 @@ export default function PlayerScreen() {
   }, [user]);
 
   useEffect(() => {
+    trackEvent('screen_view', { screen: 'player' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (currentSong?.id) {
+      trackEvent('song_play', { song_id: currentSong.id, title: currentSong.title });
       setVoteScore(0);
       setUserVote(null);
       loadVoteState(currentSong.id);

@@ -229,6 +229,46 @@ export default function RootLayout() {
                     name="contests/[id]"
                     options={{ headerShown: true, title: 'Contest', ...HEADER_OPTIONS }}
                   />
+                  <Stack.Screen
+                    name="submit/index"
+                    options={{ headerShown: true, title: 'Share Your Talent', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="submit/upload"
+                    options={{ headerShown: true, title: 'Upload Content', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="submit/my-submissions"
+                    options={{ headerShown: true, title: 'My Submissions', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="submissions/index"
+                    options={{ headerShown: true, title: 'Fan Submissions', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="submissions/[id]"
+                    options={{ headerShown: true, title: 'Submission', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="blocked-users"
+                    options={{ headerShown: true, title: 'Blocked Users', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/submissions-queue"
+                    options={{ headerShown: true, title: 'Submissions Queue', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/reports-queue"
+                    options={{ headerShown: true, title: 'Reports Queue', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/analytics"
+                    options={{ headerShown: true, title: 'Analytics', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/users-management"
+                    options={{ headerShown: true, title: 'Users', ...HEADER_OPTIONS }}
+                  />
                 </Stack>
                 <SystemBars style="light" />
               </GestureHandlerRootView>

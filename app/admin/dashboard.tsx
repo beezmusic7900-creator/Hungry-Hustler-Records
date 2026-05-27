@@ -20,6 +20,9 @@ import {
   Newspaper,
   Bell,
   Trophy,
+  ClipboardList,
+  Flag,
+  BarChart2,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
@@ -209,11 +212,43 @@ export default function DashboardScreen() {
     },
   ];
 
-  if (isSuperAdmin) {
-    cards.push({
+  // Always add UGC moderation cards
+  cards.push(
+    {
+      title: 'Submissions',
+      subtitle: 'Review fan content',
+      icon: <ClipboardList size={22} color="#8B5CF6" />,
+      route: '/admin/submissions-queue',
+      color: '#8B5CF6',
+    },
+    {
+      title: 'Reports',
+      subtitle: 'Content reports',
+      icon: <Flag size={22} color="#EF4444" />,
+      route: '/admin/reports-queue',
+      color: '#EF4444',
+    },
+    {
+      title: 'Analytics',
+      subtitle: 'Usage & engagement',
+      icon: <BarChart2 size={22} color="#06B6D4" />,
+      route: '/admin/analytics',
+      color: '#06B6D4',
+    },
+    {
       title: 'Users',
       subtitle: 'Manage accounts',
-      icon: <UserCog size={22} color="#EF4444" />,
+      icon: <UserCog size={22} color="#F97316" />,
+      route: '/admin/users-management',
+      color: '#F97316',
+    }
+  );
+
+  if (isSuperAdmin) {
+    cards.push({
+      title: 'User Roles',
+      subtitle: 'Legacy user admin',
+      icon: <Users size={22} color="#EF4444" />,
       route: '/admin/users',
       color: '#EF4444',
     });

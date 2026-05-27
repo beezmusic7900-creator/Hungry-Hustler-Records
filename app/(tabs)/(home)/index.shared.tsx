@@ -20,6 +20,7 @@ import { HHRLogo } from '@/components/HHRLogo';
 import { supabasePublic, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRewards } from '@/hooks/useRewards';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 const SUPABASE_URL = 'https://egmaxjskylfepliwaeme.supabase.co';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -316,6 +317,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { awardPoints } = useRewards();
+  const { trackEvent } = useAnalytics();
   const [homeData, setHomeData] = useState<HomeData | null>(null);
   const [featuredMerch, setFeaturedMerch] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -332,6 +334,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadHome();
+    trackEvent('screen_view', { screen: 'home' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1182,6 +1185,100 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
       )}
+
+      {/* Submit Content CTA card */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
+        <AnimatedPressable
+          onPress={() => {
+            console.log('[Home] Submit content CTA pressed');
+            router.push('/submit');
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 14,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: COLORS.primary,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 14,
+            }}
+          >
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: COLORS.primaryMuted,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.primary,
+              }}
+            >
+              <Text style={{ fontSize: 22 }}>📲</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}>
+                Submit Your Content
+              </Text>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+                Share your talent with the HHR community
+              </Text>
+            </View>
+            <Text style={{ color: COLORS.primary, fontSize: 16 }}>→</Text>
+          </View>
+        </AnimatedPressable>
+      </View>
+
+      {/* Fan Submissions gallery card */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+        <AnimatedPressable
+          onPress={() => {
+            console.log('[Home] Fan submissions gallery pressed');
+            router.push('/submissions');
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 14,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 14,
+            }}
+          >
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: 'rgba(124,58,237,0.12)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(124,58,237,0.3)',
+              }}
+            >
+              <Text style={{ fontSize: 22 }}>🌟</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}>
+                Fan Submissions
+              </Text>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+                Browse fan dances, art, and performances
+              </Text>
+            </View>
+            <Text style={{ color: COLORS.textTertiary, fontSize: 16 }}>→</Text>
+          </View>
+        </AnimatedPressable>
+      </View>
 
       {/* Leaderboards card */}
       <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
