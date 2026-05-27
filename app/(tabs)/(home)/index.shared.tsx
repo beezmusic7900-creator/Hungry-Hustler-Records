@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,18 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ShoppingBag, User, Search } from 'lucide-react-native';
+import { ShoppingBag, User, Search, Trophy, CheckCircle, BarChart2, Gift, Clock } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { HHRLogo } from '@/components/HHRLogo';
-import { supabasePublic } from '@/integrations/supabase/client';
+import { supabasePublic, supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRewards } from '@/hooks/useRewards';
+
+const SUPABASE_URL = 'https://egmaxjskylfepliwaeme.supabase.co';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any;
 
 interface TourEvent {
   id: string;
@@ -58,6 +64,187 @@ function resolveImageSource(
   if (!source) return { uri: '' };
   if (typeof source === 'string') return { uri: source };
   return source as ImageSourcePropType;
+}
+
+interface PollOption {
+  id: string;
+  option_text: string;
+  position: number;
+  vote_count: number;
+}
+
+interface Poll {
+  id: string;
+  question: string;
+  is_closed: boolean;
+  options: PollOption[];
+  user_vote_option_id: string | null;
+}
+
+interface FanSpotlight {
+  id: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+}
+
+interface FanContest {
+  id: string;
+  title: string;
+  prize_description: string | null;
+  cover_url: string | null;
+  ends_at: string | null;
+}
+
+interface ActivityEntry {
+  id: string;
+  actor_display_name: string | null;
+  actor_avatar_url: string | null;
+  activity_type: string;
+  target_type: string | null;
+  target_id: string | null;
+  target_label: string | null;
+  created_at: string;
+}
+
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay}d ago`;
+}
+
+function daysUntil(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const diff = new Date(dateStr).getTime() - Date.now();
+  if (diff <= 0) return 'Ended';
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  if (days === 1) return 'Ends tomorrow';
+  return `Ends in ${days} days`;
+}
+
+function activityIcon(type: string): string {
+  switch (type) {
+    case 'listened': return '🎧';
+    case 'favorited': return '❤️';
+    case 'commented': return '💬';
+    case 'reacted': return '🔥';
+    case 'rsvp': return '🎟️';
+    case 'followed': return '👥';
+    case 'voted': return '🗳️';
+    case 'asked': return '❓';
+    case 'badge_earned': return '🏆';
+    default: return '⚡';
+  }
+}
+
+function HomePollCard({
+  poll,
+  onVote,
+}: {
+  poll: Poll;
+  onVote: (pollId: string, optionId: string) => void;
+}) {
+  const totalVotes = poll.options.reduce((sum, o) => sum + o.vote_count, 0);
+  const totalText = `${totalVotes} votes`;
+
+  return (
+    <View
+      style={{
+        backgroundColor: COLORS.surface,
+        borderRadius: 14,
+        padding: 14,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <BarChart2 size={14} color={COLORS.primary} />
+        <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700', flex: 1 }}>
+          {poll.question}
+        </Text>
+      </View>
+      <View style={{ gap: 6 }}>
+        {poll.options.map((option) => {
+          const pct = totalVotes > 0 ? Math.round((option.vote_count / totalVotes) * 100) : 0;
+          const isSelected = poll.user_vote_option_id === option.id;
+          const pctText = `${pct}%`;
+
+          const handleVote = () => {
+            if (poll.is_closed) return;
+            console.log('[Home] Poll vote:', poll.id, option.id);
+            onVote(poll.id, option.id);
+          };
+
+          return (
+            <AnimatedPressable key={option.id} onPress={handleVote} disabled={poll.is_closed}>
+              <View
+                style={{
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  borderWidth: 1,
+                  borderColor: isSelected ? COLORS.primary : COLORS.border,
+                  backgroundColor: COLORS.surfaceSecondary,
+                }}
+              >
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0, left: 0, bottom: 0,
+                    width: `${pct}%`,
+                    backgroundColor: isSelected ? COLORS.primaryMuted : 'rgba(255,255,255,0.04)',
+                  }}
+                />
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                    {isSelected && <CheckCircle size={12} color={COLORS.primary} />}
+                    <Text
+                      style={{
+                        color: isSelected ? COLORS.primary : COLORS.text,
+                        fontSize: 12,
+                        fontWeight: isSelected ? '700' : '400',
+                        flex: 1,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {option.option_text}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      color: isSelected ? COLORS.primary : COLORS.textSecondary,
+                      fontSize: 11,
+                      fontWeight: '700',
+                      marginLeft: 6,
+                    }}
+                  >
+                    {pctText}
+                  </Text>
+                </View>
+              </View>
+            </AnimatedPressable>
+          );
+        })}
+      </View>
+      <Text style={{ color: COLORS.textTertiary, fontSize: 11, marginTop: 8 }}>{totalText}</Text>
+    </View>
+  );
 }
 
 function MerchPreviewCard({ item }: { item: MerchItem }) {
@@ -127,6 +314,8 @@ function MerchPreviewCard({ item }: { item: MerchItem }) {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { awardPoints } = useRewards();
   const [homeData, setHomeData] = useState<HomeData | null>(null);
   const [featuredMerch, setFeaturedMerch] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,10 +324,182 @@ export default function HomeScreen() {
   const [tourLoading, setTourLoading] = useState(true);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // New engagement sections
+  const [polls, setPolls] = useState<Poll[]>([]);
+  const [spotlights, setSpotlights] = useState<FanSpotlight[]>([]);
+  const [activeContest, setActiveContest] = useState<FanContest | null>(null);
+  const [friendsActivity, setFriendsActivity] = useState<ActivityEntry[]>([]);
+
   useEffect(() => {
     loadHome();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (user) loadFriendsActivity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const loadFriendsActivity = useCallback(async () => {
+    if (!user) return;
+    try {
+      console.log('[Home] Loading friends activity');
+      const { data: followData } = await db
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', user.id)
+        .limit(50);
+
+      const followingIds = (followData ?? []).map((f: { following_id: string }) => f.following_id);
+      if (followingIds.length === 0) return;
+
+      const { data } = await db
+        .from('activity_feed')
+        .select('id, actor_display_name, actor_avatar_url, activity_type, target_type, target_id, target_label, created_at')
+        .in('user_id', followingIds)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      setFriendsActivity((data ?? []) as ActivityEntry[]);
+      console.log('[Home] Loaded', (data ?? []).length, 'friends activity entries');
+    } catch (err) {
+      console.error('[Home] loadFriendsActivity error:', err);
+    }
+  }, [user]);
+
+  const loadPolls = useCallback(async () => {
+    try {
+      console.log('[Home] Loading polls');
+      const now = new Date().toISOString();
+      const { data: pollData } = await (supabasePublic as any)
+        .from('polls')
+        .select('id, question, is_closed, closes_at')
+        .eq('is_closed', false)
+        .or(`closes_at.is.null,closes_at.gt.${now}`)
+        .order('created_at', { ascending: false })
+        .limit(2);
+
+      const pollList = (pollData ?? []) as Poll[];
+      if (pollList.length === 0) {
+        setPolls([]);
+        return;
+      }
+
+      const pollIds = pollList.map((p) => p.id);
+      const { data: optionData } = await (supabasePublic as any)
+        .from('poll_options')
+        .select('id, poll_id, option_text, position, vote_count')
+        .in('poll_id', pollIds)
+        .order('position', { ascending: true });
+
+      let userVoteMap: Record<string, string> = {};
+      if (user) {
+        const { data: userVotes } = await db
+          .from('poll_votes')
+          .select('poll_id, option_id')
+          .eq('user_id', user.id)
+          .in('poll_id', pollIds);
+        (userVotes ?? []).forEach((v: { poll_id: string; option_id: string }) => {
+          userVoteMap[v.poll_id] = v.option_id;
+        });
+      }
+
+      const optionsByPoll: Record<string, PollOption[]> = {};
+      (optionData ?? []).forEach((o: PollOption & { poll_id: string }) => {
+        if (!optionsByPoll[o.poll_id]) optionsByPoll[o.poll_id] = [];
+        optionsByPoll[o.poll_id].push(o);
+      });
+
+      setPolls(pollList.map((p) => ({
+        ...p,
+        options: optionsByPoll[p.id] ?? [],
+        user_vote_option_id: userVoteMap[p.id] ?? null,
+      })));
+      console.log('[Home] Loaded', pollList.length, 'polls');
+    } catch (err) {
+      console.error('[Home] loadPolls error:', err);
+    }
+  }, [user]);
+
+  const loadSpotlights = useCallback(async () => {
+    try {
+      const { data } = await (supabasePublic as any)
+        .from('fan_spotlights')
+        .select('id, title, description, image_url')
+        .eq('is_active', true)
+        .order('position', { ascending: true })
+        .limit(10);
+      setSpotlights((data ?? []) as FanSpotlight[]);
+      console.log('[Home] Loaded', (data ?? []).length, 'spotlights');
+    } catch (err) {
+      console.error('[Home] loadSpotlights error:', err);
+    }
+  }, []);
+
+  const loadActiveContest = useCallback(async () => {
+    try {
+      const now = new Date().toISOString();
+      const { data } = await (supabasePublic as any)
+        .from('fan_contests')
+        .select('id, title, prize_description, cover_url, ends_at')
+        .eq('is_active', true)
+        .gt('ends_at', now)
+        .order('ends_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      setActiveContest(data ?? null);
+      console.log('[Home] Active contest:', data?.title ?? 'none');
+    } catch (err) {
+      console.error('[Home] loadActiveContest error:', err);
+    }
+  }, []);
+
+  const handlePollVote = useCallback(async (pollId: string, optionId: string) => {
+    if (!user) {
+      router.push('/fan-auth');
+      return;
+    }
+
+    // Optimistic update
+    setPolls((prev) =>
+      prev.map((p) => {
+        if (p.id !== pollId) return p;
+        const oldOptionId = p.user_vote_option_id;
+        return {
+          ...p,
+          user_vote_option_id: optionId,
+          options: p.options.map((o) => {
+            if (o.id === optionId) return { ...o, vote_count: o.vote_count + 1 };
+            if (o.id === oldOptionId) return { ...o, vote_count: Math.max(0, o.vote_count - 1) };
+            return o;
+          }),
+        };
+      })
+    );
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/cast-vote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ vote_type: 'poll', target_id: pollId, option_id: optionId }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('[Home] cast-vote error:', text);
+      } else {
+        awardPoints('vote_poll', { reference_id: pollId }).catch(() => {});
+      }
+    } catch (err) {
+      console.error('[Home] handlePollVote error:', err);
+    }
+  }, [user, router, awardPoints]);
 
   const loadHome = async () => {
     try {
@@ -190,6 +551,10 @@ export default function HomeScreen() {
           }
         })()
       );
+
+      parallelTasks.push(loadPolls());
+      parallelTasks.push(loadSpotlights());
+      parallelTasks.push(loadActiveContest());
 
       await Promise.all(parallelTasks);
 
@@ -561,6 +926,309 @@ export default function HomeScreen() {
               })}
         </View>
       )}
+
+      {/* Fan Spotlight */}
+      {spotlights.length > 0 && (
+        <View style={{ marginBottom: 28 }}>
+          <Text
+            style={{
+              color: COLORS.textSecondary,
+              fontSize: 11,
+              fontWeight: '600',
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              marginBottom: 12,
+              paddingHorizontal: 20,
+            }}
+          >
+            Fan Spotlight
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+          >
+            {spotlights.map((spotlight) => (
+              <View
+                key={spotlight.id}
+                style={{
+                  width: 200,
+                  backgroundColor: COLORS.surface,
+                  borderRadius: 14,
+                  overflow: 'hidden',
+                  borderWidth: 1,
+                  borderColor: COLORS.primary,
+                }}
+              >
+                {spotlight.image_url ? (
+                  <Image
+                    source={{ uri: spotlight.image_url }}
+                    style={{ width: 200, height: 120 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: 200,
+                      height: 120,
+                      backgroundColor: COLORS.primaryMuted,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 32 }}>⭐</Text>
+                  </View>
+                )}
+                <View style={{ padding: 10 }}>
+                  <Text
+                    style={{ color: COLORS.text, fontSize: 13, fontWeight: '700' }}
+                    numberOfLines={1}
+                  >
+                    {spotlight.title}
+                  </Text>
+                  {spotlight.description ? (
+                    <Text
+                      style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 3, lineHeight: 15 }}
+                      numberOfLines={2}
+                    >
+                      {spotlight.description}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Active Contest Banner */}
+      {activeContest && (
+        <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+          <AnimatedPressable
+            onPress={() => {
+              console.log('[Home] Contest banner pressed:', activeContest.id);
+              router.push(`/contests/${activeContest.id}`);
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: COLORS.surface,
+                borderRadius: 16,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: 'rgba(245,158,11,0.4)',
+              }}
+            >
+              {activeContest.cover_url ? (
+                <Image
+                  source={{ uri: activeContest.cover_url }}
+                  style={{ width: '100%', height: 120 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View
+                  style={{
+                    width: '100%',
+                    height: 80,
+                    backgroundColor: 'rgba(245,158,11,0.1)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Trophy size={32} color="#F59E0B" />
+                </View>
+              )}
+              <View style={{ padding: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <View
+                    style={{
+                      backgroundColor: 'rgba(245,158,11,0.15)',
+                      borderRadius: 6,
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      borderWidth: 1,
+                      borderColor: 'rgba(245,158,11,0.4)',
+                    }}
+                  >
+                    <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '700' }}>
+                      CONTEST
+                    </Text>
+                  </View>
+                  {activeContest.ends_at ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Clock size={11} color={COLORS.textSecondary} />
+                      <Text style={{ color: COLORS.textSecondary, fontSize: 11 }}>
+                        {daysUntil(activeContest.ends_at)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700', marginBottom: 4 }}>
+                  {activeContest.title}
+                </Text>
+                {activeContest.prize_description ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                    <Gift size={12} color="#F59E0B" />
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 12 }} numberOfLines={1}>
+                      {activeContest.prize_description}
+                    </Text>
+                  </View>
+                ) : null}
+                <View
+                  style={{
+                    backgroundColor: '#F59E0B',
+                    borderRadius: 8,
+                    paddingVertical: 8,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#000', fontSize: 13, fontWeight: '700' }}>
+                    Join Contest
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </AnimatedPressable>
+        </View>
+      )}
+
+      {/* Polls Section */}
+      {polls.length > 0 && (
+        <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+          <Text
+            style={{
+              color: COLORS.textSecondary,
+              fontSize: 11,
+              fontWeight: '600',
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              marginBottom: 12,
+            }}
+          >
+            Polls
+          </Text>
+          {polls.map((poll) => (
+            <HomePollCard key={poll.id} poll={poll} onVote={handlePollVote} />
+          ))}
+        </View>
+      )}
+
+      {/* Friends Activity */}
+      {friendsActivity.length > 0 && (
+        <View style={{ marginBottom: 28 }}>
+          <Text
+            style={{
+              color: COLORS.textSecondary,
+              fontSize: 11,
+              fontWeight: '600',
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              marginBottom: 12,
+              paddingHorizontal: 20,
+            }}
+          >
+            Friends Activity
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}
+          >
+            {friendsActivity.map((entry) => {
+              const icon = activityIcon(entry.activity_type);
+              const label = entry.target_label ?? 'something';
+              const actorName = entry.actor_display_name ?? 'A fan';
+              const timeText = timeAgo(entry.created_at);
+
+              const handlePress = () => {
+                console.log('[Home] Friends activity card pressed:', entry.activity_type, entry.target_id);
+                if (entry.target_type === 'song' && entry.target_id) {
+                  router.push(`/player`);
+                }
+              };
+
+              return (
+                <AnimatedPressable key={entry.id} onPress={handlePress}>
+                  <View
+                    style={{
+                      width: 160,
+                      backgroundColor: COLORS.surface,
+                      borderRadius: 12,
+                      padding: 12,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                    }}
+                  >
+                    <Text style={{ fontSize: 22, marginBottom: 6 }}>{icon}</Text>
+                    <Text
+                      style={{ color: COLORS.primary, fontSize: 12, fontWeight: '700' }}
+                      numberOfLines={1}
+                    >
+                      {actorName}
+                    </Text>
+                    <Text
+                      style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2, lineHeight: 15 }}
+                      numberOfLines={2}
+                    >
+                      {label}
+                    </Text>
+                    <Text style={{ color: COLORS.textTertiary, fontSize: 10, marginTop: 6 }}>
+                      {timeText}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Leaderboards card */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+        <AnimatedPressable
+          onPress={() => {
+            console.log('[Home] Leaderboards card pressed');
+            router.push('/leaderboards');
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 14,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 14,
+            }}
+          >
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: 'rgba(245,158,11,0.15)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(245,158,11,0.3)',
+              }}
+            >
+              <Trophy size={20} color="#F59E0B" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}>
+                Leaderboards
+              </Text>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+                See the top fans this week
+              </Text>
+            </View>
+            <Text style={{ color: COLORS.textTertiary, fontSize: 16 }}>→</Text>
+          </View>
+        </AnimatedPressable>
+      </View>
 
       {/* Latest Releases info card */}
       <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>

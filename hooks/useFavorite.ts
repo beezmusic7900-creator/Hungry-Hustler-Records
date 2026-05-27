@@ -2,13 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useActivity } from '@/hooks/useActivity';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
-export function useFavorite(itemType: 'song' | 'video' | 'merch' | 'event', itemId: string) {
+export function useFavorite(itemType: 'song' | 'video' | 'merch' | 'event', itemId: string, itemLabel?: string) {
   const { user } = useAuth();
   const router = useRouter();
+  const { recordActivity } = useActivity();
   const [isFavorited, setIsFavorited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [favoriteId, setFavoriteId] = useState<string | null>(null);
@@ -79,6 +81,8 @@ export function useFavorite(itemType: 'song' | 'video' | 'merch' | 'event', item
             body: JSON.stringify({ action_type: 'save_favorite', reference_id: itemId }),
           }).catch(() => {});
         });
+        // Record activity
+        recordActivity('favorited', itemType, itemId, itemLabel ?? itemId).catch(() => {});
       }
     } catch (err) {
       console.error('[useFavorite] toggleFavorite error:', err);
@@ -87,7 +91,7 @@ export function useFavorite(itemType: 'song' | 'video' | 'merch' | 'event', item
     } finally {
       setLoading(false);
     }
-  }, [user, isFavorited, favoriteId, itemType, itemId, router]);
+  }, [user, isFavorited, favoriteId, itemType, itemId, router, itemLabel, recordActivity]);
 
   return { isFavorited, toggleFavorite, loading };
 }

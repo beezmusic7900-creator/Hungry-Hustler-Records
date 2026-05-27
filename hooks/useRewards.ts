@@ -16,7 +16,12 @@ export type ActionType =
   | 'view_exclusive'
   | 'comment'
   | 'like_post'
-  | 'complete_listen';
+  | 'complete_listen'
+  | 'vote_song'
+  | 'ask_artist'
+  | 'vote_poll'
+  | 'follow_user'
+  | 'attend_event';
 
 interface BadgeDetail {
   name: string;

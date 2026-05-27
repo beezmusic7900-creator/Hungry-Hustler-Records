@@ -74,6 +74,29 @@ async function trackListen(songId: string, completed: boolean, playDurationMs: n
   }
 }
 
+async function recordListenActivity(songId: string, songTitle: string) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    console.log('[AudioPlayer] Recording listen activity for:', songTitle);
+    fetch(`${SUPABASE_URL}/functions/v1/record-activity`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        activity_type: 'listened',
+        target_type: 'song',
+        target_id: songId,
+        target_label: songTitle,
+      }),
+    }).catch(() => {});
+  } catch (err) {
+    console.warn('[AudioPlayer] recordListenActivity error:', err);
+  }
+}
+
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const playerRef = useRef<AudioPlayer | null>(null);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
@@ -218,6 +241,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
           setIsPlaying(false);
           setPosition(0);
           trackListen(nextSong.id, true, durationRef.current);
+          recordListenActivity(nextSong.id, nextSong.title);
           advanceQueue();
         }
       });
@@ -267,6 +291,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
           setIsPlaying(false);
           setPosition(0);
           trackListen(song.id, true, durationRef.current);
+          recordListenActivity(song.id, song.title);
           advanceQueue();
         }
       });

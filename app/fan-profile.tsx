@@ -139,16 +139,16 @@ export default function FanProfileScreen() {
   const [badges, setBadges] = useState<BadgeDetail[]>([]);
   const [selectedBadge, setSelectedBadge] = useState<BadgeDetail | null>(null);
 
-  // Activity
-  const [listenHistory, setListenHistory] = useState<ListenHistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  // Activity feed (replaces listen history)
+  const [activityFeed, setActivityFeed] = useState<{ id: string; activity_type: string; target_label: string | null; created_at: string }[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadFavorites();
       loadProfile();
       loadRewardsSummary();
-      loadListenHistory();
+      loadActivityFeed();
       // Award daily login points
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (!session?.access_token) return;
@@ -215,28 +215,28 @@ export default function FanProfileScreen() {
     }
   };
 
-  const loadListenHistory = async () => {
+  const loadActivityFeed = async () => {
     if (!user) return;
     try {
-      setHistoryLoading(true);
-      console.log('[FanProfile] Loading listen history for user:', user.id);
+      setActivityLoading(true);
+      console.log('[FanProfile] Loading activity feed for user:', user.id);
       const { data, error } = await db
-        .from('listening_history')
-        .select('id, played_at, song:songs(id, title, artist, cover_url)')
+        .from('activity_feed')
+        .select('id, activity_type, target_label, created_at')
         .eq('user_id', user.id)
-        .order('played_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false })
+        .limit(20);
 
       if (error) {
-        console.error('[FanProfile] Listen history error:', error.message);
+        console.error('[FanProfile] Activity feed error:', error.message);
       } else {
-        setListenHistory((data ?? []) as ListenHistoryItem[]);
-        console.log('[FanProfile] Loaded', (data ?? []).length, 'history items');
+        setActivityFeed(data ?? []);
+        console.log('[FanProfile] Loaded', (data ?? []).length, 'activity entries');
       }
     } catch (err) {
-      console.error('[FanProfile] loadListenHistory error:', err);
+      console.error('[FanProfile] loadActivityFeed error:', err);
     } finally {
-      setHistoryLoading(false);
+      setActivityLoading(false);
     }
   };
 
@@ -381,7 +381,7 @@ export default function FanProfileScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadFavorites(), loadProfile(), loadRewardsSummary(), loadListenHistory()]);
+    await Promise.all([loadFavorites(), loadProfile(), loadRewardsSummary(), loadActivityFeed()]);
     setRefreshing(false);
   };
 
@@ -1004,7 +1004,81 @@ export default function FanProfileScreen() {
         </View>
       )}
 
-      {/* Recent Activity (Listen History) */}
+      {/* Leaderboards + Followers links */}
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+        <AnimatedPressable
+          onPress={() => {
+            console.log('[FanProfile] Leaderboards pressed');
+            router.push('/leaderboards');
+          }}
+          style={{ flex: 1 }}
+        >
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 12,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <Trophy size={20} color="#F59E0B" />
+            <Text style={{ color: COLORS.text, fontSize: 12, fontWeight: '700' }}>Leaderboards</Text>
+          </View>
+        </AnimatedPressable>
+        {user && (
+          <AnimatedPressable
+            onPress={() => {
+              console.log('[FanProfile] Followers pressed');
+              router.push(`/followers?id=${user.id}`);
+            }}
+            style={{ flex: 1 }}
+          >
+            <View
+              style={{
+                backgroundColor: COLORS.surface,
+                borderRadius: 12,
+                padding: 14,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <CheckCircle size={20} color={COLORS.primary} />
+              <Text style={{ color: COLORS.text, fontSize: 12, fontWeight: '700' }}>Followers</Text>
+            </View>
+          </AnimatedPressable>
+        )}
+        {user && (
+          <AnimatedPressable
+            onPress={() => {
+              console.log('[FanProfile] Following pressed');
+              router.push(`/following?id=${user.id}`);
+            }}
+            style={{ flex: 1 }}
+          >
+            <View
+              style={{
+                backgroundColor: COLORS.surface,
+                borderRadius: 12,
+                padding: 14,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Star size={20} color={COLORS.primary} />
+              <Text style={{ color: COLORS.text, fontSize: 12, fontWeight: '700' }}>Following</Text>
+            </View>
+          </AnimatedPressable>
+        )}
+      </View>
+
+      {/* Recent Activity (from activity_feed) */}
       <View style={{ marginBottom: 24 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <Clock size={18} color={COLORS.primary} />
@@ -1013,7 +1087,7 @@ export default function FanProfileScreen() {
           </Text>
         </View>
 
-        {historyLoading ? (
+        {activityLoading ? (
           <View style={{ gap: 8 }}>
             {[0, 1, 2].map((k) => (
               <View
@@ -1029,7 +1103,7 @@ export default function FanProfileScreen() {
                   borderColor: COLORS.border,
                 }}
               >
-                <SkeletonLine width={40} height={40} borderRadius={8} />
+                <SkeletonLine width={36} height={36} borderRadius={8} />
                 <View style={{ flex: 1, gap: 6 }}>
                   <SkeletonLine width="60%" height={13} />
                   <SkeletonLine width="40%" height={11} />
@@ -1038,7 +1112,7 @@ export default function FanProfileScreen() {
               </View>
             ))}
           </View>
-        ) : listenHistory.length === 0 ? (
+        ) : activityFeed.length === 0 ? (
           <View
             style={{
               backgroundColor: COLORS.surface,
@@ -1051,74 +1125,67 @@ export default function FanProfileScreen() {
           >
             <Clock size={28} color={COLORS.textTertiary} />
             <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: 10, textAlign: 'center' }}>
-              No listening history yet — start playing music!
+              No activity yet — start listening, voting, and engaging!
             </Text>
           </View>
         ) : (
           <View style={{ gap: 8 }}>
-            {listenHistory.map((item) => {
-              const song = item.song;
-              if (!song) return null;
-              const timeText = timeAgo(item.played_at);
+            {activityFeed.map((entry) => {
+              const icon = (() => {
+                switch (entry.activity_type) {
+                  case 'listened': return '🎧';
+                  case 'favorited': return '❤️';
+                  case 'commented': return '💬';
+                  case 'reacted': return '🔥';
+                  case 'rsvp': return '🎟️';
+                  case 'followed': return '👥';
+                  case 'voted': return '🗳️';
+                  case 'asked': return '❓';
+                  case 'badge_earned': return '🏆';
+                  case 'playlist_created': return '🎵';
+                  default: return '⚡';
+                }
+              })();
+              const label = entry.target_label ?? 'something';
+              const timeText = timeAgo(entry.created_at);
               return (
-                <AnimatedPressable
-                  key={item.id}
-                  onPress={() => {
-                    console.log('[FanProfile] History item pressed:', song.title);
-                    playSong({
-                      id: song.id,
-                      title: song.title,
-                      artist: song.artist,
-                      cover_url: song.cover_url,
-                      audio_url: null,
-                    });
+                <View
+                  key={entry.id}
+                  style={{
+                    backgroundColor: COLORS.surface,
+                    borderRadius: 12,
+                    padding: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
                   }}
                 >
                   <View
                     style={{
-                      backgroundColor: COLORS.surface,
-                      borderRadius: 12,
-                      padding: 12,
-                      flexDirection: 'row',
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      backgroundColor: COLORS.primaryMuted,
                       alignItems: 'center',
-                      gap: 12,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
+                      justifyContent: 'center',
                     }}
                   >
-                    {song.cover_url ? (
-                      <Image
-                        source={resolveImageSource(song.cover_url)}
-                        style={{ width: 40, height: 40, borderRadius: 8 }}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 8,
-                          backgroundColor: COLORS.primaryMuted,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Music size={18} color={COLORS.primary} />
-                      </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
-                        {song.title}
-                      </Text>
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
-                        {song.artist}
-                      </Text>
-                    </View>
-                    <Text style={{ color: COLORS.textTertiary, fontSize: 11 }}>
-                      {timeText}
+                    <Text style={{ fontSize: 18 }}>{icon}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+                      {label}
+                    </Text>
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>
+                      {entry.activity_type.replace(/_/g, ' ')}
                     </Text>
                   </View>
-                </AnimatedPressable>
+                  <Text style={{ color: COLORS.textTertiary, fontSize: 11 }}>
+                    {timeText}
+                  </Text>
+                </View>
               );
             })}
           </View>

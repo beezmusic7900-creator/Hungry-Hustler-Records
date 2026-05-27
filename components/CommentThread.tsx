@@ -15,6 +15,7 @@ import { ReactionBar } from '@/components/ReactionBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useRewards } from '@/hooks/useRewards';
+import { useActivity } from '@/hooks/useActivity';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -286,6 +287,7 @@ function CommentItem({
 export function CommentThread({ targetType, targetId }: Props) {
   const { user } = useAuth();
   const { awardPoints } = useRewards();
+  const { recordActivity } = useActivity();
 
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -338,6 +340,7 @@ export function CommentThread({ targetType, targetId }: Props) {
         setNewComment('');
         loadComments();
         awardPoints('comment', { reference_id: targetId });
+        recordActivity('commented', targetType, targetId, targetId).catch(() => {});
       }
     } catch (err) {
       console.error('[CommentThread] handlePost error:', err);

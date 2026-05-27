@@ -209,6 +209,26 @@ export default function RootLayout() {
                     name="exclusive-content"
                     options={{ headerShown: true, title: 'Exclusive Content', ...HEADER_OPTIONS }}
                   />
+                  <Stack.Screen
+                    name="leaderboards"
+                    options={{ headerShown: true, title: 'Leaderboards', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="profile/[id]"
+                    options={{ headerShown: true, title: 'Profile', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="followers"
+                    options={{ headerShown: true, title: 'Followers', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="following"
+                    options={{ headerShown: true, title: 'Following', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="contests/[id]"
+                    options={{ headerShown: true, title: 'Contest', ...HEADER_OPTIONS }}
+                  />
                 </Stack>
                 <SystemBars style="light" />
               </GestureHandlerRootView>

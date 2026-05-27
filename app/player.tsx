@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import {
   PlusCircle,
   MessageCircle,
   ThumbsUp,
+  ChevronUp,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '@/constants/Colors';
@@ -90,12 +91,101 @@ export default function PlayerScreen() {
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
 
+  // Song voting
+  const [voteScore, setVoteScore] = useState(0);
+  const [userVote, setUserVote] = useState<1 | -1 | null>(null);
+  const [voteLoading, setVoteLoading] = useState(false);
+
   const progress = duration > 0 ? position / duration : 0;
   const positionText = formatTime(position);
   const durationText = formatTime(duration);
 
   const nextRepeatMode = repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off';
   const repeatLabel = repeatMode === 'off' ? 'off' : repeatMode === 'all' ? 'all' : 'one';
+
+  const SUPABASE_URL = 'https://egmaxjskylfepliwaeme.supabase.co';
+
+  const loadVoteState = useCallback(async (songId: string) => {
+    try {
+      const { data: allVotes } = await db
+        .from('song_votes')
+        .select('vote_value')
+        .eq('song_id', songId);
+      const score = (allVotes ?? []).reduce((sum: number, v: { vote_value: number }) => sum + v.vote_value, 0);
+      setVoteScore(score);
+
+      if (user) {
+        const { data: myVote } = await db
+          .from('song_votes')
+          .select('vote_value')
+          .eq('song_id', songId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        setUserVote(myVote?.vote_value ?? null);
+      } else {
+        setUserVote(null);
+      }
+    } catch (err) {
+      console.error('[Player] loadVoteState error:', err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (currentSong?.id) {
+      setVoteScore(0);
+      setUserVote(null);
+      loadVoteState(currentSong.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong?.id]);
+
+  const handleSongVote = useCallback(async (value: 1 | -1) => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to vote on songs.');
+      return;
+    }
+    if (!currentSong) return;
+    console.log('[Player] Song vote:', currentSong.id, value, 'current:', userVote);
+
+    const newValue = userVote === value ? null : value;
+    const oldVote = userVote ?? 0;
+    const newScore = voteScore - oldVote + (newValue ?? 0);
+
+    // Optimistic
+    setUserVote(newValue);
+    setVoteScore(newScore);
+    setVoteLoading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      if (newValue === null) {
+        await db.from('song_votes').delete().eq('user_id', user.id).eq('song_id', currentSong.id);
+      } else {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/cast-vote`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ vote_type: 'song', target_id: currentSong.id, vote_value: newValue }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          console.error('[Player] cast-vote error:', text);
+          setUserVote(userVote);
+          setVoteScore(voteScore);
+        }
+      }
+    } catch (err) {
+      console.error('[Player] handleSongVote error:', err);
+      setUserVote(userVote);
+      setVoteScore(voteScore);
+    } finally {
+      setVoteLoading(false);
+    }
+  }, [user, currentSong, userVote, voteScore]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -371,7 +461,7 @@ export default function PlayerScreen() {
       </View>
 
       {/* Song info + playlist button */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
           <Text
             style={{
@@ -411,6 +501,68 @@ export default function PlayerScreen() {
             <ListMusic size={18} color={COLORS.textSecondary} />
           </View>
         </AnimatedPressable>
+      </View>
+
+      {/* Song vote control */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+        <AnimatedPressable
+          onPress={() => {
+            console.log('[Player] Upvote pressed');
+            handleSongVote(1);
+          }}
+          disabled={voteLoading}
+        >
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              backgroundColor: userVote === 1 ? COLORS.primary : COLORS.surface,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: userVote === 1 ? COLORS.primary : COLORS.border,
+            }}
+          >
+            <ChevronUp size={16} color={userVote === 1 ? COLORS.background : COLORS.textSecondary} />
+          </View>
+        </AnimatedPressable>
+        <Text
+          style={{
+            color: voteScore > 0 ? COLORS.primary : voteScore < 0 ? COLORS.danger : COLORS.textSecondary,
+            fontSize: 13,
+            fontWeight: '700',
+            minWidth: 28,
+            textAlign: 'center',
+          }}
+        >
+          {voteScore > 0 ? `+${voteScore}` : String(voteScore)}
+        </Text>
+        <AnimatedPressable
+          onPress={() => {
+            console.log('[Player] Downvote pressed');
+            handleSongVote(-1);
+          }}
+          disabled={voteLoading}
+        >
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              backgroundColor: userVote === -1 ? COLORS.danger : COLORS.surface,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: userVote === -1 ? COLORS.danger : COLORS.border,
+            }}
+          >
+            <ChevronDown size={16} color={userVote === -1 ? '#fff' : COLORS.textSecondary} />
+          </View>
+        </AnimatedPressable>
+        <Text style={{ color: COLORS.textTertiary, fontSize: 11, marginLeft: 4 }}>
+          Rate this song
+        </Text>
       </View>
 
       {/* Seek bar */}

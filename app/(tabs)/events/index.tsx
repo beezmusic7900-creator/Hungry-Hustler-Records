@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,17 +8,25 @@ import {
   RefreshControl,
   ImageSourcePropType,
   Platform,
+  Alert,
+  Modal,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Share2, Newspaper } from 'lucide-react-native';
+import { Share2, Newspaper, Bell, CheckCircle, Clock, Ticket } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
-import { supabasePublic } from '@/integrations/supabase/client';
+import { supabasePublic, supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRewards } from '@/hooks/useRewards';
+
+const SUPABASE_URL = 'https://egmaxjskylfepliwaeme.supabase.co';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dbPublic: any = supabasePublic;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db: any = supabase;
 
 const INSTAGRAM_GRADIENT_COLORS = ['#833AB4', '#FD1D1D', '#F77737'];
 
@@ -32,6 +40,8 @@ interface SocialPost {
   is_published: boolean;
 }
 
+type RsvpStatus = 'going' | 'maybe' | 'not_going';
+
 interface TourEvent {
   id: string;
   title: string;
@@ -41,7 +51,34 @@ interface TourEvent {
   ticket_url: string | null;
   image_url: string | null;
   description: string | null;
+  start_time?: string | null;
 }
+
+interface RsvpState {
+  status: RsvpStatus | null;
+  goingCount: number;
+  reminderMinutes: number | null;
+}
+
+function countdown(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  const diff = new Date(dateStr).getTime() - Date.now();
+  if (diff <= 0) return null;
+  const sevenDays = 7 * 24 * 60 * 60 * 1000;
+  if (diff > sevenDays) return null;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  if (days > 0) return `Starts in ${days}d ${hours}h ${mins}m`;
+  if (hours > 0) return `Starts in ${hours}h ${mins}m`;
+  return `Starts in ${mins}m`;
+}
+
+const REMINDER_OPTIONS: { label: string; value: number }[] = [
+  { label: '15 minutes before', value: 15 },
+  { label: '1 hour before', value: 60 },
+  { label: '1 day before', value: 1440 },
+];
 
 interface NewsArticle {
   id: string;
@@ -483,6 +520,8 @@ function NewsCard({ article }: { article: NewsArticle }) {
 
 export default function SocialScreen() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { awardPoints } = useRewards();
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [showPlaceholder, setShowPlaceholder] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -490,6 +529,12 @@ export default function SocialScreen() {
   const [newsLoading, setNewsLoading] = useState(true);
   const [events, setEvents] = useState<TourEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [rsvpMap, setRsvpMap] = useState<Record<string, RsvpState>>({});
+  const [rsvpLoading, setRsvpLoading] = useState<Record<string, boolean>>({});
+  const [rsvdEvents, setRsvdEvents] = useState<TourEvent[]>([]);
+  const [countdowns, setCountdowns] = useState<Record<string, string | null>>({});
+  const [reminderModal, setReminderModal] = useState<{ eventId: string; eventTitle: string } | null>(null);
+  const countdownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadPosts = useCallback(async () => {
     try {
@@ -536,7 +581,7 @@ export default function SocialScreen() {
       console.log('[Events] Loading events from Supabase');
       const { data, error: dbError } = await dbPublic
         .from('events')
-        .select('id, title, event_date, city, venue, ticket_url, image_url, description')
+        .select('id, title, event_date, city, venue, ticket_url, image_url, description, start_time')
         .eq('is_published', true)
         .order('event_date', { ascending: true });
 
@@ -549,6 +594,14 @@ export default function SocialScreen() {
       const loaded = (data ?? []) as unknown as TourEvent[];
       console.log(`[Events] Loaded ${loaded.length} events`);
       setEvents(loaded);
+
+      // Update countdowns
+      const newCountdowns: Record<string, string | null> = {};
+      loaded.forEach((e) => {
+        const dateStr = e.start_time ?? e.event_date;
+        newCountdowns[e.id] = countdown(dateStr);
+      });
+      setCountdowns(newCountdowns);
     } catch (err) {
       console.error('[Events] Error:', err);
       setEvents([]);
@@ -556,6 +609,158 @@ export default function SocialScreen() {
       setEventsLoading(false);
     }
   }, []);
+
+  const loadRsvps = useCallback(async (eventList: TourEvent[]) => {
+    if (!user || eventList.length === 0) return;
+    try {
+      console.log('[Events] Loading RSVPs for user:', user.id);
+      const eventIds = eventList.map((e) => e.id);
+
+      const { data: rsvpData } = await db
+        .from('event_rsvps')
+        .select('event_id, status, reminder_minutes_before')
+        .eq('user_id', user.id)
+        .in('event_id', eventIds);
+
+      const newMap: Record<string, RsvpState> = {};
+      eventIds.forEach((id) => {
+        newMap[id] = { status: null, goingCount: 0, reminderMinutes: null };
+      });
+
+      (rsvpData ?? []).forEach((r: { event_id: string; status: RsvpStatus; reminder_minutes_before: number | null }) => {
+        if (newMap[r.event_id]) {
+          newMap[r.event_id].status = r.status;
+          newMap[r.event_id].reminderMinutes = r.reminder_minutes_before;
+        }
+      });
+
+      // Load going counts
+      const { data: countData } = await dbPublic
+        .from('event_rsvps')
+        .select('event_id')
+        .in('event_id', eventIds)
+        .eq('status', 'going');
+
+      (countData ?? []).forEach((r: { event_id: string }) => {
+        if (newMap[r.event_id]) {
+          newMap[r.event_id].goingCount = (newMap[r.event_id].goingCount ?? 0) + 1;
+        }
+      });
+
+      setRsvpMap(newMap);
+
+      // Load RSVP'd events (going)
+      const goingEventIds = Object.entries(newMap)
+        .filter(([, v]) => v.status === 'going')
+        .map(([k]) => k);
+
+      if (goingEventIds.length > 0) {
+        const goingEvents = eventList.filter((e) => goingEventIds.includes(e.id));
+        setRsvdEvents(goingEvents);
+      }
+    } catch (err) {
+      console.error('[Events] loadRsvps error:', err);
+    }
+  }, [user]);
+
+  const handleRsvp = useCallback(async (eventId: string, status: RsvpStatus) => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to RSVP to events.');
+      return;
+    }
+    console.log('[Events] RSVP:', eventId, status);
+    setRsvpLoading((prev) => ({ ...prev, [eventId]: true }));
+
+    const prevState = rsvpMap[eventId];
+    const wasGoing = prevState?.status === 'going';
+    const willBeGoing = status === 'going';
+
+    // Optimistic update
+    setRsvpMap((prev) => ({
+      ...prev,
+      [eventId]: {
+        ...prev[eventId],
+        status,
+        goingCount: (prev[eventId]?.goingCount ?? 0) + (willBeGoing ? 1 : 0) - (wasGoing ? 1 : 0),
+      },
+    }));
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/event-rsvp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ event_id: eventId, status }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('[Events] event-rsvp error:', text);
+        // Revert
+        setRsvpMap((prev) => ({ ...prev, [eventId]: prevState }));
+        return;
+      }
+
+      const json = await res.json();
+      console.log('[Events] RSVP result:', json);
+      setRsvpMap((prev) => ({
+        ...prev,
+        [eventId]: {
+          ...prev[eventId],
+          status,
+          goingCount: json.rsvp_count_for_event ?? prev[eventId]?.goingCount ?? 0,
+        },
+      }));
+
+      if (status === 'going') {
+        awardPoints('rsvp_event', { reference_id: eventId }).catch(() => {});
+      }
+    } catch (err) {
+      console.error('[Events] handleRsvp error:', err);
+      setRsvpMap((prev) => ({ ...prev, [eventId]: prevState }));
+    } finally {
+      setRsvpLoading((prev) => ({ ...prev, [eventId]: false }));
+    }
+  }, [user, rsvpMap, awardPoints]);
+
+  const handleSetReminder = useCallback(async (eventId: string, minutes: number) => {
+    if (!user) return;
+    console.log('[Events] Set reminder:', eventId, minutes, 'minutes before');
+    setReminderModal(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/event-rsvp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          event_id: eventId,
+          status: rsvpMap[eventId]?.status ?? 'going',
+          reminder_minutes_before: minutes,
+        }),
+      });
+
+      if (res.ok) {
+        setRsvpMap((prev) => ({
+          ...prev,
+          [eventId]: { ...prev[eventId], reminderMinutes: minutes },
+        }));
+        Alert.alert('Reminder Set', `We'll remind you ${REMINDER_OPTIONS.find((o) => o.value === minutes)?.label ?? `${minutes} min before`}.`);
+      }
+    } catch (err) {
+      console.error('[Events] handleSetReminder error:', err);
+    }
+  }, [user, rsvpMap]);
 
   const loadNews = useCallback(async () => {
     try {
@@ -586,6 +791,31 @@ export default function SocialScreen() {
     loadNews().finally(() => setNewsLoading(false));
     loadEvents();
   }, [loadPosts, loadNews, loadEvents]);
+
+  useEffect(() => {
+    if (events.length > 0) {
+      loadRsvps(events);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, user]);
+
+  // Countdown interval
+  useEffect(() => {
+    countdownInterval.current = setInterval(() => {
+      setCountdowns((prev) => {
+        const updated: Record<string, string | null> = {};
+        events.forEach((e) => {
+          const dateStr = e.start_time ?? e.event_date;
+          updated[e.id] = countdown(dateStr);
+        });
+        return updated;
+      });
+    }, 60000);
+    return () => {
+      if (countdownInterval.current) clearInterval(countdownInterval.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events]);
 
   const handleRefresh = async () => {
     console.log('[Social] Pull-to-refresh triggered');
@@ -679,6 +909,62 @@ export default function SocialScreen() {
               />
             </View>
 
+            {/* RSVP'd Events horizontal scroll */}
+            {rsvdEvents.length > 0 && (
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    color: COLORS.textSecondary,
+                    fontSize: 11,
+                    fontWeight: '600',
+                    letterSpacing: 2,
+                    textTransform: 'uppercase',
+                    marginBottom: 10,
+                    paddingHorizontal: 20,
+                  }}
+                >
+                  🎟️ Your RSVP'd Events
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}
+                >
+                  {rsvdEvents.map((event) => {
+                    const dateObj = event.event_date ? new Date(event.event_date) : null;
+                    const dateText = dateObj
+                      ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : 'TBA';
+                    return (
+                      <View
+                        key={event.id}
+                        style={{
+                          width: 160,
+                          backgroundColor: COLORS.surface,
+                          borderRadius: 12,
+                          padding: 12,
+                          borderWidth: 1,
+                          borderColor: COLORS.primary,
+                        }}
+                      >
+                        <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: '700', marginBottom: 4 }}>
+                          {dateText}
+                        </Text>
+                        <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '700' }} numberOfLines={2}>
+                          {event.title}
+                        </Text>
+                        {event.city ? (
+                          <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 3 }} numberOfLines={1}>
+                            {event.city}
+                          </Text>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
             {eventsLoading ? (
               <>
                 <SkeletonLine
@@ -707,112 +993,206 @@ export default function SocialScreen() {
                     : event.venue ?? event.city ?? '';
                 const hasVenueCity = venueCity.length > 0;
                 const hasTicketUrl = !!event.ticket_url;
+                const rsvp = rsvpMap[event.id];
+                const isRsvpLoading = rsvpLoading[event.id] ?? false;
+                const goingCount = rsvp?.goingCount ?? 0;
+                const countdownText = countdowns[event.id];
+
+                const RSVP_BUTTONS: { label: string; value: RsvpStatus }[] = [
+                  { label: 'Going', value: 'going' },
+                  { label: 'Maybe', value: 'maybe' },
+                  { label: "Can't", value: 'not_going' },
+                ];
 
                 return (
                   <View
                     key={event.id}
-                    style={{ paddingHorizontal: 20, marginBottom: 8 }}
+                    style={{ paddingHorizontal: 20, marginBottom: 12 }}
                   >
                     <View
                       style={{
                         backgroundColor: COLORS.surface,
-                        borderRadius: 12,
+                        borderRadius: 14,
                         borderWidth: 1,
-                        borderColor: COLORS.border,
-                        padding: 16,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 12,
+                        borderColor: rsvp?.status === 'going' ? COLORS.primary : COLORS.border,
+                        padding: 14,
+                        gap: 10,
                       }}
                     >
-                      {/* Date block */}
-                      <View
-                        style={{
-                          backgroundColor: COLORS.primaryMuted,
-                          borderRadius: 8,
-                          padding: 10,
-                          alignItems: 'center',
-                          width: 52,
-                        }}
-                      >
-                        <Text
+                      {/* Top row: date + info + tickets */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        {/* Date block */}
+                        <View
                           style={{
-                            fontSize: 11,
-                            fontWeight: '700',
-                            color: COLORS.primary,
-                            textTransform: 'uppercase',
+                            backgroundColor: COLORS.primaryMuted,
+                            borderRadius: 8,
+                            padding: 10,
+                            alignItems: 'center',
+                            width: 52,
                           }}
                         >
-                          {monthDisplay}
-                        </Text>
-                        {dayDisplay ? (
                           <Text
                             style={{
-                              fontSize: 22,
-                              fontWeight: '800',
-                              color: COLORS.text,
-                              lineHeight: 24,
+                              fontSize: 11,
+                              fontWeight: '700',
+                              color: COLORS.primary,
+                              textTransform: 'uppercase',
                             }}
                           >
-                            {dayDisplay}
+                            {monthDisplay}
                           </Text>
-                        ) : null}
-                      </View>
+                          {dayDisplay ? (
+                            <Text
+                              style={{
+                                fontSize: 22,
+                                fontWeight: '800',
+                                color: COLORS.text,
+                                lineHeight: 24,
+                              }}
+                            >
+                              {dayDisplay}
+                            </Text>
+                          ) : null}
+                        </View>
 
-                      {/* Event info */}
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={{
-                            fontSize: 15,
-                            fontWeight: '700',
-                            color: COLORS.text,
-                          }}
-                          numberOfLines={1}
-                        >
-                          {event.title}
-                        </Text>
-                        {hasVenueCity ? (
+                        {/* Event info */}
+                        <View style={{ flex: 1 }}>
                           <Text
-                            style={{
-                              fontSize: 12,
-                              color: COLORS.textSecondary,
-                              marginTop: 2,
-                            }}
+                            style={{ fontSize: 15, fontWeight: '700', color: COLORS.text }}
                             numberOfLines={1}
                           >
-                            {venueCity}
+                            {event.title}
                           </Text>
+                          {hasVenueCity ? (
+                            <Text
+                              style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}
+                              numberOfLines={1}
+                            >
+                              {venueCity}
+                            </Text>
+                          ) : null}
+                          {goingCount > 0 ? (
+                            <Text style={{ fontSize: 11, color: COLORS.primary, marginTop: 2, fontWeight: '600' }}>
+                              {`🎟️ ${goingCount} going`}
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        {/* Tickets button */}
+                        {hasTicketUrl ? (
+                          <AnimatedPressable
+                            onPress={() => {
+                              console.log(`[Events] Tickets pressed for: ${event.title} (${event.id})`);
+                              Linking.openURL(event.ticket_url as string);
+                            }}
+                          >
+                            <View
+                              style={{
+                                backgroundColor: COLORS.primary,
+                                borderRadius: 8,
+                                paddingVertical: 7,
+                                paddingHorizontal: 12,
+                              }}
+                            >
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.background }}>
+                                Tickets
+                              </Text>
+                            </View>
+                          </AnimatedPressable>
                         ) : null}
                       </View>
 
-                      {/* Tickets button */}
-                      {hasTicketUrl ? (
+                      {/* Countdown */}
+                      {countdownText ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Clock size={12} color={COLORS.primary} />
+                          <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600' }}>
+                            {countdownText}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {/* RSVP segmented control */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          backgroundColor: COLORS.surfaceSecondary,
+                          borderRadius: 8,
+                          padding: 3,
+                          gap: 3,
+                          opacity: isRsvpLoading ? 0.6 : 1,
+                        }}
+                      >
+                        {RSVP_BUTTONS.map((btn) => {
+                          const isActive = rsvp?.status === btn.value;
+                          return (
+                            <AnimatedPressable
+                              key={btn.value}
+                              onPress={() => {
+                                console.log('[Events] RSVP button pressed:', btn.value, event.id);
+                                handleRsvp(event.id, btn.value);
+                              }}
+                              disabled={isRsvpLoading}
+                              style={{ flex: 1 }}
+                            >
+                              <View
+                                style={{
+                                  paddingVertical: 7,
+                                  borderRadius: 6,
+                                  alignItems: 'center',
+                                  backgroundColor: isActive ? COLORS.primary : 'transparent',
+                                  flexDirection: 'row',
+                                  justifyContent: 'center',
+                                  gap: 4,
+                                }}
+                              >
+                                {isActive && <CheckCircle size={11} color={COLORS.background} />}
+                                <Text
+                                  style={{
+                                    color: isActive ? COLORS.background : COLORS.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: isActive ? '700' : '500',
+                                  }}
+                                >
+                                  {btn.label}
+                                </Text>
+                              </View>
+                            </AnimatedPressable>
+                          );
+                        })}
+                      </View>
+
+                      {/* Set Reminder button (only if going or maybe) */}
+                      {(rsvp?.status === 'going' || rsvp?.status === 'maybe') && (
                         <AnimatedPressable
                           onPress={() => {
-                            console.log(`[Events] Tickets pressed for: ${event.title} (${event.id})`);
-                            Linking.openURL(event.ticket_url as string);
+                            console.log('[Events] Set reminder pressed for:', event.id);
+                            setReminderModal({ eventId: event.id, eventTitle: event.title });
                           }}
                         >
                           <View
                             style={{
-                              backgroundColor: COLORS.primary,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 6,
+                              backgroundColor: COLORS.primaryMuted,
                               borderRadius: 8,
-                              paddingVertical: 7,
+                              paddingVertical: 8,
                               paddingHorizontal: 12,
+                              borderWidth: 1,
+                              borderColor: COLORS.primary,
+                              alignSelf: 'flex-start',
                             }}
                           >
-                            <Text
-                              style={{
-                                fontSize: 12,
-                                fontWeight: '700',
-                                color: COLORS.background,
-                              }}
-                            >
-                              Tickets
+                            <Bell size={12} color={COLORS.primary} />
+                            <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600' }}>
+                              {rsvp.reminderMinutes
+                                ? `Reminder: ${REMINDER_OPTIONS.find((o) => o.value === rsvp.reminderMinutes)?.label ?? `${rsvp.reminderMinutes}m before`}`
+                                : 'Set Reminder'}
                             </Text>
                           </View>
                         </AnimatedPressable>
-                      ) : null}
+                      )}
                     </View>
                   </View>
                 );
@@ -820,6 +1200,66 @@ export default function SocialScreen() {
             )}
           </View>
         )}
+
+        {/* Reminder Modal */}
+        <Modal
+          visible={!!reminderModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setReminderModal(null)}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              justifyContent: 'flex-end',
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: COLORS.surface,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                padding: 24,
+                gap: 12,
+              }}
+            >
+              <Text style={{ color: COLORS.text, fontSize: 17, fontWeight: '700', marginBottom: 4 }}>
+                Set Reminder
+              </Text>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginBottom: 8 }}>
+                {reminderModal?.eventTitle}
+              </Text>
+              {REMINDER_OPTIONS.map((opt) => (
+                <AnimatedPressable
+                  key={opt.value}
+                  onPress={() => {
+                    if (reminderModal) handleSetReminder(reminderModal.eventId, opt.value);
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: COLORS.surfaceSecondary,
+                      borderRadius: 12,
+                      padding: 14,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                    }}
+                  >
+                    <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '600' }}>
+                      {opt.label}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+              ))}
+              <AnimatedPressable onPress={() => setReminderModal(null)} style={{ marginTop: 4 }}>
+                <View style={{ padding: 14, alignItems: 'center' }}>
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>Cancel</Text>
+                </View>
+              </AnimatedPressable>
+            </View>
+          </View>
+        </Modal>
 
         {ARTISTS.map((artist) => (
           <ArtistSocialSection

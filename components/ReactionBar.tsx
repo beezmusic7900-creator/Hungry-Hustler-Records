@@ -5,6 +5,7 @@ import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useRewards } from '@/hooks/useRewards';
+import { useActivity } from '@/hooks/useActivity';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -34,6 +35,7 @@ interface Props {
 export function ReactionBar({ targetType, targetId, compact = false }: Props) {
   const { user } = useAuth();
   const { awardPoints } = useRewards();
+  const { recordActivity } = useActivity();
 
   const [counts, setCounts] = useState<ReactionCounts>({ like: 0, fire: 0, heart: 0, clap: 0 });
   const [userReactions, setUserReactions] = useState<Set<ReactionType>>(new Set());
@@ -123,13 +125,14 @@ export function ReactionBar({ targetType, targetId, compact = false }: Props) {
           loadReactions(); // revert
         } else {
           awardPoints('like_post', { reference_id: targetId });
+          recordActivity('reacted', targetType, targetId, targetId).catch(() => {});
         }
       }
     } catch (err) {
       console.error('[ReactionBar] handleReaction error:', err);
       loadReactions();
     }
-  }, [user, userReactions, targetType, targetId, loadReactions, awardPoints]);
+  }, [user, userReactions, targetType, targetId, loadReactions, awardPoints, recordActivity]);
 
   if (loading) return null;
 
