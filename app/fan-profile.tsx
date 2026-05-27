@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Modal,
+  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +27,9 @@ import {
   Clock,
   CheckCircle,
   Lock,
+  Mic2,
+  Search,
+  X,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '@/constants/Colors';
@@ -63,17 +67,6 @@ interface MerchDetail {
   image_url: string | null;
 }
 
-interface ListenHistoryItem {
-  id: string;
-  played_at: string;
-  song: {
-    id: string;
-    title: string;
-    artist: string;
-    cover_url: string | null;
-  } | null;
-}
-
 interface BadgeDetail {
   id: string;
   slug: string;
@@ -81,6 +74,19 @@ interface BadgeDetail {
   description: string;
   icon: string;
   earned_at: string;
+}
+
+interface ArtistOption {
+  id: string;
+  name: string;
+  image_url: string | null;
+}
+
+interface SongOption {
+  id: string;
+  title: string;
+  artist: string;
+  cover_url: string | null;
 }
 
 function resolveImageSource(
@@ -126,6 +132,23 @@ export default function FanProfileScreen() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  // Favorite artist / song
+  const [favoriteArtistId, setFavoriteArtistId] = useState<string | null>(null);
+  const [favoriteSongId, setFavoriteSongId] = useState<string | null>(null);
+  const [favoriteArtist, setFavoriteArtist] = useState<ArtistOption | null>(null);
+  const [favoriteSong, setFavoriteSong] = useState<SongOption | null>(null);
+
+  // Picker modals
+  const [showArtistPicker, setShowArtistPicker] = useState(false);
+  const [showSongPicker, setShowSongPicker] = useState(false);
+  const [artistOptions, setArtistOptions] = useState<ArtistOption[]>([]);
+  const [songOptions, setSongOptions] = useState<SongOption[]>([]);
+  const [artistSearch, setArtistSearch] = useState('');
+  const [songSearch, setSongSearch] = useState('');
+  const [loadingArtists, setLoadingArtists] = useState(false);
+  const [loadingSongs, setLoadingSongs] = useState(false);
+  const [savingFavorites, setSavingFavorites] = useState(false);
+
   // Rewards
   const [rewardsSummary, setRewardsSummary] = useState<{
     total_points: number;
@@ -139,7 +162,7 @@ export default function FanProfileScreen() {
   const [badges, setBadges] = useState<BadgeDetail[]>([]);
   const [selectedBadge, setSelectedBadge] = useState<BadgeDetail | null>(null);
 
-  // Activity feed (replaces listen history)
+  // Activity feed
   const [activityFeed, setActivityFeed] = useState<{ id: string; activity_type: string; target_label: string | null; created_at: string }[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
 
@@ -149,16 +172,7 @@ export default function FanProfileScreen() {
       loadProfile();
       loadRewardsSummary();
       loadActivityFeed();
-      // Award daily login points
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session?.access_token) return;
-        console.log('[FanProfile] Awarding daily login points');
-        fetch(`${SUPABASE_URL}/functions/v1/award-points`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({ action_type: 'daily_login' }),
-        }).catch(() => {});
-      });
+      // NOTE: Daily login points are now awarded intentionally via the Check-In button on fan-rewards.tsx
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -200,7 +214,7 @@ export default function FanProfileScreen() {
       console.log('[FanProfile] Loading profile for user:', user.id);
       const { data } = await db
         .from('fan_profiles')
-        .select('display_name, username, bio, avatar_url')
+        .select('display_name, username, bio, avatar_url, favorite_artist_id, favorite_song_id')
         .eq('id', user.id)
         .maybeSingle();
       if (data) {
@@ -208,7 +222,25 @@ export default function FanProfileScreen() {
         setUsername(data.username ?? '');
         setBio(data.bio ?? '');
         setAvatarUrl(data.avatar_url ?? null);
-        console.log('[FanProfile] Profile loaded');
+        const artId = data.favorite_artist_id ?? null;
+        const sngId = data.favorite_song_id ?? null;
+        setFavoriteArtistId(artId);
+        setFavoriteSongId(sngId);
+        console.log('[FanProfile] Profile loaded, fav artist:', artId, 'fav song:', sngId);
+
+        // Load favorite artist/song details
+        if (artId) {
+          dbPublic.from('artists').select('id, name, image_url').eq('id', artId).maybeSingle()
+            .then(({ data: a }: { data: ArtistOption | null }) => {
+              if (a) setFavoriteArtist(a);
+            });
+        }
+        if (sngId) {
+          dbPublic.from('songs').select('id, title, artist, cover_url').eq('id', sngId).maybeSingle()
+            .then(({ data: s }: { data: SongOption | null }) => {
+              if (s) setFavoriteSong(s);
+            });
+        }
       }
     } catch (err) {
       console.error('[FanProfile] loadProfile error:', err);
@@ -298,7 +330,6 @@ export default function FanProfileScreen() {
     console.log('[FanProfile] Save profile pressed');
     setSavingProfile(true);
 
-    // Validate username
     const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
     if (username.trim() && cleanUsername !== username.trim()) {
       Alert.alert('Invalid Username', 'Username can only contain lowercase letters, numbers, and underscores.');
@@ -390,6 +421,109 @@ export default function FanProfileScreen() {
     await signOut();
     router.replace('/(tabs)/(home)');
   };
+
+  // ── Favorite artist/song pickers ──
+
+  const openArtistPicker = async () => {
+    console.log('[FanProfile] Open artist picker');
+    setShowArtistPicker(true);
+    setArtistSearch('');
+    if (artistOptions.length > 0) return;
+    setLoadingArtists(true);
+    try {
+      const { data } = await dbPublic
+        .from('artists')
+        .select('id, name, image_url')
+        .order('name');
+      setArtistOptions((data ?? []) as ArtistOption[]);
+      console.log('[FanProfile] Loaded', (data ?? []).length, 'artists for picker');
+    } catch (err) {
+      console.error('[FanProfile] openArtistPicker error:', err);
+    } finally {
+      setLoadingArtists(false);
+    }
+  };
+
+  const openSongPicker = async () => {
+    console.log('[FanProfile] Open song picker');
+    setShowSongPicker(true);
+    setSongSearch('');
+    if (songOptions.length > 0) return;
+    setLoadingSongs(true);
+    try {
+      const { data } = await dbPublic
+        .from('songs')
+        .select('id, title, artist, cover_url')
+        .order('title');
+      setSongOptions((data ?? []) as SongOption[]);
+      console.log('[FanProfile] Loaded', (data ?? []).length, 'songs for picker');
+    } catch (err) {
+      console.error('[FanProfile] openSongPicker error:', err);
+    } finally {
+      setLoadingSongs(false);
+    }
+  };
+
+  const selectArtist = async (artist: ArtistOption) => {
+    console.log('[FanProfile] Artist selected:', artist.name, artist.id);
+    setShowArtistPicker(false);
+    setFavoriteArtistId(artist.id);
+    setFavoriteArtist(artist);
+    await saveFavoriteFields(artist.id, favoriteSongId);
+  };
+
+  const selectSong = async (song: SongOption) => {
+    console.log('[FanProfile] Song selected:', song.title, song.id);
+    setShowSongPicker(false);
+    setFavoriteSongId(song.id);
+    setFavoriteSong(song);
+    await saveFavoriteFields(favoriteArtistId, song.id);
+  };
+
+  const clearFavoriteArtist = async () => {
+    console.log('[FanProfile] Clear favorite artist');
+    setFavoriteArtistId(null);
+    setFavoriteArtist(null);
+    await saveFavoriteFields(null, favoriteSongId);
+  };
+
+  const clearFavoriteSong = async () => {
+    console.log('[FanProfile] Clear favorite song');
+    setFavoriteSongId(null);
+    setFavoriteSong(null);
+    await saveFavoriteFields(favoriteArtistId, null);
+  };
+
+  const saveFavoriteFields = async (artistId: string | null, songId: string | null) => {
+    if (!user) return;
+    setSavingFavorites(true);
+    try {
+      console.log('[FanProfile] Saving favorites — artist:', artistId, 'song:', songId);
+      const { error } = await db.from('fan_profiles').upsert({
+        id: user.id,
+        favorite_artist_id: artistId,
+        favorite_song_id: songId,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) {
+        console.error('[FanProfile] saveFavoriteFields error:', error.message);
+      } else {
+        console.log('[FanProfile] Favorites saved successfully');
+      }
+    } catch (err) {
+      console.error('[FanProfile] saveFavoriteFields error:', err);
+    } finally {
+      setSavingFavorites(false);
+    }
+  };
+
+  const filteredArtists = artistOptions.filter(a =>
+    a.name.toLowerCase().includes(artistSearch.toLowerCase())
+  );
+  const filteredSongs = songOptions.filter(s =>
+    s.title.toLowerCase().includes(songSearch.toLowerCase()) ||
+    s.artist.toLowerCase().includes(songSearch.toLowerCase())
+  );
 
   // Not logged in state
   if (!authLoading && !user) {
@@ -618,6 +752,258 @@ export default function FanProfileScreen() {
           </Text>
         </View>
       ) : null}
+
+      {/* ── Favorites (artist + song) ── */}
+      <View
+        style={{
+          backgroundColor: COLORS.surface,
+          borderRadius: 14,
+          padding: 16,
+          marginBottom: 16,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <Heart size={16} color={COLORS.primary} fill={COLORS.primary} />
+          <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700' }}>
+            My Favorites
+          </Text>
+        </View>
+
+        {/* Favorite Artist */}
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8, letterSpacing: 0.5 }}>
+          FAVORITE ARTIST
+        </Text>
+        {favoriteArtist ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <AnimatedPressable
+              onPress={() => {
+                console.log('[FanProfile] Favorite artist tapped — navigate to artist:', favoriteArtist.id);
+                router.push(`/artist/${favoriteArtist.id}`);
+              }}
+              style={{ flex: 1 }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  backgroundColor: COLORS.surfaceSecondary,
+                  borderRadius: 10,
+                  padding: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.primary,
+                }}
+              >
+                {favoriteArtist.image_url ? (
+                  <Image
+                    source={resolveImageSource(favoriteArtist.image_url)}
+                    style={{ width: 40, height: 40, borderRadius: 20 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: COLORS.primaryMuted,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Mic2 size={18} color={COLORS.primary} />
+                  </View>
+                )}
+                <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                  {favoriteArtist.name}
+                </Text>
+              </View>
+            </AnimatedPressable>
+            <AnimatedPressable onPress={clearFavoriteArtist}>
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  backgroundColor: COLORS.surfaceSecondary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                }}
+              >
+                <X size={14} color={COLORS.textSecondary} />
+              </View>
+            </AnimatedPressable>
+          </View>
+        ) : (
+          <AnimatedPressable onPress={openArtistPicker} style={{ marginBottom: 12 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                backgroundColor: COLORS.surfaceSecondary,
+                borderRadius: 10,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                borderStyle: 'dashed',
+              }}
+            >
+              <Mic2 size={16} color={COLORS.textTertiary} />
+              <Text style={{ color: COLORS.textTertiary, fontSize: 13 }}>
+                Pick a favorite artist...
+              </Text>
+            </View>
+          </AnimatedPressable>
+        )}
+
+        {/* Favorite Song */}
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8, letterSpacing: 0.5 }}>
+          FAVORITE SONG
+        </Text>
+        {favoriteSong ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <AnimatedPressable
+              onPress={() => {
+                console.log('[FanProfile] Favorite song tapped — play:', favoriteSong.title);
+                playSong({
+                  id: favoriteSong.id,
+                  title: favoriteSong.title,
+                  artist: favoriteSong.artist,
+                  cover_url: favoriteSong.cover_url,
+                  audio_url: null,
+                });
+              }}
+              style={{ flex: 1 }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  backgroundColor: COLORS.surfaceSecondary,
+                  borderRadius: 10,
+                  padding: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.primary,
+                }}
+              >
+                {favoriteSong.cover_url ? (
+                  <Image
+                    source={resolveImageSource(favoriteSong.cover_url)}
+                    style={{ width: 40, height: 40, borderRadius: 6 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 6,
+                      backgroundColor: COLORS.primaryMuted,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Music size={18} color={COLORS.primary} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '600' }} numberOfLines={1}>
+                    {favoriteSong.title}
+                  </Text>
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 1 }} numberOfLines={1}>
+                    {favoriteSong.artist}
+                  </Text>
+                </View>
+              </View>
+            </AnimatedPressable>
+            <AnimatedPressable onPress={clearFavoriteSong}>
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  backgroundColor: COLORS.surfaceSecondary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                }}
+              >
+                <X size={14} color={COLORS.textSecondary} />
+              </View>
+            </AnimatedPressable>
+          </View>
+        ) : (
+          <AnimatedPressable onPress={openSongPicker}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                backgroundColor: COLORS.surfaceSecondary,
+                borderRadius: 10,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                borderStyle: 'dashed',
+              }}
+            >
+              <Music size={16} color={COLORS.textTertiary} />
+              <Text style={{ color: COLORS.textTertiary, fontSize: 13 }}>
+                Pick a favorite song...
+              </Text>
+            </View>
+          </AnimatedPressable>
+        )}
+
+        {/* Edit favorites button when both are set */}
+        {(favoriteArtist || favoriteSong) && (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+            {!favoriteArtist && (
+              <AnimatedPressable onPress={openArtistPicker} style={{ flex: 1 }}>
+                <View
+                  style={{
+                    backgroundColor: COLORS.primaryMuted,
+                    borderRadius: 8,
+                    paddingVertical: 8,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: COLORS.primary,
+                  }}
+                >
+                  <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600' }}>
+                    + Artist
+                  </Text>
+                </View>
+              </AnimatedPressable>
+            )}
+            {!favoriteSong && (
+              <AnimatedPressable onPress={openSongPicker} style={{ flex: 1 }}>
+                <View
+                  style={{
+                    backgroundColor: COLORS.primaryMuted,
+                    borderRadius: 8,
+                    paddingVertical: 8,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: COLORS.primary,
+                  }}
+                >
+                  <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600' }}>
+                    + Song
+                  </Text>
+                </View>
+              </AnimatedPressable>
+            )}
+          </View>
+        )}
+      </View>
 
       {/* Edit profile panel */}
       {editingProfile && (
@@ -1288,12 +1674,12 @@ export default function FanProfileScreen() {
         )}
       </View>
 
-      {/* Favorites section */}
+      {/* Favorites section (hearted songs/merch) */}
       <View style={{ marginBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <Heart size={18} color={COLORS.primary} fill={COLORS.primary} />
           <Text style={{ color: COLORS.text, fontSize: 20, fontWeight: '700' }}>
-            My Favorites
+            Saved Favorites
           </Text>
         </View>
 
@@ -1579,6 +1965,267 @@ export default function FanProfileScreen() {
                   </View>
                 </AnimatedPressable>
               </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Artist Picker Modal */}
+      <Modal
+        visible={showArtistPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowArtistPicker(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              paddingTop: 20,
+              paddingBottom: insets.bottom + 20,
+              maxHeight: '75%',
+              borderWidth: 1,
+              borderColor: COLORS.border,
+            }}
+          >
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 14 }}>
+              <Text style={{ color: COLORS.text, fontSize: 17, fontWeight: '700' }}>
+                Pick Favorite Artist
+              </Text>
+              <AnimatedPressable onPress={() => {
+                console.log('[FanProfile] Close artist picker');
+                setShowArtistPicker(false);
+              }}>
+                <X size={20} color={COLORS.textSecondary} />
+              </AnimatedPressable>
+            </View>
+
+            {/* Search */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                backgroundColor: COLORS.surfaceSecondary,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                marginHorizontal: 20,
+                marginBottom: 12,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              <Search size={14} color={COLORS.textTertiary} />
+              <TextInput
+                value={artistSearch}
+                onChangeText={setArtistSearch}
+                placeholder="Search artists..."
+                placeholderTextColor={COLORS.textTertiary}
+                style={{ flex: 1, color: COLORS.text, fontSize: 14 }}
+                autoCapitalize="none"
+              />
+            </View>
+
+            {loadingArtists ? (
+              <View style={{ padding: 20, gap: 10 }}>
+                {[0, 1, 2, 3].map(k => (
+                  <SkeletonLine key={k} width="100%" height={52} borderRadius={10} />
+                ))}
+              </View>
+            ) : (
+              <FlatList
+                data={filteredArtists}
+                keyExtractor={item => item.id}
+                contentContainerStyle={{ paddingHorizontal: 20 }}
+                renderItem={({ item }) => (
+                  <AnimatedPressable
+                    onPress={() => selectArtist(item)}
+                    style={{ marginBottom: 8 }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        backgroundColor: item.id === favoriteArtistId ? COLORS.primaryMuted : COLORS.surfaceSecondary,
+                        borderRadius: 10,
+                        padding: 10,
+                        borderWidth: 1,
+                        borderColor: item.id === favoriteArtistId ? COLORS.primary : COLORS.border,
+                      }}
+                    >
+                      {item.image_url ? (
+                        <Image
+                          source={resolveImageSource(item.image_url)}
+                          style={{ width: 40, height: 40, borderRadius: 20 }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 20,
+                            backgroundColor: COLORS.primaryMuted,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Mic2 size={18} color={COLORS.primary} />
+                        </View>
+                      )}
+                      <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      {item.id === favoriteArtistId && (
+                        <CheckCircle size={16} color={COLORS.primary} />
+                      )}
+                    </View>
+                  </AnimatedPressable>
+                )}
+                ListEmptyComponent={
+                  <View style={{ padding: 24, alignItems: 'center' }}>
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>No artists found</Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Song Picker Modal */}
+      <Modal
+        visible={showSongPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowSongPicker(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              paddingTop: 20,
+              paddingBottom: insets.bottom + 20,
+              maxHeight: '75%',
+              borderWidth: 1,
+              borderColor: COLORS.border,
+            }}
+          >
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 14 }}>
+              <Text style={{ color: COLORS.text, fontSize: 17, fontWeight: '700' }}>
+                Pick Favorite Song
+              </Text>
+              <AnimatedPressable onPress={() => {
+                console.log('[FanProfile] Close song picker');
+                setShowSongPicker(false);
+              }}>
+                <X size={20} color={COLORS.textSecondary} />
+              </AnimatedPressable>
+            </View>
+
+            {/* Search */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                backgroundColor: COLORS.surfaceSecondary,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                marginHorizontal: 20,
+                marginBottom: 12,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              <Search size={14} color={COLORS.textTertiary} />
+              <TextInput
+                value={songSearch}
+                onChangeText={setSongSearch}
+                placeholder="Search songs..."
+                placeholderTextColor={COLORS.textTertiary}
+                style={{ flex: 1, color: COLORS.text, fontSize: 14 }}
+                autoCapitalize="none"
+              />
+            </View>
+
+            {loadingSongs ? (
+              <View style={{ padding: 20, gap: 10 }}>
+                {[0, 1, 2, 3].map(k => (
+                  <SkeletonLine key={k} width="100%" height={60} borderRadius={10} />
+                ))}
+              </View>
+            ) : (
+              <FlatList
+                data={filteredSongs}
+                keyExtractor={item => item.id}
+                contentContainerStyle={{ paddingHorizontal: 20 }}
+                renderItem={({ item }) => (
+                  <AnimatedPressable
+                    onPress={() => selectSong(item)}
+                    style={{ marginBottom: 8 }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        backgroundColor: item.id === favoriteSongId ? COLORS.primaryMuted : COLORS.surfaceSecondary,
+                        borderRadius: 10,
+                        padding: 10,
+                        borderWidth: 1,
+                        borderColor: item.id === favoriteSongId ? COLORS.primary : COLORS.border,
+                      }}
+                    >
+                      {item.cover_url ? (
+                        <Image
+                          source={resolveImageSource(item.cover_url)}
+                          style={{ width: 44, height: 44, borderRadius: 6 }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 6,
+                            backgroundColor: COLORS.primaryMuted,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Music size={18} color={COLORS.primary} />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '600' }} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 1 }} numberOfLines={1}>
+                          {item.artist}
+                        </Text>
+                      </View>
+                      {item.id === favoriteSongId && (
+                        <CheckCircle size={16} color={COLORS.primary} />
+                      )}
+                    </View>
+                  </AnimatedPressable>
+                )}
+                ListEmptyComponent={
+                  <View style={{ padding: 24, alignItems: 'center' }}>
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>No songs found</Text>
+                  </View>
+                }
+              />
             )}
           </View>
         </View>

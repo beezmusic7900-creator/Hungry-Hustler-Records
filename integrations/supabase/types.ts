@@ -363,6 +363,8 @@ export type Database = {
           avatar_url: string | null
           is_public: boolean
           is_admin: boolean
+          favorite_artist_id: string | null
+          favorite_song_id: string | null
           created_at: string
           updated_at: string
         }
@@ -374,6 +376,8 @@ export type Database = {
           avatar_url?: string | null
           is_public?: boolean
           is_admin?: boolean
+          favorite_artist_id?: string | null
+          favorite_song_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -385,6 +389,8 @@ export type Database = {
           avatar_url?: string | null
           is_public?: boolean
           is_admin?: boolean
+          favorite_artist_id?: string | null
+          favorite_song_id?: string | null
           updated_at?: string
         }
         Relationships: []

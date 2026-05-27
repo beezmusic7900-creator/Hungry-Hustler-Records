@@ -22,6 +22,7 @@ import {
   Star,
   MessageCircle,
   MoreHorizontal,
+  Mic2,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
@@ -45,6 +46,21 @@ interface FanProfile {
   bio: string | null;
   avatar_url: string | null;
   is_public: boolean;
+  favorite_artist_id: string | null;
+  favorite_song_id: string | null;
+}
+
+interface ArtistDetail {
+  id: string;
+  name: string;
+  image_url: string | null;
+}
+
+interface SongDetail {
+  id: string;
+  title: string;
+  artist: string;
+  cover_url: string | null;
 }
 
 interface ActivityEntry {
@@ -139,6 +155,8 @@ export default function PublicProfileScreen() {
   const [activityLoading, setActivityLoading] = useState(false);
   const [rewardLevel, setRewardLevel] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [favoriteArtist, setFavoriteArtist] = useState<ArtistDetail | null>(null);
+  const [favoriteSong, setFavoriteSong] = useState<SongDetail | null>(null);
 
   const isOwnProfile = user?.id === id;
 
@@ -150,7 +168,7 @@ export default function PublicProfileScreen() {
 
       const { data: profileData } = await db
         .from('fan_profiles')
-        .select('id, display_name, username, bio, avatar_url, is_public')
+        .select('id, display_name, username, bio, avatar_url, is_public, favorite_artist_id, favorite_song_id')
         .eq('id', id)
         .maybeSingle();
 
@@ -190,6 +208,7 @@ export default function PublicProfileScreen() {
         loadBadges(),
         loadActivity(),
         loadRewardLevel(),
+        loadFavoriteDetails(profileData.favorite_artist_id, profileData.favorite_song_id),
       ]);
     } catch (err) {
       console.error('[PublicProfile] loadProfile error:', err);
@@ -258,6 +277,31 @@ export default function PublicProfileScreen() {
       console.error('[PublicProfile] loadActivity error:', err);
     } finally {
       setActivityLoading(false);
+    }
+  };
+
+  const loadFavoriteDetails = async (artistId: string | null, songId: string | null) => {
+    try {
+      const promises: Promise<void>[] = [];
+      if (artistId) {
+        promises.push(
+          db.from('artists').select('id, name, image_url').eq('id', artistId).maybeSingle()
+            .then(({ data }: { data: ArtistDetail | null }) => {
+              if (data) setFavoriteArtist(data);
+            })
+        );
+      }
+      if (songId) {
+        promises.push(
+          db.from('songs').select('id, title, artist, cover_url').eq('id', songId).maybeSingle()
+            .then(({ data }: { data: SongDetail | null }) => {
+              if (data) setFavoriteSong(data);
+            })
+        );
+      }
+      await Promise.all(promises);
+    } catch (err) {
+      console.error('[PublicProfile] loadFavoriteDetails error:', err);
     }
   };
 
@@ -500,6 +544,126 @@ export default function PublicProfileScreen() {
         >
           {profile.bio}
         </Text>
+      ) : null}
+
+      {/* Favorites (read-only) */}
+      {(favoriteArtist || favoriteSong) ? (
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 14,
+            padding: 14,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+            <Heart size={14} color={COLORS.primary} fill={COLORS.primary} />
+            <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '700' }}>
+              Favorites
+            </Text>
+          </View>
+
+          {favoriteArtist ? (
+            <AnimatedPressable
+              onPress={() => {
+                console.log('[PublicProfile] Favorite artist tapped:', favoriteArtist.id);
+                router.push(`/artist/${favoriteArtist.id}`);
+              }}
+              style={{ marginBottom: favoriteSong ? 8 : 0 }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  backgroundColor: COLORS.surfaceSecondary,
+                  borderRadius: 10,
+                  padding: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                }}
+              >
+                {favoriteArtist.image_url ? (
+                  <Image
+                    source={resolveImageSource(favoriteArtist.image_url)}
+                    style={{ width: 36, height: 36, borderRadius: 18 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: COLORS.primaryMuted,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Mic2 size={16} color={COLORS.primary} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: COLORS.textTertiary, fontSize: 10, fontWeight: '600', letterSpacing: 0.5 }}>
+                    FAVORITE ARTIST
+                  </Text>
+                  <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600', marginTop: 1 }} numberOfLines={1}>
+                    {favoriteArtist.name}
+                  </Text>
+                </View>
+              </View>
+            </AnimatedPressable>
+          ) : null}
+
+          {favoriteSong ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                backgroundColor: COLORS.surfaceSecondary,
+                borderRadius: 10,
+                padding: 10,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              {favoriteSong.cover_url ? (
+                <Image
+                  source={resolveImageSource(favoriteSong.cover_url)}
+                  style={{ width: 36, height: 36, borderRadius: 6 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 6,
+                    backgroundColor: COLORS.primaryMuted,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Music size={16} color={COLORS.primary} />
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: COLORS.textTertiary, fontSize: 10, fontWeight: '600', letterSpacing: 0.5 }}>
+                  FAVORITE SONG
+                </Text>
+                <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600', marginTop: 1 }} numberOfLines={1}>
+                  {favoriteSong.title}
+                </Text>
+                <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 1 }} numberOfLines={1}>
+                  {favoriteSong.artist}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+        </View>
       ) : null}
 
       {/* Follow counts */}

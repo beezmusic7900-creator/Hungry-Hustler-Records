@@ -4,10 +4,11 @@ import {
   Text,
   ScrollView,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Trophy, Star, Lock, CheckCircle, Zap } from 'lucide-react-native';
+import { User, Trophy, Star, Lock, CheckCircle, Zap, Flame, Calendar } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
@@ -39,6 +40,8 @@ interface RewardsData {
   next_level: string | null;
   points_to_next: number | null;
   next_level_threshold: number | null;
+  current_streak: number;
+  last_check_in: string | null;
   recent_activity: RewardActivity[];
   achievements: Achievement[];
 }
@@ -61,6 +64,30 @@ function formatPoints(pts: number): string {
   return pts.toLocaleString();
 }
 
+function formatLastCheckIn(dateStr: string | null): string {
+  if (!dateStr) return 'Never';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const todayStr = now.toLocaleDateString();
+  const dateLocalStr = date.toLocaleDateString();
+  if (dateLocalStr === todayStr) return 'Today';
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (dateLocalStr === yesterday.toLocaleDateString()) return 'Yesterday';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function isCheckedInToday(lastCheckIn: string | null): boolean {
+  if (!lastCheckIn) return false;
+  const last = new Date(lastCheckIn);
+  const now = new Date();
+  return (
+    last.getFullYear() === now.getFullYear() &&
+    last.getMonth() === now.getMonth() &&
+    last.getDate() === now.getDate()
+  );
+}
+
 export default function FanRewardsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -70,6 +97,7 @@ export default function FanRewardsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkingIn, setCheckingIn] = useState(false);
 
   const loadRewards = useCallback(async () => {
     if (!user) return;
@@ -109,6 +137,84 @@ export default function FanRewardsScreen() {
     setRefreshing(true);
     await loadRewards();
     setRefreshing(false);
+  };
+
+  const handleCheckIn = async () => {
+    if (!user || checkingIn) return;
+    console.log('[FanRewards] Daily check-in button pressed');
+    setCheckingIn(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.warn('[FanRewards] No session for check-in');
+        return;
+      }
+
+      console.log('[FanRewards] Calling award-points with daily_login');
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/award-points`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action_type: 'daily_login' }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('[FanRewards] award-points error:', res.status, text);
+        Alert.alert('Check-In Failed', 'Could not record your check-in. Please try again.');
+        return;
+      }
+
+      const result = await res.json();
+      console.log('[FanRewards] Check-in result:', result);
+
+      if (!result.awarded) {
+        console.log('[FanRewards] Already checked in today (server confirmed)');
+        // Optimistically mark as checked in
+        setData(prev => prev ? {
+          ...prev,
+          last_check_in: new Date().toISOString(),
+        } : prev);
+        return;
+      }
+
+      const pointsEarned = result.points_earned ?? 0;
+      const newTotal = result.total_points ?? ((data?.total_points ?? 0) + pointsEarned);
+      const newStreak = result.current_streak ?? ((data?.current_streak ?? 0) + 1);
+
+      // Optimistic update
+      setData(prev => prev ? {
+        ...prev,
+        total_points: newTotal,
+        current_streak: newStreak,
+        last_check_in: new Date().toISOString(),
+      } : prev);
+
+      // Surface new badges
+      const badges = (result.new_badges ?? []) as { name: string; icon: string; description: string }[];
+      badges.forEach((badge) => {
+        console.log('[FanRewards] New badge unlocked:', badge.name);
+        Alert.alert('Badge Unlocked!', `${badge.icon} ${badge.name}\n${badge.description}`);
+      });
+
+      if (badges.length === 0) {
+        Alert.alert(
+          'Checked In!',
+          `+${pointsEarned} pts earned\n🔥 ${newStreak} day streak`
+        );
+      }
+
+      // Reload to get fresh activity list
+      await loadRewards();
+    } catch (err) {
+      console.error('[FanRewards] handleCheckIn error:', err);
+      Alert.alert('Error', 'Could not complete check-in.');
+    } finally {
+      setCheckingIn(false);
+    }
   };
 
   // Not logged in
@@ -193,6 +299,14 @@ export default function FanRewardsScreen() {
   const earnedAchievements = achievements.filter(a => a.earned);
   const lockedAchievements = achievements.filter(a => !a.earned);
 
+  const currentStreak = data?.current_streak ?? 0;
+  const lastCheckIn = data?.last_check_in ?? null;
+  const alreadyCheckedIn = isCheckedInToday(lastCheckIn);
+  const lastCheckInText = formatLastCheckIn(lastCheckIn);
+  const streakText = currentStreak > 0 ? `${currentStreak} day${currentStreak !== 1 ? 's' : ''}` : '0 days';
+  const checkInButtonLabel = checkingIn ? 'Checking In...' : alreadyCheckedIn ? 'Checked In ✓' : 'Check In';
+  const checkInSubLabel = alreadyCheckedIn ? 'Come back tomorrow' : 'Earn points & keep your streak';
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: COLORS.background }}
@@ -210,6 +324,148 @@ export default function FanRewardsScreen() {
       }
       showsVerticalScrollIndicator={false}
     >
+      {/* ── Daily Check-In Card ── */}
+      {loading ? (
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 20,
+            padding: 20,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            gap: 12,
+          }}
+        >
+          <SkeletonLine width={140} height={18} borderRadius={8} />
+          <View style={{ flexDirection: 'row', gap: 16 }}>
+            <SkeletonLine width={80} height={48} borderRadius={10} />
+            <SkeletonLine width={80} height={48} borderRadius={10} />
+          </View>
+          <SkeletonLine width="100%" height={48} borderRadius={12} />
+        </View>
+      ) : (
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 20,
+            padding: 20,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: alreadyCheckedIn ? COLORS.primary : COLORS.border,
+          }}
+        >
+          {/* Title row */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <Flame size={18} color={COLORS.primary} fill={COLORS.primary} />
+            <Text style={{ color: COLORS.text, fontSize: 17, fontWeight: '700' }}>
+              Daily Check-In
+            </Text>
+          </View>
+
+          {/* Stats row */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+            {/* Points */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: COLORS.surfaceSecondary,
+                borderRadius: 12,
+                padding: 12,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              <Text style={{ color: COLORS.primary, fontSize: 22, fontWeight: '800' }}>
+                {totalPointsText}
+              </Text>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>
+                Total Points
+              </Text>
+            </View>
+
+            {/* Streak */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: COLORS.surfaceSecondary,
+                borderRadius: 12,
+                padding: 12,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              <Text style={{ color: COLORS.warning, fontSize: 22, fontWeight: '800' }}>
+                {streakText}
+              </Text>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>
+                🔥 Streak
+              </Text>
+            </View>
+
+            {/* Last check-in */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: COLORS.surfaceSecondary,
+                borderRadius: 12,
+                padding: 12,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>
+                {lastCheckInText}
+              </Text>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>
+                Last Check-In
+              </Text>
+            </View>
+          </View>
+
+          {/* Check-In button */}
+          <AnimatedPressable
+            onPress={handleCheckIn}
+            disabled={alreadyCheckedIn || checkingIn}
+          >
+            <View
+              style={{
+                backgroundColor: alreadyCheckedIn ? COLORS.surfaceSecondary : COLORS.primary,
+                borderRadius: 14,
+                paddingVertical: 14,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: alreadyCheckedIn ? COLORS.primary : COLORS.primary,
+                opacity: checkingIn ? 0.7 : 1,
+              }}
+            >
+              <Text
+                style={{
+                  color: alreadyCheckedIn ? COLORS.primary : COLORS.background,
+                  fontSize: 16,
+                  fontWeight: '700',
+                  letterSpacing: 0.3,
+                }}
+              >
+                {checkInButtonLabel}
+              </Text>
+              <Text
+                style={{
+                  color: alreadyCheckedIn ? COLORS.textSecondary : 'rgba(0,0,0,0.5)',
+                  fontSize: 11,
+                  marginTop: 2,
+                }}
+              >
+                {checkInSubLabel}
+              </Text>
+            </View>
+          </AnimatedPressable>
+        </View>
+      )}
+
       {/* ── Header / Points Card ── */}
       {loading ? (
         <View
@@ -501,7 +757,7 @@ export default function FanRewardsScreen() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
             {achievements.map((ach) => {
               const cardOpacity = ach.earned ? 1 : 0.4;
-              const borderColor = ach.earned ? COLORS.primary : COLORS.border;
+              const achBorderColor = ach.earned ? COLORS.primary : COLORS.border;
               return (
                 <View
                   key={ach.id}
@@ -511,7 +767,7 @@ export default function FanRewardsScreen() {
                     borderRadius: 14,
                     padding: 16,
                     borderWidth: 1,
-                    borderColor,
+                    borderColor: achBorderColor,
                     opacity: cardOpacity,
                     position: 'relative',
                   }}
