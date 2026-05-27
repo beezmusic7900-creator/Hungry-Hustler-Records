@@ -201,6 +201,14 @@ export default function RootLayout() {
                     name="admin/rewards-config"
                     options={{ headerShown: true, title: 'Rewards Config', ...HEADER_OPTIONS }}
                   />
+                  <Stack.Screen
+                    name="notification-preferences"
+                    options={{ headerShown: true, title: 'Notifications', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="exclusive-content"
+                    options={{ headerShown: true, title: 'Exclusive Content', ...HEADER_OPTIONS }}
+                  />
                 </Stack>
                 <SystemBars style="light" />
               </GestureHandlerRootView>

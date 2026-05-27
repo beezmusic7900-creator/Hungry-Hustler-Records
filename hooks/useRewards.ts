@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { supabase } from '@/integrations/supabase/client';
 
 const SUPABASE_URL = 'https://egmaxjskylfepliwaeme.supabase.co';
@@ -12,7 +13,16 @@ export type ActionType =
   | 'share_content'
   | 'daily_login'
   | 'complete_profile'
-  | 'view_exclusive';
+  | 'view_exclusive'
+  | 'comment'
+  | 'like_post'
+  | 'complete_listen';
+
+interface BadgeDetail {
+  name: string;
+  icon: string;
+  description: string;
+}
 
 interface AwardResult {
   awarded: boolean;
@@ -20,6 +30,7 @@ interface AwardResult {
   total_points?: number;
   level?: string;
   new_achievements?: { name: string; icon: string; description: string }[];
+  new_badges?: BadgeDetail[];
   reason?: string;
 }
 
@@ -48,9 +59,20 @@ export function useRewards() {
         console.warn('[Rewards] award-points returned non-ok status:', res.status);
         return null;
       }
-      const result = await res.json();
+      const result = await res.json() as AwardResult;
       console.log('[Rewards] Award result:', result);
-      return result as AwardResult;
+
+      // Surface new badges via Alert
+      const badges = result.new_badges ?? [];
+      badges.forEach((badge) => {
+        console.log('[Rewards] New badge unlocked:', badge.name);
+        Alert.alert(
+          'Badge Unlocked!',
+          `${badge.icon} ${badge.name}\n${badge.description}`
+        );
+      });
+
+      return result;
     } catch (err) {
       console.error('[Rewards] awardPoints error:', err);
       return null;

@@ -8,16 +8,34 @@ import {
   RefreshControl,
   TextInput,
   Alert,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Music, ShoppingBag, LogOut, User, Heart, Pencil, Trophy } from 'lucide-react-native';
+import {
+  Music,
+  ShoppingBag,
+  LogOut,
+  User,
+  Heart,
+  Pencil,
+  Trophy,
+  Camera,
+  Bell,
+  Star,
+  Clock,
+  CheckCircle,
+  Lock,
+} from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabasePublic } from '@/integrations/supabase/client';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+
+const SUPABASE_URL = 'https://egmaxjskylfepliwaeme.supabase.co';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -45,12 +63,46 @@ interface MerchDetail {
   image_url: string | null;
 }
 
+interface ListenHistoryItem {
+  id: string;
+  played_at: string;
+  song: {
+    id: string;
+    title: string;
+    artist: string;
+    cover_url: string | null;
+  } | null;
+}
+
+interface BadgeDetail {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  icon: string;
+  earned_at: string;
+}
+
 function resolveImageSource(
   source: string | number | ImageSourcePropType | undefined
 ): ImageSourcePropType {
   if (!source) return { uri: '' };
   if (typeof source === 'string') return { uri: source };
   return source as ImageSourcePropType;
+}
+
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay}d ago`;
 }
 
 export default function FanProfileScreen() {
@@ -65,23 +117,43 @@ export default function FanProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Profile fields
   const [displayName, setDisplayName] = useState('');
-  const [editingName, setEditingName] = useState(false);
-  const [savingName, setSavingName] = useState(false);
+  const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const [rewardsSummary, setRewardsSummary] = useState<{ total_points: number; level: string } | null>(null);
+  // Rewards
+  const [rewardsSummary, setRewardsSummary] = useState<{
+    total_points: number;
+    level: string;
+    current_streak: number;
+    longest_streak: number;
+  } | null>(null);
   const [rewardsLoading, setRewardsLoading] = useState(false);
+
+  // Badges
+  const [badges, setBadges] = useState<BadgeDetail[]>([]);
+  const [selectedBadge, setSelectedBadge] = useState<BadgeDetail | null>(null);
+
+  // Activity
+  const [listenHistory, setListenHistory] = useState<ListenHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadFavorites();
-      loadDisplayName();
+      loadProfile();
       loadRewardsSummary();
-      // Award daily login points (cooldown prevents farming)
+      loadListenHistory();
+      // Award daily login points
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (!session?.access_token) return;
         console.log('[FanProfile] Awarding daily login points');
-        fetch('https://egmaxjskylfepliwaeme.supabase.co/functions/v1/award-points', {
+        fetch(`${SUPABASE_URL}/functions/v1/award-points`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
           body: JSON.stringify({ action_type: 'daily_login' }),
@@ -96,15 +168,25 @@ export default function FanProfileScreen() {
     try {
       setRewardsLoading(true);
       console.log('[FanProfile] Loading rewards summary for user:', user.id);
-      const { data } = await db
-        .from('fan_rewards')
-        .select('total_points, level')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (data) {
-        setRewardsSummary({ total_points: data.total_points ?? 0, level: data.level ?? 'Fan' });
-        console.log('[FanProfile] Rewards summary loaded:', data);
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/get-rewards`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      console.log('[FanProfile] Rewards summary loaded:', json);
+      setRewardsSummary({
+        total_points: json.total_points ?? 0,
+        level: json.level ?? 'Fan',
+        current_streak: json.current_streak ?? 0,
+        longest_streak: json.longest_streak ?? 0,
+      });
+
+      // Extract badges
+      const userBadges = (json.user_badges ?? []) as BadgeDetail[];
+      setBadges(userBadges);
     } catch (err) {
       console.error('[FanProfile] loadRewardsSummary error:', err);
     } finally {
@@ -112,45 +194,146 @@ export default function FanProfileScreen() {
     }
   };
 
-  const loadDisplayName = async () => {
+  const loadProfile = async () => {
     if (!user) return;
     try {
-      console.log('[FanProfile] Loading display name for user:', user.id);
+      console.log('[FanProfile] Loading profile for user:', user.id);
       const { data } = await db
         .from('fan_profiles')
-        .select('display_name')
+        .select('display_name, username, bio, avatar_url')
         .eq('id', user.id)
         .maybeSingle();
-      if (data?.display_name) {
-        setDisplayName(data.display_name);
-        console.log('[FanProfile] Display name loaded:', data.display_name);
+      if (data) {
+        setDisplayName(data.display_name ?? '');
+        setUsername(data.username ?? '');
+        setBio(data.bio ?? '');
+        setAvatarUrl(data.avatar_url ?? null);
+        console.log('[FanProfile] Profile loaded');
       }
     } catch (err) {
-      console.error('[FanProfile] loadDisplayName error:', err);
+      console.error('[FanProfile] loadProfile error:', err);
     }
   };
 
-  const handleSaveDisplayName = async () => {
+  const loadListenHistory = async () => {
     if (!user) return;
-    console.log('[FanProfile] Save display name pressed:', displayName.trim());
-    setSavingName(true);
+    try {
+      setHistoryLoading(true);
+      console.log('[FanProfile] Loading listen history for user:', user.id);
+      const { data, error } = await db
+        .from('listening_history')
+        .select('id, played_at, song:songs(id, title, artist, cover_url)')
+        .eq('user_id', user.id)
+        .order('played_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('[FanProfile] Listen history error:', error.message);
+      } else {
+        setListenHistory((data ?? []) as ListenHistoryItem[]);
+        console.log('[FanProfile] Loaded', (data ?? []).length, 'history items');
+      }
+    } catch (err) {
+      console.error('[FanProfile] loadListenHistory error:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handlePickAvatar = async () => {
+    if (!user) return;
+    console.log('[FanProfile] Pick avatar pressed');
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets[0]) return;
+
+      const asset = result.assets[0];
+      console.log('[FanProfile] Avatar selected:', asset.uri);
+      setUploadingAvatar(true);
+
+      const timestamp = Date.now();
+      const path = `${user.id}/avatar-${timestamp}.jpg`;
+
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+
+      if (uploadError) {
+        console.error('[FanProfile] Avatar upload error:', uploadError.message);
+        Alert.alert('Upload Failed', uploadError.message);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const publicUrl = urlData.publicUrl;
+      console.log('[FanProfile] Avatar uploaded, public URL:', publicUrl);
+
+      await db.from('fan_profiles').upsert({
+        id: user.id,
+        avatar_url: publicUrl,
+        updated_at: new Date().toISOString(),
+      });
+
+      setAvatarUrl(publicUrl);
+      Alert.alert('Success', 'Avatar updated!');
+    } catch (err) {
+      console.error('[FanProfile] handlePickAvatar error:', err);
+      Alert.alert('Error', 'Could not upload avatar.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    console.log('[FanProfile] Save profile pressed');
+    setSavingProfile(true);
+
+    // Validate username
+    const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (username.trim() && cleanUsername !== username.trim()) {
+      Alert.alert('Invalid Username', 'Username can only contain lowercase letters, numbers, and underscores.');
+      setSavingProfile(false);
+      return;
+    }
+
     try {
       const { error: upsertErr } = await db
         .from('fan_profiles')
-        .upsert({ id: user.id, display_name: displayName.trim(), updated_at: new Date().toISOString() });
+        .upsert({
+          id: user.id,
+          display_name: displayName.trim(),
+          username: cleanUsername || null,
+          bio: bio.trim(),
+          updated_at: new Date().toISOString(),
+        });
+
       if (upsertErr) {
-        console.error('[FanProfile] Save display name error:', upsertErr.message);
-        Alert.alert('Error', upsertErr.message);
+        console.error('[FanProfile] Save profile error:', upsertErr.message);
+        if (upsertErr.message?.includes('unique') || upsertErr.code === '23505') {
+          Alert.alert('Username Taken', 'That username is already in use. Please choose another.');
+        } else {
+          Alert.alert('Error', upsertErr.message);
+        }
       } else {
-        console.log('[FanProfile] Display name saved successfully');
-        setEditingName(false);
-        Alert.alert('Saved', 'Display name updated.');
+        console.log('[FanProfile] Profile saved successfully');
+        setEditingProfile(false);
+        Alert.alert('Saved', 'Profile updated.');
       }
     } catch (err) {
-      console.error('[FanProfile] handleSaveDisplayName error:', err);
-      Alert.alert('Error', 'Could not save display name.');
+      console.error('[FanProfile] handleSaveProfile error:', err);
+      Alert.alert('Error', 'Could not save profile.');
     } finally {
-      setSavingName(false);
+      setSavingProfile(false);
     }
   };
 
@@ -198,7 +381,7 @@ export default function FanProfileScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadFavorites();
+    await Promise.all([loadFavorites(), loadProfile(), loadRewardsSummary(), loadListenHistory()]);
     setRefreshing(false);
   };
 
@@ -289,13 +472,14 @@ export default function FanProfileScreen() {
 
   const userEmail = user?.email ?? '';
   const userName = user?.name ?? '';
+  const bioCharCount = bio.length;
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: COLORS.background }}
       contentContainerStyle={{
         paddingTop: insets.top + 16,
-        paddingBottom: 60,
+        paddingBottom: 80,
         paddingHorizontal: 20,
       }}
       refreshControl={
@@ -317,20 +501,49 @@ export default function FanProfileScreen() {
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <View
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: COLORS.primaryMuted,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: COLORS.primary,
-            }}
-          >
-            <User size={26} color={COLORS.primary} />
-          </View>
+          {/* Avatar */}
+          <AnimatedPressable onPress={handlePickAvatar} disabled={uploadingAvatar}>
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: COLORS.primaryMuted,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 2,
+                borderColor: COLORS.primary,
+                overflow: 'hidden',
+              }}
+            >
+              {avatarUrl ? (
+                <Image
+                  source={resolveImageSource(avatarUrl)}
+                  style={{ width: 64, height: 64, borderRadius: 32 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <User size={28} color={COLORS.primary} />
+              )}
+              {/* Camera overlay */}
+              <View
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: COLORS.primary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Camera size={12} color={COLORS.background} />
+              </View>
+            </View>
+          </AnimatedPressable>
+
           <View>
             {userName ? (
               <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '700' }}>
@@ -342,6 +555,11 @@ export default function FanProfileScreen() {
                 {displayName}
               </Text>
             ) : null}
+            {username ? (
+              <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 1 }}>
+                @{username}
+              </Text>
+            ) : null}
             <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 2 }}>
               {userEmail}
             </Text>
@@ -349,11 +567,11 @@ export default function FanProfileScreen() {
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {/* Edit name button */}
+          {/* Edit profile button */}
           <AnimatedPressable
             onPress={() => {
-              console.log('[FanProfile] Edit display name pressed');
-              setEditingName(true);
+              console.log('[FanProfile] Edit profile pressed');
+              setEditingProfile(true);
             }}
           >
             <View
@@ -392,8 +610,17 @@ export default function FanProfileScreen() {
         </View>
       </View>
 
-      {/* Display name edit section */}
-      {editingName && (
+      {/* Bio display */}
+      {bio ? (
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 14, lineHeight: 20 }}>
+            {bio}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Edit profile panel */}
+      {editingProfile && (
         <View
           style={{
             backgroundColor: COLORS.surface,
@@ -404,7 +631,12 @@ export default function FanProfileScreen() {
             borderColor: COLORS.border,
           }}
         >
-          <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '500', marginBottom: 8 }}>
+          <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: '700', marginBottom: 14 }}>
+            Edit Profile
+          </Text>
+
+          {/* Display Name */}
+          <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '500', marginBottom: 6 }}>
             Display Name
           </Text>
           <TextInput
@@ -426,10 +658,67 @@ export default function FanProfileScreen() {
               marginBottom: 12,
             }}
           />
+
+          {/* Username */}
+          <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '500', marginBottom: 6 }}>
+            Username
+          </Text>
+          <TextInput
+            value={username}
+            onChangeText={(v) => setUsername(v.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+            placeholder="e.g. hungry_fan"
+            placeholderTextColor={COLORS.textTertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={{
+              backgroundColor: COLORS.surfaceSecondary,
+              borderRadius: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              color: COLORS.text,
+              fontSize: 15,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              marginBottom: 12,
+            }}
+          />
+
+          {/* Bio */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '500' }}>
+              Bio
+            </Text>
+            <Text style={{ color: bioCharCount > 260 ? COLORS.danger : COLORS.textTertiary, fontSize: 12 }}>
+              {String(bioCharCount)}
+              /280
+            </Text>
+          </View>
+          <TextInput
+            value={bio}
+            onChangeText={(v) => setBio(v.slice(0, 280))}
+            placeholder="Tell fans about yourself..."
+            placeholderTextColor={COLORS.textTertiary}
+            multiline
+            numberOfLines={3}
+            style={{
+              backgroundColor: COLORS.surfaceSecondary,
+              borderRadius: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              color: COLORS.text,
+              fontSize: 15,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              marginBottom: 14,
+              minHeight: 80,
+              textAlignVertical: 'top',
+            }}
+          />
+
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <AnimatedPressable
-              onPress={handleSaveDisplayName}
-              disabled={savingName}
+              onPress={handleSaveProfile}
+              disabled={savingProfile}
               style={{ flex: 1 }}
             >
               <View
@@ -438,18 +727,18 @@ export default function FanProfileScreen() {
                   borderRadius: 10,
                   paddingVertical: 11,
                   alignItems: 'center',
-                  opacity: savingName ? 0.7 : 1,
+                  opacity: savingProfile ? 0.7 : 1,
                 }}
               >
                 <Text style={{ color: COLORS.background, fontSize: 14, fontWeight: '700' }}>
-                  {savingName ? 'Saving...' : 'Save'}
+                  {savingProfile ? 'Saving...' : 'Save Profile'}
                 </Text>
               </View>
             </AnimatedPressable>
             <AnimatedPressable
               onPress={() => {
-                console.log('[FanProfile] Cancel edit display name');
-                setEditingName(false);
+                console.log('[FanProfile] Cancel edit profile');
+                setEditingProfile(false);
               }}
               style={{ flex: 1 }}
             >
@@ -500,7 +789,7 @@ export default function FanProfileScreen() {
             console.log('[FanProfile] Fan Rewards card pressed — navigating to fan-rewards');
             router.push('/fan-rewards');
           }}
-          style={{ marginBottom: 16 }}
+          style={{ marginBottom: 12 }}
         >
           <View
             style={{
@@ -533,12 +822,21 @@ export default function FanProfileScreen() {
                 Fan Rewards
               </Text>
               {rewardsSummary ? (
-                <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600', marginTop: 2 }}>
-                  {rewardsSummary.level}
-                  {' · '}
-                  {rewardsSummary.total_points.toLocaleString()}
-                  {' pts'}
-                </Text>
+                <View>
+                  <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600', marginTop: 2 }}>
+                    {rewardsSummary.level}
+                    {' · '}
+                    {rewardsSummary.total_points.toLocaleString()}
+                    {' pts'}
+                  </Text>
+                  {rewardsSummary.current_streak > 0 && (
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>
+                      {'🔥 '}
+                      {String(rewardsSummary.current_streak)}
+                      {' day streak'}
+                    </Text>
+                  )}
+                </View>
               ) : (
                 <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
                   Earn points & unlock achievements
@@ -546,11 +844,286 @@ export default function FanProfileScreen() {
               )}
             </View>
             <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>
-              View Rewards →
+              View →
             </Text>
           </View>
         </AnimatedPressable>
       )}
+
+      {/* Exclusive Content card */}
+      <AnimatedPressable
+        onPress={() => {
+          console.log('[FanProfile] Exclusive Content card pressed');
+          router.push('/exclusive-content');
+        }}
+        style={{ marginBottom: 12 }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 14,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: 'rgba(139, 92, 246, 0.12)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(139, 92, 246, 0.3)',
+            }}
+          >
+            <Star size={22} color="#8B5CF6" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700' }}>
+              Exclusive Content
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+              Unlock with points or fan rank
+            </Text>
+          </View>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>
+            View →
+          </Text>
+        </View>
+      </AnimatedPressable>
+
+      {/* Notification Preferences card */}
+      <AnimatedPressable
+        onPress={() => {
+          console.log('[FanProfile] Notification Preferences pressed');
+          router.push('/notification-preferences');
+        }}
+        style={{ marginBottom: 20 }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 14,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: COLORS.primaryMuted,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.primary,
+            }}
+          >
+            <Bell size={22} color={COLORS.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700' }}>
+              Notifications
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+              Manage your notification preferences
+            </Text>
+          </View>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>
+            →
+          </Text>
+        </View>
+      </AnimatedPressable>
+
+      {/* Achievement Badges */}
+      {badges.length > 0 && (
+        <View style={{ marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <Trophy size={18} color={COLORS.primary} />
+            <Text style={{ color: COLORS.text, fontSize: 20, fontWeight: '700' }}>
+              My Badges
+            </Text>
+            <View
+              style={{
+                backgroundColor: COLORS.primaryMuted,
+                borderRadius: 10,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderWidth: 1,
+                borderColor: COLORS.primary,
+              }}
+            >
+              <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: '700' }}>
+                {String(badges.length)}
+              </Text>
+            </View>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {badges.map((badge) => (
+              <AnimatedPressable
+                key={badge.id}
+                onPress={() => {
+                  console.log('[FanProfile] Badge tapped:', badge.name);
+                  setSelectedBadge(badge);
+                }}
+                style={{ marginRight: 12 }}
+              >
+                <View
+                  style={{
+                    backgroundColor: COLORS.surface,
+                    borderRadius: 14,
+                    padding: 14,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: COLORS.primary,
+                    width: 90,
+                  }}
+                >
+                  <Text style={{ fontSize: 32, marginBottom: 6 }}>{badge.icon}</Text>
+                  <Text
+                    style={{ color: COLORS.text, fontSize: 11, fontWeight: '700', textAlign: 'center' }}
+                    numberOfLines={2}
+                  >
+                    {badge.name}
+                  </Text>
+                </View>
+              </AnimatedPressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Recent Activity (Listen History) */}
+      <View style={{ marginBottom: 24 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <Clock size={18} color={COLORS.primary} />
+          <Text style={{ color: COLORS.text, fontSize: 20, fontWeight: '700' }}>
+            Recent Activity
+          </Text>
+        </View>
+
+        {historyLoading ? (
+          <View style={{ gap: 8 }}>
+            {[0, 1, 2].map((k) => (
+              <View
+                key={k}
+                style={{
+                  backgroundColor: COLORS.surface,
+                  borderRadius: 12,
+                  padding: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                }}
+              >
+                <SkeletonLine width={40} height={40} borderRadius={8} />
+                <View style={{ flex: 1, gap: 6 }}>
+                  <SkeletonLine width="60%" height={13} />
+                  <SkeletonLine width="40%" height={11} />
+                </View>
+                <SkeletonLine width={50} height={11} />
+              </View>
+            ))}
+          </View>
+        ) : listenHistory.length === 0 ? (
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 14,
+              padding: 24,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.border,
+            }}
+          >
+            <Clock size={28} color={COLORS.textTertiary} />
+            <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: 10, textAlign: 'center' }}>
+              No listening history yet — start playing music!
+            </Text>
+          </View>
+        ) : (
+          <View style={{ gap: 8 }}>
+            {listenHistory.map((item) => {
+              const song = item.song;
+              if (!song) return null;
+              const timeText = timeAgo(item.played_at);
+              return (
+                <AnimatedPressable
+                  key={item.id}
+                  onPress={() => {
+                    console.log('[FanProfile] History item pressed:', song.title);
+                    playSong({
+                      id: song.id,
+                      title: song.title,
+                      artist: song.artist,
+                      cover_url: song.cover_url,
+                      audio_url: null,
+                    });
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: COLORS.surface,
+                      borderRadius: 12,
+                      padding: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                    }}
+                  >
+                    {song.cover_url ? (
+                      <Image
+                        source={resolveImageSource(song.cover_url)}
+                        style={{ width: 40, height: 40, borderRadius: 8 }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 8,
+                          backgroundColor: COLORS.primaryMuted,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Music size={18} color={COLORS.primary} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+                        {song.title}
+                      </Text>
+                      <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+                        {song.artist}
+                      </Text>
+                    </View>
+                    <Text style={{ color: COLORS.textTertiary, fontSize: 11 }}>
+                      {timeText}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
 
       {/* Favorites section */}
       <View style={{ marginBottom: 8 }}>
@@ -651,54 +1224,54 @@ export default function FanProfileScreen() {
                       });
                     }}
                   >
-                  <View
-                    style={{
-                      backgroundColor: COLORS.surface,
-                      borderRadius: 12,
-                      padding: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 12,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
-                      marginBottom: 8,
-                    }}
-                  >
-                    {song.cover_url ? (
-                      <Image
-                        source={resolveImageSource(song.cover_url)}
-                        style={{ width: 48, height: 48, borderRadius: 8 }}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View
-                        style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: 8,
-                          backgroundColor: COLORS.primaryMuted,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Music size={20} color={COLORS.primary} />
+                    <View
+                      style={{
+                        backgroundColor: COLORS.surface,
+                        borderRadius: 12,
+                        padding: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                        marginBottom: 8,
+                      }}
+                    >
+                      {song.cover_url ? (
+                        <Image
+                          source={resolveImageSource(song.cover_url)}
+                          style={{ width: 48, height: 48, borderRadius: 8 }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 8,
+                            backgroundColor: COLORS.primaryMuted,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Music size={20} color={COLORS.primary} />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{ color: COLORS.text, fontSize: 14, fontWeight: '600' }}
+                          numberOfLines={1}
+                        >
+                          {song.title}
+                        </Text>
+                        <Text
+                          style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}
+                          numberOfLines={1}
+                        >
+                          {song.artist}
+                        </Text>
                       </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={{ color: COLORS.text, fontSize: 14, fontWeight: '600' }}
-                        numberOfLines={1}
-                      >
-                        {song.title}
-                      </Text>
-                      <Text
-                        style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}
-                        numberOfLines={1}
-                      >
-                        {song.artist}
-                      </Text>
                     </View>
-                  </View>
                   </AnimatedPressable>
                 ))}
               </View>
@@ -786,6 +1359,67 @@ export default function FanProfileScreen() {
           </View>
         )}
       </View>
+
+      {/* Badge detail modal */}
+      <Modal
+        visible={selectedBadge !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedBadge(null)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 32,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 20,
+              padding: 28,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.primary,
+              width: '100%',
+            }}
+          >
+            {selectedBadge && (
+              <>
+                <Text style={{ fontSize: 56, marginBottom: 12 }}>{selectedBadge.icon}</Text>
+                <Text style={{ color: COLORS.text, fontSize: 20, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>
+                  {selectedBadge.name}
+                </Text>
+                <Text style={{ color: COLORS.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 20 }}>
+                  {selectedBadge.description}
+                </Text>
+                <AnimatedPressable onPress={() => {
+                  console.log('[FanProfile] Close badge modal');
+                  setSelectedBadge(null);
+                }}>
+                  <View
+                    style={{
+                      backgroundColor: COLORS.primaryMuted,
+                      borderRadius: 12,
+                      paddingVertical: 12,
+                      paddingHorizontal: 32,
+                      borderWidth: 1,
+                      borderColor: COLORS.primary,
+                    }}
+                  >
+                    <Text style={{ color: COLORS.primary, fontSize: 14, fontWeight: '700' }}>
+                      Close
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

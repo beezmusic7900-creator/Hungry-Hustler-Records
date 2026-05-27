@@ -12,8 +12,12 @@ import { useLocalSearchParams, useNavigation } from 'expo-router';
 import YoutubeIframe from 'react-native-youtube-iframe';
 import { WebView } from 'react-native-webview';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import { MessageCircle } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { SkeletonLine } from '@/components/SkeletonLoader';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
+import { ReactionBar } from '@/components/ReactionBar';
+import { CommentThread } from '@/components/CommentThread';
 import { supabasePublic } from '@/integrations/supabase/client';
 
 interface VideoItem {
@@ -75,6 +79,7 @@ export default function VideoPlayerScreen() {
   const [playerReady, setPlayerReady] = useState(false);
   const [playerError, setPlayerError] = useState(false);
   const [playerKey, setPlayerKey] = useState(0);
+  const [showComments, setShowComments] = useState(false);
 
   useEffect(() => {
     if (id) loadVideo();
@@ -154,8 +159,8 @@ export default function VideoPlayerScreen() {
     console.log('[VideoPlayer] Opening in YouTube:', ytUrl);
     Linking.openURL(ytUrl);
   };
-  const playerErrorMessage = playerError ? 'Failed to load video. Tap retry or open in YouTube.' : '';
 
+  const playerErrorMessage = playerError ? 'Failed to load video. Tap retry or open in YouTube.' : '';
   const playerHeight = Math.round(width * (9 / 16));
 
   return (
@@ -204,7 +209,6 @@ export default function VideoPlayerScreen() {
               />
             ) : null}
 
-            {/* Loading skeleton until player ready */}
             {!playerReady && !playerError ? (
               <View
                 style={{
@@ -220,7 +224,6 @@ export default function VideoPlayerScreen() {
               </View>
             ) : null}
 
-            {/* Error overlay */}
             {playerError ? (
               <View
                 style={{
@@ -298,11 +301,57 @@ export default function VideoPlayerScreen() {
                   color: COLORS.textSecondary,
                   fontSize: 14,
                   lineHeight: 22,
+                  marginBottom: 16,
                 }}
               >
                 {videoDescription}
               </Text>
             ) : null}
+
+            {/* Reactions */}
+            {video && (
+              <View style={{ marginBottom: 16 }}>
+                <ReactionBar targetType="video" targetId={video.id} />
+              </View>
+            )}
+
+            {/* Comments toggle */}
+            {video && (
+              <>
+                <AnimatedPressable
+                  onPress={() => {
+                    console.log('[VideoPlayer] Toggle comments section');
+                    setShowComments((v) => !v);
+                  }}
+                  style={{ marginBottom: 16 }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: COLORS.surface,
+                      borderRadius: 12,
+                      padding: 14,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                    }}
+                  >
+                    <MessageCircle size={18} color={COLORS.textSecondary} />
+                    <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '600', flex: 1 }}>
+                      Comments
+                    </Text>
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>
+                      {showComments ? '▲' : '▼'}
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+
+                {showComments && (
+                  <CommentThread targetType="video" targetId={video.id} />
+                )}
+              </>
+            )}
           </>
         )}
       </ScrollView>

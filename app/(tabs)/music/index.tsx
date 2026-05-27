@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Music, Play, Pause, ExternalLink, Heart } from 'lucide-react-native';
+import { Music, Play, Pause, ExternalLink, Heart, Clock } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
@@ -461,10 +461,72 @@ function AppleMusicSkeleton() {
   );
 }
 
+// ─── Recently Played Card ─────────────────────────────────────────────────────
+
+function RecentlyPlayedCard({ item }: { item: SongItem }) {
+  const { playSong } = useAudioPlayer();
+
+  const handlePress = () => {
+    console.log('[Music] Recently played card pressed:', item.title);
+    playSong({
+      id: item.id,
+      title: item.title,
+      artist: item.artist,
+      cover_url: item.cover_url,
+      audio_url: item.audio_url,
+    });
+  };
+
+  return (
+    <AnimatedPressable onPress={handlePress}>
+      <View style={{ marginRight: 12, width: 120 }}>
+        {item.cover_url ? (
+          <Image
+            source={resolveImageSource(item.cover_url)}
+            style={{ width: 120, height: 120, borderRadius: 12 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 12,
+              backgroundColor: COLORS.primaryMuted,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.primary,
+            }}
+          >
+            <Music size={32} color={COLORS.primary} />
+          </View>
+        )}
+        <Text
+          style={{
+            color: COLORS.text,
+            fontSize: 12,
+            fontWeight: '700',
+            marginTop: 6,
+            width: 120,
+          }}
+          numberOfLines={1}
+        >
+          {item.title}
+        </Text>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+          {item.artist}
+        </Text>
+      </View>
+    </AnimatedPressable>
+  );
+}
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function MusicScreen() {
   const insets = useSafeAreaInsets();
+  const { recentlyPlayed } = useAudioPlayer();
 
   // Native songs
   const [songs, setSongs] = useState<SongItem[]>([]);
@@ -606,6 +668,37 @@ export default function MusicScreen() {
             }}
           />
         </View>
+
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* RECENTLY PLAYED SECTION                                           */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {recentlyPlayed.length > 0 && (
+          <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, marginBottom: 12 }}>
+              <Clock size={16} color={COLORS.textSecondary} />
+              <Text
+                style={{
+                  color: COLORS.textSecondary,
+                  fontSize: 11,
+                  fontWeight: '700',
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Recently Played
+              </Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20 }}
+            >
+              {recentlyPlayed.slice(0, 10).map((song) => (
+                <RecentlyPlayedCard key={song.id} item={song as SongItem} />
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════════ */}
         {/* NATIVE SONGS SECTION                                              */}
