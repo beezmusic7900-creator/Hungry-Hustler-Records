@@ -272,7 +272,7 @@ export default function ExclusiveContentScreen() {
                 {item.cover_url ? (
                   <Image
                     source={resolveImageSource(item.cover_url)}
-                    style={{ width: '100%', height: 160 }}
+                    style={{ width: -20, height: 140 }}
                     resizeMode="cover"
                   />
                 ) : (
