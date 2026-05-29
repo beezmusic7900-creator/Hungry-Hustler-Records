@@ -27,12 +27,12 @@ type Artist = 'afroman' | 'og_daddy_v';
 const ARTIST_CONFIG: Record<Artist, { label: string; question: string; choices: string[] }> = {
   afroman: {
     label: 'Afroman',
-    question: "What's your favorite Afroman song?",
-    choices: ['Because I Got High', 'Crazy Rap (Colt 45 & 2 Zig Zags)', 'Palmdale', 'Other'],
+    question: 'What official video are you looking forward to seeing next?',
+    choices: ['Tall Cans', 'Kentucky', 'Palmdale', 'Other'],
   },
   og_daddy_v: {
     label: 'OG Daddy V',
-    question: "What's your favorite OG Daddy V song?",
+    question: 'What official video are you looking forward to seeing next?',
     choices: ['Bangin In The Back', "That's Gangsta", 'Git Cha Bang On', 'Other'],
   },
 };
@@ -327,12 +327,12 @@ export function EntryPollGate() {
                       marginBottom: 6,
                     }}
                   >
-                    Your favorite song
+                    Your video pick
                   </Text>
                   <TextInput
                     value={customAnswer}
                     onChangeText={(v) => setCustomAnswer(v.slice(0, 200))}
-                    placeholder="Type your favorite song..."
+                    placeholder="Type the song/video you want to see..."
                     placeholderTextColor={COLORS.textTertiary}
                     autoFocus
                     maxLength={200}

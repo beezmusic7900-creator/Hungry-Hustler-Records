@@ -264,8 +264,35 @@ export default function SpinScreen() {
             overflow: 'hidden',
             borderWidth: 3,
             borderColor: COLORS.border,
+            backgroundColor: COLORS.surface,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
+          {/* Wedge dividers (rendered first, behind labels) */}
+          {WEDGES.map((_, idx) => {
+            const angle = (idx / WEDGES.length) * 360;
+            return (
+              <View
+                key={`divider-${idx}`}
+                style={{
+                  position: 'absolute',
+                  left: 130 - 0.5,
+                  top: 0,
+                  width: 1,
+                  height: 130,
+                  backgroundColor: COLORS.border,
+                  transform: [
+                    { translateY: 65 },
+                    { rotate: `${angle}deg` },
+                    { translateY: -65 },
+                  ],
+                }}
+              />
+            );
+          })}
+
+          {/* Wedge labels (rendered on top) */}
           {WEDGES.map((wedge, idx) => {
             const angle = (idx / WEDGES.length) * 360;
             const midAngle = angle + (360 / WEDGES.length / 2);
@@ -273,63 +300,33 @@ export default function SpinScreen() {
             const r = 80;
             const tx = 130 + r * Math.sin(rad);
             const ty = 130 - r * Math.cos(rad);
-
             return (
               <View
                 key={idx}
                 style={{
                   position: 'absolute',
-                  width: '100%',
-                  height: '100%',
+                  left: tx - 30,
+                  top: ty - 20,
+                  width: 60,
+                  height: 40,
                   alignItems: 'center',
                   justifyContent: 'center',
+                  transform: [{ rotate: `${midAngle}deg` }],
                 }}
               >
-                <View
+                <Text style={{ fontSize: 18 }}>{wedge.emoji}</Text>
+                <Text
                   style={{
-                    position: 'absolute',
-                    left: tx - 30,
-                    top: ty - 20,
-                    width: 60,
-                    height: 40,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transform: [{ rotate: `${midAngle}deg` }],
+                    color: wedge.color,
+                    fontSize: 8,
+                    fontWeight: '800',
+                    textAlign: 'center',
                   }}
+                  numberOfLines={1}
                 >
-                  <Text style={{ fontSize: 18 }}>{wedge.emoji}</Text>
-                  <Text
-                    style={{
-                      color: COLORS.text,
-                      fontSize: 8,
-                      fontWeight: '700',
-                      textAlign: 'center',
-                    }}
-                    numberOfLines={1}
-                  >
-                    {wedge.label}
-                  </Text>
-                </View>
+                  {wedge.label}
+                </Text>
               </View>
-            );
-          })}
-
-          {/* Colored segments background */}
-          {WEDGES.map((wedge, idx) => {
-            const segAngle = 360 / WEDGES.length;
-            return (
-              <View
-                key={`seg-${idx}`}
-                style={{
-                  position: 'absolute',
-                  width: '100%',
-                  height: '100%',
-                  backgroundColor: idx % 2 === 0 ? COLORS.surface : COLORS.surfaceSecondary,
-                  transform: [{ rotate: `${idx * segAngle}deg` }],
-                  borderTopWidth: 1,
-                  borderTopColor: COLORS.border,
-                }}
-              />
             );
           })}
         </Animated.View>
