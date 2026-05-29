@@ -23,6 +23,11 @@ import {
   ClipboardList,
   Flag,
   BarChart2,
+  Star,
+  BarChart,
+  Package,
+  Camera,
+  Brain,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
@@ -241,6 +246,41 @@ export default function DashboardScreen() {
       icon: <UserCog size={22} color="#F97316" />,
       route: '/admin/users-management',
       color: '#F97316',
+    },
+    {
+      title: 'Reviews Queue',
+      subtitle: 'Moderate reviews',
+      icon: <Star size={22} color="#8B5CF6" />,
+      route: '/admin/reviews-queue',
+      color: '#8B5CF6',
+    },
+    {
+      title: 'Merch Polls',
+      subtitle: 'Create & manage polls',
+      icon: <BarChart size={22} color="#EC4899" />,
+      route: '/admin/merch-polls',
+      color: '#EC4899',
+    },
+    {
+      title: 'Trivia',
+      subtitle: 'Manage questions',
+      icon: <Brain size={22} color="#06B6D4" />,
+      route: '/admin/trivia-management',
+      color: '#06B6D4',
+    },
+    {
+      title: 'Collections',
+      subtitle: 'Merch collections',
+      icon: <Package size={22} color="#F59E0B" />,
+      route: '/admin/collections-management',
+      color: '#F59E0B',
+    },
+    {
+      title: 'Style Showcase',
+      subtitle: 'Fan style posts',
+      icon: <Camera size={22} color="#14B8A6" />,
+      route: '/admin/style-showcase-queue',
+      color: '#14B8A6',
     }
   );
 

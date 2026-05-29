@@ -261,11 +261,32 @@ export default function LeaderboardsScreen() {
           paddingBottom: 16,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <Trophy size={22} color={COLORS.primary} />
-          <Text style={{ color: COLORS.text, fontSize: 24, fontWeight: '700', letterSpacing: -0.4 }}>
-            Leaderboards
-          </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Trophy size={22} color={COLORS.primary} />
+            <Text style={{ color: COLORS.text, fontSize: 24, fontWeight: '700', letterSpacing: -0.4 }}>
+              Leaderboards
+            </Text>
+          </View>
+          <AnimatedPressable onPress={() => {
+            console.log('[Leaderboards] Shopping leaderboard pressed');
+            router.push('/shopping-leaderboard');
+          }}>
+            <View
+              style={{
+                backgroundColor: COLORS.primaryMuted,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderWidth: 1,
+                borderColor: COLORS.primary,
+              }}
+            >
+              <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '700' }}>
+                🛍️ Shopping
+              </Text>
+            </View>
+          </AnimatedPressable>
         </View>
         {snapshotText ? (
           <Text style={{ color: COLORS.textTertiary, fontSize: 12 }}>{snapshotText}</Text>

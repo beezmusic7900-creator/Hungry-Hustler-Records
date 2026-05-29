@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Trophy, Star, Lock, CheckCircle, Zap, Flame, Calendar } from 'lucide-react-native';
+import { User, Trophy, Star, Lock, CheckCircle, Zap, Flame, Calendar, Gift, Brain } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
@@ -465,6 +465,91 @@ export default function FanRewardsScreen() {
           </AnimatedPressable>
         </View>
       )}
+
+      {/* ── Spin & Trivia CTAs ── */}
+      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+        <AnimatedPressable
+          onPress={() => {
+            console.log('[FanRewards] Spin to Win pressed');
+            router.push('/spin');
+          }}
+          style={{ flex: 1 }}
+        >
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 16,
+              padding: 16,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              gap: 8,
+            }}
+          >
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: 'rgba(245,158,11,0.12)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(245,158,11,0.3)',
+              }}
+            >
+              <Gift size={22} color="#F59E0B" />
+            </View>
+            <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>
+              Spin to Win
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 11, textAlign: 'center' }}>
+              Daily free spin
+            </Text>
+          </View>
+        </AnimatedPressable>
+
+        <AnimatedPressable
+          onPress={() => {
+            console.log('[FanRewards] Trivia pressed');
+            router.push('/trivia');
+          }}
+          style={{ flex: 1 }}
+        >
+          <View
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 16,
+              padding: 16,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              gap: 8,
+            }}
+          >
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: 'rgba(6,182,212,0.12)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(6,182,212,0.3)',
+              }}
+            >
+              <Brain size={22} color="#06B6D4" />
+            </View>
+            <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>
+              Trivia
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 11, textAlign: 'center' }}>
+              Earn points
+            </Text>
+          </View>
+        </AnimatedPressable>
+      </View>
 
       {/* ── Header / Points Card ── */}
       {loading ? (

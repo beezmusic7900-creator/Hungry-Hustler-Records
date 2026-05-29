@@ -433,6 +433,444 @@ export type Database = {
         }
         Relationships: []
       }
+      entry_poll_responses: {
+        Row: {
+          id: string
+          artist: string
+          choice: string | null
+          custom_answer: string | null
+          is_skip: boolean
+          client_id: string | null
+          user_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          artist: string
+          choice?: string | null
+          custom_answer?: string | null
+          is_skip?: boolean
+          client_id?: string | null
+          user_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          artist?: string
+          choice?: string | null
+          custom_answer?: string | null
+          is_skip?: boolean
+          client_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      merch_wishlists: {
+        Row: {
+          id: string
+          user_id: string
+          merch_id: string
+          notify_sale: boolean
+          notify_restock: boolean
+          notify_low_inventory: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          merch_id: string
+          notify_sale?: boolean
+          notify_restock?: boolean
+          notify_low_inventory?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          merch_id?: string
+          notify_sale?: boolean
+          notify_restock?: boolean
+          notify_low_inventory?: boolean
+        }
+        Relationships: []
+      }
+      product_reviews: {
+        Row: {
+          id: string
+          user_id: string
+          merch_id: string
+          rating: number
+          title: string | null
+          body: string | null
+          photo_urls: string[] | null
+          status: string
+          is_featured: boolean
+          like_count: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          merch_id: string
+          rating: number
+          title?: string | null
+          body?: string | null
+          photo_urls?: string[] | null
+          status?: string
+          is_featured?: boolean
+          like_count?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          merch_id?: string
+          rating?: number
+          title?: string | null
+          body?: string | null
+          photo_urls?: string[] | null
+          status?: string
+          is_featured?: boolean
+          like_count?: number
+        }
+        Relationships: []
+      }
+      review_likes: {
+        Row: {
+          user_id: string
+          review_id: string
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          review_id: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          review_id?: string
+        }
+        Relationships: []
+      }
+      fan_style_showcase: {
+        Row: {
+          id: string
+          user_id: string
+          photo_url: string
+          caption: string | null
+          merch_id: string | null
+          status: string
+          is_featured: boolean
+          is_fan_of_week: boolean
+          like_count: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          photo_url: string
+          caption?: string | null
+          merch_id?: string | null
+          status?: string
+          is_featured?: boolean
+          is_fan_of_week?: boolean
+          like_count?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          photo_url?: string
+          caption?: string | null
+          merch_id?: string | null
+          status?: string
+          is_featured?: boolean
+          is_fan_of_week?: boolean
+          like_count?: number
+        }
+        Relationships: []
+      }
+      merch_polls: {
+        Row: {
+          id: string
+          title: string
+          poll_type: string
+          is_active: boolean
+          ends_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          poll_type?: string
+          is_active?: boolean
+          ends_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          poll_type?: string
+          is_active?: boolean
+          ends_at?: string | null
+        }
+        Relationships: []
+      }
+      merch_poll_options: {
+        Row: {
+          id: string
+          poll_id: string
+          label: string
+          merch_id: string | null
+          vote_count: number
+          position: number
+        }
+        Insert: {
+          id?: string
+          poll_id: string
+          label: string
+          merch_id?: string | null
+          vote_count?: number
+          position?: number
+        }
+        Update: {
+          id?: string
+          poll_id?: string
+          label?: string
+          merch_id?: string | null
+          vote_count?: number
+          position?: number
+        }
+        Relationships: []
+      }
+      merch_poll_votes: {
+        Row: {
+          id: string
+          poll_id: string
+          option_id: string
+          user_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          poll_id: string
+          option_id: string
+          user_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          poll_id?: string
+          option_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      daily_spin_log: {
+        Row: {
+          id: string
+          user_id: string
+          prize_type: string
+          prize_value: string | null
+          coupon_code: string | null
+          points_awarded: number | null
+          spun_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          prize_type: string
+          prize_value?: string | null
+          coupon_code?: string | null
+          points_awarded?: number | null
+          spun_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          prize_type?: string
+          prize_value?: string | null
+          coupon_code?: string | null
+          points_awarded?: number | null
+        }
+        Relationships: []
+      }
+      trivia_questions: {
+        Row: {
+          id: string
+          category: string
+          question: string
+          choices: string[]
+          correct_index: number
+          points_reward: number
+          difficulty: string
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          category: string
+          question: string
+          choices: string[]
+          correct_index: number
+          points_reward?: number
+          difficulty?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          category?: string
+          question?: string
+          choices?: string[]
+          correct_index?: number
+          points_reward?: number
+          difficulty?: string
+          is_active?: boolean
+        }
+        Relationships: []
+      }
+      trivia_attempts: {
+        Row: {
+          id: string
+          user_id: string
+          question_id: string
+          selected_index: number
+          is_correct: boolean
+          points_earned: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          question_id: string
+          selected_index: number
+          is_correct: boolean
+          points_earned?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          question_id?: string
+          selected_index?: number
+          is_correct?: boolean
+          points_earned?: number
+        }
+        Relationships: []
+      }
+      product_followers: {
+        Row: {
+          id: string
+          user_id: string
+          merch_id: string
+          notify_launch: boolean
+          notify_restock: boolean
+          notify_price_change: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          merch_id: string
+          notify_launch?: boolean
+          notify_restock?: boolean
+          notify_price_change?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          merch_id?: string
+          notify_launch?: boolean
+          notify_restock?: boolean
+          notify_price_change?: boolean
+        }
+        Relationships: []
+      }
+      collections: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          image_url: string | null
+          badge_label: string | null
+          reward_points: number | null
+          reward_unlock_id: string | null
+          is_active: boolean
+          display_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          image_url?: string | null
+          badge_label?: string | null
+          reward_points?: number | null
+          reward_unlock_id?: string | null
+          is_active?: boolean
+          display_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          image_url?: string | null
+          badge_label?: string | null
+          reward_points?: number | null
+          reward_unlock_id?: string | null
+          is_active?: boolean
+          display_order?: number
+        }
+        Relationships: []
+      }
+      collection_items: {
+        Row: {
+          id: string
+          collection_id: string
+          merch_id: string
+          position: number
+        }
+        Insert: {
+          id?: string
+          collection_id: string
+          merch_id: string
+          position?: number
+        }
+        Update: {
+          id?: string
+          collection_id?: string
+          merch_id?: string
+          position?: number
+        }
+        Relationships: []
+      }
+      user_collection_completions: {
+        Row: {
+          id: string
+          user_id: string
+          collection_id: string
+          completed_at: string
+          points_awarded: number | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          collection_id: string
+          completed_at?: string
+          points_awarded?: number | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          collection_id?: string
+          completed_at?: string
+          points_awarded?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

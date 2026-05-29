@@ -1,6 +1,7 @@
 import "react-native-reanimated";
 import React, { useEffect } from "react";
 import { LogBox, Platform } from 'react-native';
+import { EntryPollGate } from "@/components/EntryPollGate";
 
 if (Platform.OS === 'web') {
   LogBox.ignoreLogs(['useNativeDriver']);
@@ -76,6 +77,7 @@ export default function RootLayout() {
             <AudioPlayerProvider>
               <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
                 <PushNotificationRegistrar />
+                <EntryPollGate />
                 <Stack
                   screenOptions={{
                     headerShown: false,
@@ -268,6 +270,66 @@ export default function RootLayout() {
                   <Stack.Screen
                     name="admin/users-management"
                     options={{ headerShown: true, title: 'Users', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="wishlist"
+                    options={{ headerShown: true, title: 'My Wishlist', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="spin"
+                    options={{ headerShown: true, title: 'Daily Spin', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="trivia"
+                    options={{ headerShown: true, title: 'Trivia', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="merch-polls"
+                    options={{ headerShown: true, title: 'Merch Polls', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="collections"
+                    options={{ headerShown: true, title: 'Collections', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="collections/[id]"
+                    options={{ headerShown: true, title: 'Collection', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="shopping-leaderboard"
+                    options={{ headerShown: true, title: 'Top Shoppers', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="style-showcase"
+                    options={{ headerShown: true, title: 'Style Showcase', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="style-showcase/upload"
+                    options={{ headerShown: true, title: 'Share Your Style', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="reviews/[merchId]"
+                    options={{ headerShown: true, title: 'Reviews', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/reviews-queue"
+                    options={{ headerShown: true, title: 'Reviews Queue', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/merch-polls"
+                    options={{ headerShown: true, title: 'Merch Polls', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/trivia-management"
+                    options={{ headerShown: true, title: 'Trivia Management', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/collections-management"
+                    options={{ headerShown: true, title: 'Collections', ...HEADER_OPTIONS }}
+                  />
+                  <Stack.Screen
+                    name="admin/style-showcase-queue"
+                    options={{ headerShown: true, title: 'Style Showcase Queue', ...HEADER_OPTIONS }}
                   />
                 </Stack>
                 <SystemBars style="light" />

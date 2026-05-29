@@ -1380,6 +1380,102 @@ export default function FanProfileScreen() {
         </View>
       </AnimatedPressable>
 
+      {/* Wishlist card */}
+      <AnimatedPressable
+        onPress={() => {
+          console.log('[FanProfile] Wishlist pressed');
+          router.push('/wishlist');
+        }}
+        style={{ marginBottom: 12 }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 14,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: COLORS.primaryMuted,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.primary,
+            }}
+          >
+            <ShoppingBag size={22} color={COLORS.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700' }}>
+              My Wishlist
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+              Saved items and sale alerts
+            </Text>
+          </View>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>
+            →
+          </Text>
+        </View>
+      </AnimatedPressable>
+
+      {/* Style Showcase card */}
+      <AnimatedPressable
+        onPress={() => {
+          console.log('[FanProfile] Style Showcase pressed');
+          router.push('/style-showcase');
+        }}
+        style={{ marginBottom: 12 }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 14,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: 'rgba(20,184,166,0.1)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(20,184,166,0.3)',
+            }}
+          >
+            <Camera size={22} color="#14B8A6" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700' }}>
+              Style Showcase
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+              Show off your merch looks
+            </Text>
+          </View>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>
+            →
+          </Text>
+        </View>
+      </AnimatedPressable>
+
       {/* Notification Preferences card */}
       <AnimatedPressable
         onPress={() => {

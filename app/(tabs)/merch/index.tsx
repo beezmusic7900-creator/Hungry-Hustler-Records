@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ShoppingBag, Heart } from 'lucide-react-native';
+import { ShoppingBag, Heart, BarChart2, Package } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonMerchCard } from '@/components/SkeletonLoader';
@@ -262,6 +262,20 @@ function MerchCard({ item, index, onPress }: { item: MerchItem; index: number; o
   );
 }
 
+interface ActivePoll {
+  id: string;
+  title: string;
+}
+
+interface CollectionPreview {
+  id: string;
+  name: string;
+  image_url: string | null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any;
+
 export default function MerchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -269,10 +283,26 @@ export default function MerchScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [activePoll, setActivePoll] = useState<ActivePoll | null>(null);
+  const [collections, setCollections] = useState<CollectionPreview[]>([]);
 
   useEffect(() => {
     loadMerch();
+    loadPollsAndCollections();
   }, []);
+
+  const loadPollsAndCollections = async () => {
+    try {
+      const [pollRes, colRes] = await Promise.all([
+        db.from('merch_polls').select('id, title').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        db.from('collections').select('id, name, image_url').eq('is_active', true).order('display_order', { ascending: true }).limit(8),
+      ]);
+      if (pollRes.data) setActivePoll(pollRes.data as ActivePoll);
+      if (colRes.data) setCollections((colRes.data ?? []) as CollectionPreview[]);
+    } catch (err) {
+      console.error('[Merch] loadPollsAndCollections error:', err);
+    }
+  };
 
   const handleRefresh = async () => {
     console.log('[Merch] Pull-to-refresh triggered');
@@ -450,6 +480,102 @@ export default function MerchScreen() {
               onRefresh={handleRefresh}
               tintColor={COLORS.primary}
             />
+          }
+          ListHeaderComponent={
+            <>
+              {/* Active poll banner */}
+              {activePoll && (
+                <AnimatedPressable
+                  onPress={() => {
+                    console.log('[Merch] Poll banner tapped — navigating to merch-polls');
+                    router.push('/merch-polls');
+                  }}
+                  style={{ marginBottom: 12 }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: COLORS.primaryMuted,
+                      borderRadius: 14,
+                      padding: 14,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      borderWidth: 1,
+                      borderColor: COLORS.primary,
+                      marginHorizontal: 6,
+                    }}
+                  >
+                    <BarChart2 size={20} color={COLORS.primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 }}>
+                        ACTIVE POLL
+                      </Text>
+                      <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600', marginTop: 2 }} numberOfLines={1}>
+                        {activePoll.title}
+                      </Text>
+                    </View>
+                    <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700' }}>
+                      Vote now →
+                    </Text>
+                  </View>
+                </AnimatedPressable>
+              )}
+
+              {/* Collections row */}
+              {collections.length > 0 && (
+                <View style={{ marginBottom: 12, marginHorizontal: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Package size={16} color={COLORS.primary} />
+                      <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}>Collections</Text>
+                    </View>
+                    <AnimatedPressable onPress={() => {
+                      console.log('[Merch] See all collections pressed');
+                      router.push('/collections');
+                    }}>
+                      <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600' }}>See all →</Text>
+                    </AnimatedPressable>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                    {collections.map((col) => (
+                      <AnimatedPressable
+                        key={col.id}
+                        onPress={() => {
+                          console.log('[Merch] Collection tile tapped:', col.id);
+                          router.push(`/collections/${col.id}`);
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 100,
+                            backgroundColor: COLORS.surface,
+                            borderRadius: 12,
+                            overflow: 'hidden',
+                            borderWidth: 1,
+                            borderColor: COLORS.border,
+                          }}
+                        >
+                          {col.image_url ? (
+                            <Image
+                              source={resolveImageSource(col.image_url)}
+                              style={{ width: 100, height: 80 }}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View style={{ width: 100, height: 80, backgroundColor: COLORS.surfaceSecondary, alignItems: 'center', justifyContent: 'center' }}>
+                              <Package size={24} color={COLORS.textTertiary} />
+                            </View>
+                          )}
+                          <View style={{ padding: 8 }}>
+                            <Text style={{ color: COLORS.text, fontSize: 11, fontWeight: '600' }} numberOfLines={2}>{col.name}</Text>
+                          </View>
+                        </View>
+                      </AnimatedPressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </>
           }
           renderItem={({ item, index }) => (
             <MerchCard
