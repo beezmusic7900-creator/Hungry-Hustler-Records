@@ -1095,26 +1095,6 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Polls Section */}
-      {polls.length > 0 && (
-        <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
-          <Text
-            style={{
-              color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: '600',
-              letterSpacing: 2,
-              textTransform: 'uppercase',
-              marginBottom: 12,
-            }}
-          >
-            Polls
-          </Text>
-          {polls.map((poll) => (
-            <HomePollCard key={poll.id} poll={poll} onVote={handlePollVote} />
-          ))}
-        </View>
-      )}
 
       {/* Spin & Trivia CTAs */}
       <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
