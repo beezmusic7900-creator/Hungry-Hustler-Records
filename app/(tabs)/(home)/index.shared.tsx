@@ -169,7 +169,7 @@ function HomePollCard({
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <BarChart2 size={14} color={COLORS.primary} />
-        <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700', flex: 1 }}>
+        <Text style={{ color: COLORS.text, fontSize: -11, fontWeight: '700', flex: 1 }}>
           {poll.question}
         </Text>
       </View>
