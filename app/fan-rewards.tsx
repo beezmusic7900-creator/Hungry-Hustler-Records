@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User, Trophy, Star, Lock, CheckCircle, Zap, Flame, Calendar, Gift, Brain } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -244,13 +245,13 @@ export default function FanRewardsScreen() {
         >
           <Trophy size={32} color={COLORS.primary} />
         </View>
-        <Text style={{ color: COLORS.text, fontSize: 22, fontWeight: '700', textAlign: 'center' }}>
+        <Text style={{ ...TYPOGRAPHY.h2, color: COLORS.text, textAlign: 'center' }}>
           Fan Rewards
         </Text>
         <Text
           style={{
+            ...TYPOGRAPHY.body,
             color: COLORS.textSecondary,
-            fontSize: 14,
             textAlign: 'center',
             marginTop: 8,
             maxWidth: 260,
@@ -271,9 +272,11 @@ export default function FanRewardsScreen() {
               borderRadius: 14,
               paddingVertical: 16,
               alignItems: 'center',
+              minHeight: LAYOUT.minTapTarget,
+              justifyContent: 'center',
             }}
           >
-            <Text style={{ color: COLORS.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 }}>
+            <Text style={{ ...TYPOGRAPHY.button, color: COLORS.background }}>
               Sign In
             </Text>
           </View>
@@ -314,6 +317,9 @@ export default function FanRewardsScreen() {
         paddingTop: insets.top + 8,
         paddingBottom: 80,
         paddingHorizontal: 20,
+        maxWidth: LAYOUT.feedMaxWidth,
+        alignSelf: 'center',
+        width: '100%',
       }}
       refreshControl={
         <RefreshControl
@@ -358,7 +364,7 @@ export default function FanRewardsScreen() {
           {/* Title row */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <Flame size={18} color={COLORS.primary} fill={COLORS.primary} />
-            <Text style={{ color: COLORS.text, fontSize: 17, fontWeight: '700' }}>
+            <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.text }}>
               Daily Check-In
             </Text>
           </View>
@@ -377,10 +383,10 @@ export default function FanRewardsScreen() {
                 borderColor: COLORS.border,
               }}
             >
-              <Text style={{ color: COLORS.primary, fontSize: 22, fontWeight: '800' }}>
+              <Text style={{ ...TYPOGRAPHY.h2, color: COLORS.primary }}>
                 {totalPointsText}
               </Text>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}>
                 Total Points
               </Text>
             </View>
@@ -397,10 +403,10 @@ export default function FanRewardsScreen() {
                 borderColor: COLORS.border,
               }}
             >
-              <Text style={{ color: COLORS.warning, fontSize: 22, fontWeight: '800' }}>
+              <Text style={{ ...TYPOGRAPHY.h2, color: COLORS.warning }}>
                 {streakText}
               </Text>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}>
                 🔥 Streak
               </Text>
             </View>
@@ -417,10 +423,10 @@ export default function FanRewardsScreen() {
                 borderColor: COLORS.border,
               }}
             >
-              <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>
+              <Text style={{ ...TYPOGRAPHY.body, fontWeight: '700', color: COLORS.text, textAlign: 'center' }}>
                 {lastCheckInText}
               </Text>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}>
                 Last Check-In
               </Text>
             </View>
@@ -444,18 +450,16 @@ export default function FanRewardsScreen() {
             >
               <Text
                 style={{
+                  ...TYPOGRAPHY.button,
                   color: alreadyCheckedIn ? COLORS.primary : COLORS.background,
-                  fontSize: 16,
-                  fontWeight: '700',
-                  letterSpacing: 0.3,
                 }}
               >
                 {checkInButtonLabel}
               </Text>
               <Text
                 style={{
-                  color: alreadyCheckedIn ? COLORS.textSecondary : 'rgba(0,0,0,0.5)',
-                  fontSize: 11,
+                  ...TYPOGRAPHY.caption,
+                  color: alreadyCheckedIn ? COLORS.textSecondary : COLORS.textSecondary,
                   marginTop: 2,
                 }}
               >
@@ -500,10 +504,10 @@ export default function FanRewardsScreen() {
             >
               <Gift size={22} color="#F59E0B" />
             </View>
-            <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>
+            <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '700', color: COLORS.text, textAlign: 'center' }}>
               Spin to Win
             </Text>
-            <Text style={{ color: COLORS.textSecondary, fontSize: 11, textAlign: 'center' }}>
+            <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, textAlign: 'center' }}>
               Daily free spin
             </Text>
           </View>
@@ -541,10 +545,10 @@ export default function FanRewardsScreen() {
             >
               <Brain size={22} color="#06B6D4" />
             </View>
-            <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>
+            <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '700', color: COLORS.text, textAlign: 'center' }}>
               Trivia
             </Text>
-            <Text style={{ color: COLORS.textSecondary, fontSize: 11, textAlign: 'center' }}>
+            <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, textAlign: 'center' }}>
               Earn points
             </Text>
           </View>
@@ -638,10 +642,10 @@ export default function FanRewardsScreen() {
 
           {/* Points */}
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 20 }}>
-            <Text style={{ color: COLORS.text, fontSize: 48, fontWeight: '800', letterSpacing: -1 }}>
+            <Text style={{ ...TYPOGRAPHY.display, color: COLORS.text }}>
               {totalPointsText}
             </Text>
-            <Text style={{ color: COLORS.textSecondary, fontSize: 18, fontWeight: '600' }}>
+            <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.textSecondary }}>
               pts
             </Text>
           </View>
@@ -665,7 +669,7 @@ export default function FanRewardsScreen() {
               }}
             />
           </View>
-          <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>
+          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }}>
             {progressLabel}
           </Text>
         </View>
@@ -675,7 +679,7 @@ export default function FanRewardsScreen() {
       <View style={{ marginBottom: 24 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <Zap size={18} color={COLORS.primary} fill={COLORS.primary} />
-          <Text style={{ color: COLORS.text, fontSize: 20, fontWeight: '700' }}>
+          <Text style={{ ...TYPOGRAPHY.h2, color: COLORS.text }}>
             Recent Activity
           </Text>
         </View>
@@ -755,16 +759,16 @@ export default function FanRewardsScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text
-                      style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }}
+                      style={{ ...TYPOGRAPHY.caption, fontWeight: '600', color: COLORS.text }}
                       numberOfLines={1}
                     >
                       {descText}
                     </Text>
-                    <Text style={{ color: COLORS.textTertiary, fontSize: 11, marginTop: 2 }}>
+                    <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}>
                       {timeText}
                     </Text>
                   </View>
-                  <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700' }}>
+                  <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '700', color: COLORS.primary }}>
                     {pointsText}
                   </Text>
                 </View>
@@ -778,7 +782,7 @@ export default function FanRewardsScreen() {
       <View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <Trophy size={18} color={COLORS.primary} />
-          <Text style={{ color: COLORS.text, fontSize: 20, fontWeight: '700' }}>
+          <Text style={{ ...TYPOGRAPHY.h2, color: COLORS.text }}>
             Achievements
           </Text>
           {!loading && achievements.length > 0 && (
@@ -871,13 +875,13 @@ export default function FanRewardsScreen() {
                     )}
                   </View>
                   <Text
-                    style={{ color: COLORS.text, fontSize: 13, fontWeight: '700', marginBottom: 4 }}
+                    style={{ ...TYPOGRAPHY.caption, fontWeight: '700', color: COLORS.text, marginBottom: 4 }}
                     numberOfLines={1}
                   >
                     {ach.name}
                   </Text>
                   <Text
-                    style={{ color: COLORS.textSecondary, fontSize: 11, lineHeight: 15 }}
+                    style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, lineHeight: 16 }}
                     numberOfLines={2}
                   >
                     {ach.description}

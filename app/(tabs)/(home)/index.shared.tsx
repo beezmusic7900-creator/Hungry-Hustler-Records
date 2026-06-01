@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShoppingBag, User, Search, Trophy, CheckCircle, BarChart2, Gift, Clock, Brain } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { HHRLogo } from '@/components/HHRLogo';
@@ -169,7 +170,7 @@ function HomePollCard({
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <BarChart2 size={14} color={COLORS.primary} />
-        <Text style={{ color: COLORS.text, fontSize: -11, fontWeight: '700', flex: 1 }}>
+        <Text style={{ ...TYPOGRAPHY.bodyBold, color: COLORS.text, flex: 1 }}>
           {poll.question}
         </Text>
       </View>
@@ -217,9 +218,9 @@ function HomePollCard({
                     {isSelected && <CheckCircle size={12} color={COLORS.primary} />}
                     <Text
                       style={{
+                        ...TYPOGRAPHY.caption,
                         color: isSelected ? COLORS.primary : COLORS.text,
-                        fontSize: 12,
-                        fontWeight: isSelected ? '700' : '400',
+                        fontWeight: isSelected ? '700' : '500',
                         flex: 1,
                       }}
                       numberOfLines={1}
@@ -229,9 +230,8 @@ function HomePollCard({
                   </View>
                   <Text
                     style={{
+                      ...TYPOGRAPHY.captionBold,
                       color: isSelected ? COLORS.primary : COLORS.textSecondary,
-                      fontSize: 11,
-                      fontWeight: '700',
                       marginLeft: 6,
                     }}
                   >
@@ -243,7 +243,7 @@ function HomePollCard({
           );
         })}
       </View>
-      <Text style={{ color: COLORS.textTertiary, fontSize: 11, marginTop: 8 }}>{totalText}</Text>
+      <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textTertiary, marginTop: 8 }}>{totalText}</Text>
     </View>
   );
 }
@@ -291,15 +291,15 @@ function MerchPreviewCard({ item }: { item: MerchItem }) {
         )}
         <View style={{ padding: 12 }}>
           <Text
-            style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }}
+            style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '600' }}
             numberOfLines={2}
           >
             {item.name}
           </Text>
           <Text
             style={{
+              ...TYPOGRAPHY.body,
               color: COLORS.primary,
-              fontSize: 14,
               fontWeight: '700',
               marginTop: 4,
             }}
@@ -583,6 +583,7 @@ export default function HomeScreen() {
       contentContainerStyle={{ paddingBottom: 120 }}
       showsVerticalScrollIndicator={false}
     >
+      <View style={{ width: '100%', maxWidth: LAYOUT.feedMaxWidth, alignSelf: 'center' }}>
       {/* Header */}
       <View
         style={{
@@ -665,8 +666,8 @@ export default function HomeScreen() {
           ) : (
             <View
               style={{
-                width: -36,
-                height: null,
+                width: '100%',
+                height: 200,
                 backgroundColor: COLORS.surfaceSecondary,
               }}
             />
@@ -686,9 +687,8 @@ export default function HomeScreen() {
           >
             <Text
               style={{
+                ...TYPOGRAPHY.h2,
                 color: COLORS.text,
-                fontSize: 22,
-                fontWeight: '700',
                 letterSpacing: 0.5,
               }}
             >
@@ -696,8 +696,8 @@ export default function HomeScreen() {
             </Text>
             <Text
               style={{
+                ...TYPOGRAPHY.body,
                 color: COLORS.textSecondary,
-                fontSize: 14,
                 marginTop: 4,
               }}
             >
@@ -711,11 +711,8 @@ export default function HomeScreen() {
       <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
         <Text
           style={{
+            ...TYPOGRAPHY.captionBold,
             color: COLORS.textSecondary,
-            fontSize: 11,
-            fontWeight: '600',
-            letterSpacing: 2,
-            textTransform: 'uppercase',
             marginBottom: 12,
           }}
         >
@@ -723,9 +720,8 @@ export default function HomeScreen() {
         </Text>
         <Text
           style={{
-            color: '#ffffff',
-            fontSize: 15,
-            lineHeight: 24,
+            ...TYPOGRAPHY.body,
+            color: COLORS.text,
           }}
         >
           {'Welcome to the official Hungry Hustler Records app — the home of independent excellence, authentic music, and powerful artists. This is your direct connection to the music, artists, and movement behind Hungry Hustler Records.\n\nDiscover new releases, watch exclusive videos, explore artist profiles, and stay connected with everything happening inside the label. This platform gives fans exclusive access to music, merch, announcements, and behind-the-scenes content you won\'t find anywhere else.\n\nHungry Hustler Records represents the hustle, the vision, and the future of independent music.'}
@@ -737,11 +733,8 @@ export default function HomeScreen() {
         <View style={{ marginBottom: 32 }}>
           <Text
             style={{
+              ...TYPOGRAPHY.captionBold,
               color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: '600',
-              letterSpacing: 2,
-              textTransform: 'uppercase',
               marginBottom: 12,
               paddingHorizontal: 20,
             }}
@@ -786,11 +779,8 @@ export default function HomeScreen() {
         <View style={{ marginBottom: 28 }}>
           <Text
             style={{
+              ...TYPOGRAPHY.captionBold,
               color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: '600',
-              letterSpacing: 2,
-              textTransform: 'uppercase',
               marginBottom: 12,
               paddingHorizontal: 20,
             }}
@@ -849,20 +839,16 @@ export default function HomeScreen() {
                       >
                         <Text
                           style={{
-                            fontSize: 11,
-                            fontWeight: '700',
+                            ...TYPOGRAPHY.captionBold,
                             color: COLORS.primary,
-                            textTransform: 'uppercase',
                           }}
                         >
                           {monthDisplay}
                         </Text>
                         <Text
                           style={{
-                            fontSize: 22,
-                            fontWeight: '800',
+                            ...TYPOGRAPHY.h2,
                             color: COLORS.text,
-                            lineHeight: 24,
                           }}
                         >
                           {dayDisplay}
@@ -873,8 +859,7 @@ export default function HomeScreen() {
                       <View style={{ flex: 1 }}>
                         <Text
                           style={{
-                            fontSize: 15,
-                            fontWeight: '700',
+                            ...TYPOGRAPHY.bodyBold,
                             color: COLORS.text,
                           }}
                           numberOfLines={1}
@@ -884,7 +869,7 @@ export default function HomeScreen() {
                         {venueCity.length > 0 && (
                           <Text
                             style={{
-                              fontSize: 12,
+                              ...TYPOGRAPHY.caption,
                               color: COLORS.textSecondary,
                               marginTop: 2,
                             }}
@@ -913,7 +898,7 @@ export default function HomeScreen() {
                           >
                             <Text
                               style={{
-                                fontSize: 12,
+                                ...TYPOGRAPHY.caption,
                                 fontWeight: '700',
                                 color: COLORS.background,
                               }}
@@ -935,11 +920,8 @@ export default function HomeScreen() {
         <View style={{ marginBottom: 28 }}>
           <Text
             style={{
+              ...TYPOGRAPHY.captionBold,
               color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: '600',
-              letterSpacing: 2,
-              textTransform: 'uppercase',
               marginBottom: 12,
               paddingHorizontal: 20,
             }}
@@ -984,14 +966,14 @@ export default function HomeScreen() {
                 )}
                 <View style={{ padding: 10 }}>
                   <Text
-                    style={{ color: COLORS.text, fontSize: 13, fontWeight: '700' }}
+                    style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '700' }}
                     numberOfLines={1}
                   >
                     {spotlight.title}
                   </Text>
                   {spotlight.description ? (
                     <Text
-                      style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 3, lineHeight: 15 }}
+                      style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 3 }}
                       numberOfLines={2}
                     >
                       {spotlight.description}
@@ -1053,26 +1035,26 @@ export default function HomeScreen() {
                       borderColor: 'rgba(245,158,11,0.4)',
                     }}
                   >
-                    <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '700' }}>
+                    <Text style={{ ...TYPOGRAPHY.captionBold, color: '#F59E0B' }}>
                       CONTEST
                     </Text>
                   </View>
                   {activeContest.ends_at ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <Clock size={11} color={COLORS.textSecondary} />
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 11 }}>
+                      <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }}>
                         {daysUntil(activeContest.ends_at)}
                       </Text>
                     </View>
                   ) : null}
                 </View>
-                <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700', marginBottom: 4 }}>
+                <Text style={{ ...TYPOGRAPHY.bodyBold, color: COLORS.text, marginBottom: 4 }}>
                   {activeContest.title}
                 </Text>
                 {activeContest.prize_description ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                     <Gift size={12} color="#F59E0B" />
-                    <Text style={{ color: COLORS.textSecondary, fontSize: 12 }} numberOfLines={1}>
+                    <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }} numberOfLines={1}>
                       {activeContest.prize_description}
                     </Text>
                   </View>
@@ -1081,11 +1063,13 @@ export default function HomeScreen() {
                   style={{
                     backgroundColor: '#F59E0B',
                     borderRadius: 8,
-                    paddingVertical: 8,
+                    paddingVertical: 10,
                     alignItems: 'center',
+                    minHeight: LAYOUT.minTapTarget,
+                    justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ color: '#000', fontSize: 13, fontWeight: '700' }}>
+                  <Text style={{ ...TYPOGRAPHY.button, color: '#000' }}>
                     Join Contest
                   </Text>
                 </View>
@@ -1100,11 +1084,8 @@ export default function HomeScreen() {
       <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
         <Text
           style={{
+            ...TYPOGRAPHY.captionBold,
             color: COLORS.textSecondary,
-            fontSize: 11,
-            fontWeight: '600',
-            letterSpacing: 2,
-            textTransform: 'uppercase',
             marginBottom: 12,
           }}
         >
@@ -1143,10 +1124,10 @@ export default function HomeScreen() {
               >
                 <Gift size={22} color="#F59E0B" />
               </View>
-              <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '700', textAlign: 'center' }}>
                 Spin to Win
               </Text>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 11, textAlign: 'center' }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, textAlign: 'center' }}>
                 Daily free spin
               </Text>
             </View>
@@ -1184,10 +1165,10 @@ export default function HomeScreen() {
               >
                 <Brain size={22} color="#06B6D4" />
               </View>
-              <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '700', textAlign: 'center' }}>
                 Trivia
               </Text>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 11, textAlign: 'center' }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, textAlign: 'center' }}>
                 Earn points
               </Text>
             </View>
@@ -1200,11 +1181,8 @@ export default function HomeScreen() {
         <View style={{ marginBottom: 28 }}>
           <Text
             style={{
+              ...TYPOGRAPHY.captionBold,
               color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: '600',
-              letterSpacing: 2,
-              textTransform: 'uppercase',
               marginBottom: 12,
               paddingHorizontal: 20,
             }}
@@ -1243,18 +1221,18 @@ export default function HomeScreen() {
                   >
                     <Text style={{ fontSize: 22, marginBottom: 6 }}>{icon}</Text>
                     <Text
-                      style={{ color: COLORS.primary, fontSize: 12, fontWeight: '700' }}
+                      style={{ ...TYPOGRAPHY.caption, color: COLORS.primary, fontWeight: '700' }}
                       numberOfLines={1}
                     >
                       {actorName}
                     </Text>
                     <Text
-                      style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2, lineHeight: 15 }}
+                      style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}
                       numberOfLines={2}
                     >
                       {label}
                     </Text>
-                    <Text style={{ color: COLORS.textTertiary, fontSize: 10, marginTop: 6 }}>
+                    <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textTertiary, marginTop: 6 }}>
                       {timeText}
                     </Text>
                   </View>
@@ -1300,14 +1278,14 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 22 }}>📲</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}>
+              <Text style={{ ...TYPOGRAPHY.bodyBold, color: COLORS.text }}>
                 Submit Your Content
               </Text>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}>
                 Share your talent with the HHR community
               </Text>
             </View>
-            <Text style={{ color: COLORS.primary, fontSize: 16 }}>→</Text>
+            <Text style={{ ...TYPOGRAPHY.bodyLarge, color: COLORS.primary }}>→</Text>
           </View>
         </AnimatedPressable>
       </View>
@@ -1347,14 +1325,14 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 22 }}>🌟</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}>
+              <Text style={{ ...TYPOGRAPHY.bodyBold, color: COLORS.text }}>
                 Fan Submissions
               </Text>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}>
                 Browse fan dances, art, and performances
               </Text>
             </View>
-            <Text style={{ color: COLORS.textTertiary, fontSize: 16 }}>→</Text>
+            <Text style={{ ...TYPOGRAPHY.bodyLarge, color: COLORS.textTertiary }}>→</Text>
           </View>
         </AnimatedPressable>
       </View>
@@ -1394,14 +1372,14 @@ export default function HomeScreen() {
               <Trophy size={20} color="#F59E0B" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}>
+              <Text style={{ ...TYPOGRAPHY.bodyBold, color: COLORS.text }}>
                 Leaderboards
               </Text>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}>
                 See the top fans this week
               </Text>
             </View>
-            <Text style={{ color: COLORS.textTertiary, fontSize: 16 }}>→</Text>
+            <Text style={{ ...TYPOGRAPHY.bodyLarge, color: COLORS.textTertiary }}>→</Text>
           </View>
         </AnimatedPressable>
       </View>
@@ -1419,11 +1397,8 @@ export default function HomeScreen() {
         >
           <Text
             style={{
+              ...TYPOGRAPHY.captionBold,
               color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: '600',
-              letterSpacing: 2,
-              textTransform: 'uppercase',
               marginBottom: 12,
             }}
           >
@@ -1437,7 +1412,7 @@ export default function HomeScreen() {
               <Text style={{ color: '#00FF66', fontSize: 16, lineHeight: 28, marginRight: 10 }}>
                 {'•'}
               </Text>
-              <Text style={{ color: '#ffffff', fontSize: 14, lineHeight: 28 }}>
+              <Text style={{ ...TYPOGRAPHY.body, color: COLORS.text, lineHeight: 28 }}>
                 {item}
               </Text>
             </View>
@@ -1458,11 +1433,8 @@ export default function HomeScreen() {
         >
           <Text
             style={{
+              ...TYPOGRAPHY.captionBold,
               color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: '600',
-              letterSpacing: 2,
-              textTransform: 'uppercase',
               marginBottom: 12,
             }}
           >
@@ -1470,9 +1442,8 @@ export default function HomeScreen() {
           </Text>
           <Text
             style={{
-              color: '#ffffff',
-              fontSize: 15,
-              lineHeight: 24,
+              ...TYPOGRAPHY.body,
+              color: COLORS.text,
               marginBottom: 16,
             }}
           >
@@ -1490,9 +1461,11 @@ export default function HomeScreen() {
                 borderRadius: 10,
                 paddingVertical: 12,
                 alignItems: 'center',
+                minHeight: LAYOUT.minTapTarget,
+                justifyContent: 'center',
               }}
             >
-              <Text style={{ color: '#000000', fontSize: 14, fontWeight: '700' }}>
+              <Text style={{ ...TYPOGRAPHY.button, color: '#000000' }}>
                 Watch Now
               </Text>
             </View>
@@ -1513,11 +1486,8 @@ export default function HomeScreen() {
         >
           <Text
             style={{
+              ...TYPOGRAPHY.captionBold,
               color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: '600',
-              letterSpacing: 2,
-              textTransform: 'uppercase',
               marginBottom: 12,
             }}
           >
@@ -1525,9 +1495,8 @@ export default function HomeScreen() {
           </Text>
           <Text
             style={{
-              color: '#ffffff',
-              fontSize: 15,
-              lineHeight: 24,
+              ...TYPOGRAPHY.body,
+              color: COLORS.text,
               marginBottom: 16,
             }}
           >
@@ -1545,9 +1514,11 @@ export default function HomeScreen() {
                 borderRadius: 10,
                 paddingVertical: 12,
                 alignItems: 'center',
+                minHeight: LAYOUT.minTapTarget,
+                justifyContent: 'center',
               }}
             >
-              <Text style={{ color: '#000000', fontSize: 14, fontWeight: '700' }}>
+              <Text style={{ ...TYPOGRAPHY.button, color: '#000000' }}>
                 Shop Now
               </Text>
             </View>
@@ -1557,8 +1528,8 @@ export default function HomeScreen() {
 
       {/* Error state */}
       {error && !loading && (
-        <View style={{ paddingHorizontal: 20, alignItems: 'center' }}>
-          <Text style={{ color: COLORS.danger, fontSize: 14, textAlign: 'center' }}>
+        <View style={{ paddingHorizontal: 20, alignItems: 'center', paddingVertical: 40 }}>
+          <Text style={{ ...TYPOGRAPHY.body, color: COLORS.danger, textAlign: 'center' }}>
             {error}
           </Text>
           <AnimatedPressable
@@ -1572,19 +1543,22 @@ export default function HomeScreen() {
               style={{
                 backgroundColor: COLORS.primaryMuted,
                 borderRadius: 10,
-                paddingVertical: 10,
+                paddingVertical: 12,
                 paddingHorizontal: 24,
                 borderWidth: 1,
                 borderColor: COLORS.primary,
+                minHeight: LAYOUT.minTapTarget,
+                justifyContent: 'center',
               }}
             >
-              <Text style={{ color: COLORS.primary, fontWeight: '600' }}>
+              <Text style={{ ...TYPOGRAPHY.button, color: COLORS.primary }}>
                 Try Again
               </Text>
             </View>
           </AnimatedPressable>
         </View>
       )}
+      </View>
     </ScrollView>
   );
 }

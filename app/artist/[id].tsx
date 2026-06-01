@@ -24,6 +24,7 @@ import {
   CheckCircle,
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabase, supabasePublic } from '@/integrations/supabase/client';
@@ -128,7 +129,7 @@ function timeAgo(dateStr: string): string {
 function SectionHeader({ title }: { title: string }) {
   return (
     <View style={{ marginBottom: 14 }}>
-      <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '700' }}>{title}</Text>
+      <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.text }}>{title}</Text>
       <View
         style={{
           width: 32,
@@ -217,10 +218,10 @@ function ArtistSongRow({ item, onVote }: { item: SongItem; onVote: (songId: stri
         </View>
       )}
       <View style={{ flex: 1 }}>
-        <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '700' }} numberOfLines={1}>
+        <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '700' }} numberOfLines={1}>
           {item.title}
         </Text>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+        <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }} numberOfLines={1}>
           {item.artist}
         </Text>
       </View>
@@ -368,7 +369,7 @@ function ArtistVideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: numb
           </View>
         </View>
         <View style={{ padding: 8 }}>
-          <Text style={{ color: COLORS.text, fontSize: 12, fontWeight: '600' }} numberOfLines={2}>
+          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '600' }} numberOfLines={2}>
             {item.title}
           </Text>
         </View>
@@ -406,10 +407,10 @@ function QuestionCard({
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600' }}>
+            <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.primary, fontWeight: '600' }}>
               {askerName}
             </Text>
-            <Text style={{ color: COLORS.textTertiary, fontSize: 11 }}>{timeText}</Text>
+            <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textTertiary }}>{timeText}</Text>
             {question.is_answered && (
               <View
                 style={{
@@ -421,13 +422,13 @@ function QuestionCard({
                   borderColor: COLORS.primary,
                 }}
               >
-                <Text style={{ color: COLORS.primary, fontSize: 10, fontWeight: '700' }}>
+                <Text style={{ ...TYPOGRAPHY.tabLabel, color: COLORS.primary, fontWeight: '700' }}>
                   Answered
                 </Text>
               </View>
             )}
           </View>
-          <Text style={{ color: COLORS.text, fontSize: 14, lineHeight: 20 }}>
+          <Text style={{ ...TYPOGRAPHY.body, color: COLORS.text }}>
             {question.question}
           </Text>
         </View>
@@ -476,10 +477,10 @@ function QuestionCard({
             borderLeftColor: COLORS.primary,
           }}
         >
-          <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: '700', marginBottom: 4 }}>
+          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.primary, fontWeight: '700', marginBottom: 4 }}>
             Artist Reply
           </Text>
-          <Text style={{ color: COLORS.text, fontSize: 13, lineHeight: 19 }}>
+          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.text, lineHeight: 19 }}>
             {question.answer_text}
           </Text>
         </View>
@@ -508,11 +509,11 @@ function PollCard({
         borderColor: COLORS.border,
       }}
     >
-      <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700', marginBottom: 4 }}>
+      <Text style={{ ...TYPOGRAPHY.body, color: COLORS.text, fontWeight: '700', marginBottom: 4 }}>
         {poll.question}
       </Text>
       {poll.description ? (
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
+        <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginBottom: 10 }}>
           {poll.description}
         </Text>
       ) : null}
@@ -527,7 +528,7 @@ function PollCard({
             marginBottom: 10,
           }}
         >
-          <Text style={{ color: COLORS.danger, fontSize: 11, fontWeight: '600' }}>Closed</Text>
+          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.danger, fontWeight: '600' }}>Closed</Text>
         </View>
       )}
       <View style={{ gap: 8 }}>
@@ -577,9 +578,9 @@ function PollCard({
                     )}
                     <Text
                       style={{
+                        ...TYPOGRAPHY.caption,
                         color: isSelected ? COLORS.primary : COLORS.text,
-                        fontSize: 13,
-                        fontWeight: isSelected ? '700' : '400',
+                        fontWeight: isSelected ? '700' : '500',
                         flex: 1,
                       }}
                       numberOfLines={2}
@@ -589,8 +590,8 @@ function PollCard({
                   </View>
                   <Text
                     style={{
+                      ...TYPOGRAPHY.caption,
                       color: isSelected ? COLORS.primary : COLORS.textSecondary,
-                      fontSize: 12,
                       fontWeight: '700',
                       marginLeft: 8,
                     }}
@@ -603,7 +604,7 @@ function PollCard({
           );
         })}
       </View>
-      <Text style={{ color: COLORS.textTertiary, fontSize: 11, marginTop: 8 }}>
+      <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textTertiary, marginTop: 8 }}>
         {String(totalVotes)}
         {' votes'}
       </Text>
@@ -1078,10 +1079,8 @@ export default function ArtistDetailScreen() {
         ) : (
           <Text
             style={{
+              ...TYPOGRAPHY.display,
               color: COLORS.text,
-              fontSize: 28,
-              fontWeight: '700',
-              letterSpacing: -0.5,
               marginBottom: 8,
             }}
           >
@@ -1103,7 +1102,7 @@ export default function ArtistDetailScreen() {
               marginBottom: 12,
             }}
           >
-            <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: '600' }}>
+            <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.primary, fontWeight: '600' }}>
               {artist.genre}
             </Text>
           </View>
@@ -1119,9 +1118,8 @@ export default function ArtistDetailScreen() {
         ) : artist?.bio ? (
           <Text
             style={{
+              ...TYPOGRAPHY.body,
               color: COLORS.textSecondary,
-              fontSize: 14,
-              lineHeight: 22,
               marginBottom: 24,
             }}
           >
@@ -1165,8 +1163,8 @@ export default function ArtistDetailScreen() {
                   {tab.icon}
                   <Text
                     style={{
+                      ...TYPOGRAPHY.caption,
                       color: activeTab === tab.key ? COLORS.background : COLORS.textSecondary,
-                      fontSize: 12,
                       fontWeight: '700',
                     }}
                   >
@@ -1194,7 +1192,7 @@ export default function ArtistDetailScreen() {
                 }}
               >
                 <Music size={28} color={COLORS.textTertiary} />
-                <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: 10 }}>
+                <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, marginTop: 10 }}>
                   No songs yet
                 </Text>
               </View>
@@ -1222,7 +1220,7 @@ export default function ArtistDetailScreen() {
                 borderColor: COLORS.border,
               }}
             >
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginBottom: 8 }}>
                 Ask {artist?.name ?? 'the artist'} a question
               </Text>
               <TextInput
@@ -1256,7 +1254,7 @@ export default function ArtistDetailScreen() {
                   }}
                 >
                   <CheckCircle size={14} color={COLORS.primary} />
-                  <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '600' }}>
+                  <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.primary, fontWeight: '600' }}>
                     Question submitted!
                   </Text>
                 </Animated.View>
@@ -1276,8 +1274,8 @@ export default function ArtistDetailScreen() {
                 >
                   <Text
                     style={{
+                      ...TYPOGRAPHY.caption,
                       color: questionText.trim() ? COLORS.background : COLORS.textTertiary,
-                      fontSize: 13,
                       fontWeight: '700',
                     }}
                   >
@@ -1299,7 +1297,7 @@ export default function ArtistDetailScreen() {
                 }}
               >
                 <MessageCircle size={28} color={COLORS.textTertiary} />
-                <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: 10 }}>
+                <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, marginTop: 10 }}>
                   No questions yet — be the first to ask!
                 </Text>
               </View>
@@ -1327,7 +1325,7 @@ export default function ArtistDetailScreen() {
                 }}
               >
                 <BarChart2 size={28} color={COLORS.textTertiary} />
-                <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: 10 }}>
+                <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, marginTop: 10 }}>
                   No polls yet — check back soon!
                 </Text>
               </View>
@@ -1355,7 +1353,7 @@ export default function ArtistDetailScreen() {
                 }}
               >
                 <Video size={28} color={COLORS.textTertiary} />
-                <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: 10 }}>
+                <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, marginTop: 10 }}>
                   No videos yet
                 </Text>
               </View>
@@ -1372,10 +1370,10 @@ export default function ArtistDetailScreen() {
         {/* Error */}
         {error && !loading && (
           <View style={{ alignItems: 'center', marginTop: 40 }}>
-            <Text style={{ color: COLORS.danger, fontSize: 16, fontWeight: '600', textAlign: 'center' }}>
+            <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.danger, textAlign: 'center' }}>
               Couldn't load artist
             </Text>
-            <Text style={{ color: COLORS.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 8 }}>
+            <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8 }}>
               {error}
             </Text>
             <AnimatedPressable
@@ -1395,7 +1393,7 @@ export default function ArtistDetailScreen() {
                   borderColor: COLORS.primary,
                 }}
               >
-                <Text style={{ color: COLORS.primary, fontWeight: '600' }}>Try Again</Text>
+                <Text style={{ ...TYPOGRAPHY.body, color: COLORS.primary, fontWeight: '600' }}>Try Again</Text>
               </View>
             </AnimatedPressable>
           </View>

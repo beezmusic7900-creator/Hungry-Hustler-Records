@@ -14,6 +14,7 @@ import { WebView } from 'react-native-webview';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { MessageCircle } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { ReactionBar } from '@/components/ReactionBar';

@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Music, Play, Pause, ExternalLink, Heart, Clock } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabasePublic } from '@/integrations/supabase/client';
@@ -186,13 +187,13 @@ function NativeSongRow({ item }: { item: SongItem }) {
       {/* Info */}
       <View style={{ flex: 1 }}>
         <Text
-          style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}
+          style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '700' }}
           numberOfLines={1}
         >
           {item.title}
         </Text>
         <Text
-          style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}
+          style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}
           numberOfLines={1}
         >
           {item.artist}
@@ -219,7 +220,7 @@ function NativeSongRow({ item }: { item: SongItem }) {
             borderColor: COLORS.border,
           }}
         >
-          <Text style={{ color: COLORS.textSecondary, fontSize: 10, fontWeight: '600' }}>LYRICS</Text>
+          <Text style={{ ...TYPOGRAPHY.tabLabel, color: COLORS.textSecondary }}>LYRICS</Text>
         </View>
       </AnimatedPressable>
 
@@ -281,9 +282,9 @@ function AlbumCard({ item }: { item: AppleMusicAlbum }) {
         />
         <Text
           style={{
-            color: COLORS.text,
-            fontSize: 12,
+            ...TYPOGRAPHY.caption,
             fontWeight: '700',
+            color: COLORS.text,
             marginTop: 6,
             width: 140,
           }}
@@ -291,7 +292,7 @@ function AlbumCard({ item }: { item: AppleMusicAlbum }) {
         >
           {item.name}
         </Text>
-        <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }}>
+        <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}>
           {item.releaseYear}
         </Text>
       </View>
@@ -334,18 +335,18 @@ function AMSongRow({ item }: { item: AppleMusicSong }) {
       />
       <View style={{ flex: 1 }}>
         <Text
-          style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}
+          style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '700' }}
           numberOfLines={1}
         >
           {item.title}
         </Text>
         <Text
-          style={{ color: '#888', fontSize: 12, marginTop: 2 }}
+          style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}
           numberOfLines={1}
         >
           {item.album}
         </Text>
-        <Text style={{ color: '#888', fontSize: 11, marginTop: 2 }}>
+        <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}>
           {durationText}
         </Text>
       </View>
@@ -399,10 +400,8 @@ function AppleMusicSkeleton() {
     <View>
       <Text
         style={{
-          color: '#888',
-          fontSize: 11,
-          fontWeight: '700',
-          letterSpacing: 1.5,
+          ...TYPOGRAPHY.captionBold,
+          color: COLORS.textSecondary,
           marginBottom: 10,
           marginTop: 16,
         }}
@@ -423,10 +422,8 @@ function AppleMusicSkeleton() {
 
       <Text
         style={{
-          color: '#888',
-          fontSize: 11,
-          fontWeight: '700',
-          letterSpacing: 1.5,
+          ...TYPOGRAPHY.captionBold,
+          color: COLORS.textSecondary,
           marginBottom: 10,
           marginTop: 16,
         }}
@@ -504,9 +501,9 @@ function RecentlyPlayedCard({ item }: { item: SongItem }) {
         )}
         <Text
           style={{
-            color: COLORS.text,
-            fontSize: 12,
+            ...TYPOGRAPHY.caption,
             fontWeight: '700',
+            color: COLORS.text,
             marginTop: 6,
             width: 120,
           }}
@@ -514,7 +511,7 @@ function RecentlyPlayedCard({ item }: { item: SongItem }) {
         >
           {item.title}
         </Text>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+        <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }} numberOfLines={1}>
           {item.artist}
         </Text>
       </View>
@@ -631,6 +628,7 @@ export default function MusicScreen() {
         contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={{ width: '100%', maxWidth: LAYOUT.feedMaxWidth, alignSelf: 'center' }}>
         {/* ── Page Header ── */}
         <View
           style={{
@@ -641,10 +639,8 @@ export default function MusicScreen() {
         >
           <Text
             style={{
+              ...TYPOGRAPHY.display,
               color: COLORS.text,
-              fontSize: 28,
-              fontWeight: '700',
-              letterSpacing: -0.5,
             }}
           >
             MUSIC
@@ -678,11 +674,8 @@ export default function MusicScreen() {
               <Clock size={16} color={COLORS.textSecondary} />
               <Text
                 style={{
+                  ...TYPOGRAPHY.captionBold,
                   color: COLORS.textSecondary,
-                  fontSize: 11,
-                  fontWeight: '700',
-                  letterSpacing: 1.5,
-                  textTransform: 'uppercase',
                 }}
               >
                 Recently Played
@@ -707,9 +700,8 @@ export default function MusicScreen() {
           <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
             <Text
               style={{
+                ...TYPOGRAPHY.h2,
                 color: COLORS.text,
-                fontSize: 22,
-                fontWeight: '700',
               }}
             >
               SONGS
@@ -762,9 +754,8 @@ export default function MusicScreen() {
           <View style={{ paddingHorizontal: 20, marginTop: 8 }}>
             <Text
               style={{
+                ...TYPOGRAPHY.h2,
                 color: COLORS.text,
-                fontSize: 22,
-                fontWeight: '700',
               }}
             >
               ARTISTS
@@ -803,9 +794,8 @@ export default function MusicScreen() {
                   <View style={{ padding: 16 }}>
                     <Text
                       style={{
+                        ...TYPOGRAPHY.h3,
                         color: COLORS.text,
-                        fontSize: 18,
-                        fontWeight: '700',
                         marginBottom: 12,
                       }}
                     >
@@ -824,13 +814,13 @@ export default function MusicScreen() {
                           paddingVertical: 12,
                           alignItems: 'center',
                           justifyContent: 'center',
+                          minHeight: LAYOUT.minTapTarget,
                         }}
                       >
                         <Text
                           style={{
+                            ...TYPOGRAPHY.button,
                             color: '#FFFFFF',
-                            fontSize: 15,
-                            fontWeight: '700',
                           }}
                         >
                           Listen on Apple Music
@@ -851,9 +841,8 @@ export default function MusicScreen() {
           <View style={{ paddingHorizontal: 20, marginTop: 8 }}>
             <Text
               style={{
+                ...TYPOGRAPHY.h2,
                 color: COLORS.text,
-                fontSize: 22,
-                fontWeight: '700',
               }}
             >
               APPLE MUSIC
@@ -872,11 +861,11 @@ export default function MusicScreen() {
               <AppleMusicSkeleton />
             ) : amError ? (
               <View style={{ marginTop: 16 }}>
-                <Text style={{ color: '#888', fontSize: 14 }}>
+                <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary }}>
                   {amError}
                 </Text>
                 <AnimatedPressable onPress={handleAmRetry} style={{ marginTop: 8 }}>
-                  <Text style={{ color: AM_RED, fontSize: 14, fontWeight: '600' }}>
+                  <Text style={{ ...TYPOGRAPHY.body, color: AM_RED, fontWeight: '600' }}>
                     Retry
                   </Text>
                 </AnimatedPressable>
@@ -898,10 +887,10 @@ export default function MusicScreen() {
                     gap: 8,
                   }}
                 >
-                  <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }}>
+                  <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '600' }}>
                     {artistPillText}
                   </Text>
-                  <Text style={{ color: '#888', fontSize: 12 }}>
+                  <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }}>
                     •
                   </Text>
                   <AnimatedPressable
@@ -910,7 +899,7 @@ export default function MusicScreen() {
                       Linking.openURL(amData.artist.artistUrl);
                     }}
                   >
-                    <Text style={{ color: AM_RED, fontSize: 13, fontWeight: '600' }}>
+                    <Text style={{ ...TYPOGRAPHY.caption, color: AM_RED, fontWeight: '600' }}>
                       Open in Apple Music →
                     </Text>
                   </AnimatedPressable>
@@ -918,10 +907,8 @@ export default function MusicScreen() {
 
                 <Text
                   style={{
-                    color: '#888',
-                    fontSize: 11,
-                    fontWeight: '700',
-                    letterSpacing: 1.5,
+                    ...TYPOGRAPHY.captionBold,
+                    color: COLORS.textSecondary,
                     marginBottom: 10,
                     marginTop: 16,
                   }}
@@ -940,10 +927,8 @@ export default function MusicScreen() {
 
                 <Text
                   style={{
-                    color: '#888',
-                    fontSize: 11,
-                    fontWeight: '700',
-                    letterSpacing: 1.5,
+                    ...TYPOGRAPHY.captionBold,
+                    color: COLORS.textSecondary,
                     marginBottom: 10,
                     marginTop: 16,
                   }}
@@ -961,6 +946,7 @@ export default function MusicScreen() {
           </View>
         )}
 
+        </View>
       </ScrollView>
     </View>
   );

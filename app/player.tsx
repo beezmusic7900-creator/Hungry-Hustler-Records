@@ -29,6 +29,7 @@ import {
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -334,7 +335,7 @@ export default function PlayerScreen() {
   if (!currentSong) {
     return (
       <View style={{ flex: 1, backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 16 }}>No song playing</Text>
+        <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary }}>No song playing</Text>
       </View>
     );
   }
@@ -473,10 +474,8 @@ export default function PlayerScreen() {
         <View style={{ flex: 1 }}>
           <Text
             style={{
+              ...TYPOGRAPHY.h2,
               color: COLORS.text,
-              fontSize: 22,
-              fontWeight: '700',
-              letterSpacing: -0.3,
             }}
             numberOfLines={2}
           >
@@ -484,8 +483,8 @@ export default function PlayerScreen() {
           </Text>
           <Text
             style={{
+              ...TYPOGRAPHY.body,
               color: COLORS.textSecondary,
-              fontSize: 15,
               marginTop: 4,
             }}
             numberOfLines={1}
@@ -568,7 +567,7 @@ export default function PlayerScreen() {
             <ChevronDown size={16} color={userVote === -1 ? '#fff' : COLORS.textSecondary} />
           </View>
         </AnimatedPressable>
-        <Text style={{ color: COLORS.textTertiary, fontSize: 11, marginLeft: 4 }}>
+        <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginLeft: 4 }}>
           Rate this song
         </Text>
       </View>
@@ -618,10 +617,10 @@ export default function PlayerScreen() {
         </View>
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>
+          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }}>
             {positionText}
           </Text>
-          <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>
+          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }}>
             {durationText}
           </Text>
         </View>
@@ -700,11 +699,8 @@ export default function PlayerScreen() {
         <View style={{ marginBottom: 24 }}>
           <Text
             style={{
+              ...TYPOGRAPHY.captionBold,
               color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 1.5,
-              textTransform: 'uppercase',
               marginBottom: 10,
             }}
           >
@@ -750,14 +746,14 @@ export default function PlayerScreen() {
                       />
                     )}
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+                      <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '600' }} numberOfLines={1}>
                         {song.title}
                       </Text>
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 1 }} numberOfLines={1}>
+                      <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 1 }} numberOfLines={1}>
                         {song.artist}
                       </Text>
                     </View>
-                    <Text style={{ color: COLORS.textTertiary, fontSize: 11 }}>
+                    <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }}>
                       #{String(queueIndex + 1)}
                     </Text>
                   </View>
@@ -806,10 +802,10 @@ export default function PlayerScreen() {
           }}
         >
           <MessageCircle size={18} color={COLORS.textSecondary} />
-          <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '600', flex: 1 }}>
+          <Text style={{ ...TYPOGRAPHY.body, color: COLORS.text, fontWeight: '600', flex: 1 }}>
             Comments
           </Text>
-          <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>
+          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }}>
             {showComments ? '▲' : '▼'}
           </Text>
         </View>
@@ -848,14 +844,14 @@ export default function PlayerScreen() {
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '700' }}>
+              <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.text }}>
                 Add to Playlist
               </Text>
               <AnimatedPressable onPress={() => {
                 console.log('[Player] Close playlist modal');
                 setShowPlaylistModal(false);
               }}>
-                <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>Cancel</Text>
+                <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary }}>Cancel</Text>
               </AnimatedPressable>
             </View>
 
@@ -919,7 +915,7 @@ export default function PlayerScreen() {
                   ))}
                 </View>
               ) : playlists.length === 0 ? (
-                <Text style={{ color: COLORS.textSecondary, fontSize: 14, textAlign: 'center', paddingVertical: 20 }}>
+                <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 20 }}>
                   No playlists yet — create one above
                 </Text>
               ) : (
@@ -942,10 +938,10 @@ export default function PlayerScreen() {
                         }}
                       >
                         <ThumbsUp size={16} color={COLORS.textSecondary} />
-                        <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '600', flex: 1 }}>
+                        <Text style={{ ...TYPOGRAPHY.body, color: COLORS.text, fontWeight: '600', flex: 1 }}>
                           {pl.name}
                         </Text>
-                        <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>+</Text>
+                        <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }}>+</Text>
                       </View>
                     </AnimatedPressable>
                   ))}

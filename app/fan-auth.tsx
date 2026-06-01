@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Eye, EyeOff, User } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { HHRLogo } from '@/components/HHRLogo';
 import { useAuth } from '@/contexts/AuthContext';
@@ -140,6 +141,9 @@ export default function FanAuthScreen() {
           paddingBottom: insets.bottom + 40,
           paddingHorizontal: 24,
           justifyContent: 'center',
+          maxWidth: LAYOUT.contentMaxWidth,
+          alignSelf: 'center',
+          width: '100%',
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -177,19 +181,17 @@ export default function FanAuthScreen() {
             </View>
             <Text
               style={{
+                ...TYPOGRAPHY.h1,
                 color: COLORS.text,
-                fontSize: 24,
-                fontWeight: '700',
                 marginTop: 16,
-                letterSpacing: -0.3,
               }}
             >
               Fan Account
             </Text>
             <Text
               style={{
+                ...TYPOGRAPHY.body,
                 color: COLORS.textSecondary,
-                fontSize: 14,
                 marginTop: 6,
                 textAlign: 'center',
               }}
@@ -229,8 +231,7 @@ export default function FanAuthScreen() {
                   >
                     <Text
                       style={{
-                        fontSize: 14,
-                        fontWeight: '700',
+                        ...TYPOGRAPHY.button,
                         color: isActive ? COLORS.background : COLORS.textSecondary,
                       }}
                     >
@@ -249,9 +250,9 @@ export default function FanAuthScreen() {
               <View>
                 <Text
                   style={{
+                    ...TYPOGRAPHY.caption,
+                    fontWeight: '600',
                     color: COLORS.textSecondary,
-                    fontSize: 13,
-                    fontWeight: '500',
                     marginBottom: 8,
                   }}
                 >
@@ -282,9 +283,9 @@ export default function FanAuthScreen() {
             <View>
               <Text
                 style={{
+                  ...TYPOGRAPHY.caption,
+                  fontWeight: '600',
                   color: COLORS.textSecondary,
-                  fontSize: 13,
-                  fontWeight: '500',
                   marginBottom: 8,
                 }}
               >
@@ -315,9 +316,9 @@ export default function FanAuthScreen() {
             <View>
               <Text
                 style={{
+                  ...TYPOGRAPHY.caption,
+                  fontWeight: '600',
                   color: COLORS.textSecondary,
-                  fontSize: 13,
-                  fontWeight: '500',
                   marginBottom: 8,
                 }}
               >
@@ -347,6 +348,7 @@ export default function FanAuthScreen() {
                     console.log('[FanAuth] Toggle password visibility');
                     setShowPassword(!showPassword);
                   }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={{
                     position: 'absolute',
                     right: 14,
@@ -372,9 +374,9 @@ export default function FanAuthScreen() {
               >
                 <Text
                   style={{
-                    color: COLORS.primary,
-                    fontSize: 13,
+                    ...TYPOGRAPHY.caption,
                     fontWeight: '600',
+                    color: COLORS.primary,
                   }}
                 >
                   Forgot Password?
@@ -386,8 +388,8 @@ export default function FanAuthScreen() {
             {error ? (
               <Text
                 style={{
+                  ...TYPOGRAPHY.caption,
                   color: COLORS.danger,
-                  fontSize: 13,
                   textAlign: 'center',
                 }}
               >
@@ -412,10 +414,8 @@ export default function FanAuthScreen() {
               >
                 <Text
                   style={{
+                    ...TYPOGRAPHY.button,
                     color: COLORS.background,
-                    fontSize: 16,
-                    fontWeight: '700',
-                    letterSpacing: 0.5,
                   }}
                 >
                   {buttonLabel}

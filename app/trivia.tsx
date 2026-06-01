@@ -9,6 +9,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Brain, CheckCircle, XCircle, Trophy } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -207,20 +208,23 @@ export default function TriviaScreen() {
           paddingTop: insets.top + 16,
           paddingBottom: 80,
           paddingHorizontal: 20,
+          maxWidth: LAYOUT.feedMaxWidth,
+          alignSelf: 'center',
+          width: '100%',
         }}
         showsVerticalScrollIndicator={false}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <Brain size={24} color={COLORS.primary} />
-          <Text style={{ color: COLORS.text, fontSize: 26, fontWeight: '800', letterSpacing: -0.4 }}>
+          <Text style={{ ...TYPOGRAPHY.h1, color: COLORS.text }}>
             Trivia
           </Text>
         </View>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginBottom: 28 }}>
+        <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, marginBottom: 28 }}>
           Test your knowledge and earn points
         </Text>
 
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '600', letterSpacing: 0.5, marginBottom: 12 }}>
+        <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '600', letterSpacing: 0.5, color: COLORS.textSecondary, marginBottom: 12 }}>
           CHOOSE A CATEGORY
         </Text>
 
@@ -250,8 +254,8 @@ export default function TriviaScreen() {
                   <Text style={{ fontSize: 24 }}>{cat.emoji}</Text>
                   <Text
                     style={{
+                      ...TYPOGRAPHY.body,
                       color: isSelected ? COLORS.primary : COLORS.text,
-                      fontSize: 16,
                       fontWeight: isSelected ? '700' : '500',
                     }}
                   >
@@ -281,7 +285,7 @@ export default function TriviaScreen() {
             }}
           >
             {loading && <ActivityIndicator size="small" color={COLORS.background} />}
-            <Text style={{ color: COLORS.background, fontSize: 17, fontWeight: '800' }}>
+            <Text style={{ ...TYPOGRAPHY.button, color: COLORS.background }}>
               {loading ? 'Loading...' : 'Start Quiz'}
             </Text>
           </View>
@@ -303,10 +307,10 @@ export default function TriviaScreen() {
         }}
       >
         <Trophy size={56} color="#F59E0B" />
-        <Text style={{ color: COLORS.text, fontSize: 28, fontWeight: '800', marginTop: 16, textAlign: 'center' }}>
+        <Text style={{ ...TYPOGRAPHY.display, color: COLORS.text, marginTop: 16, textAlign: 'center' }}>
           Quiz Complete!
         </Text>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 16, marginTop: 8, textAlign: 'center' }}>
+        <Text style={{ ...TYPOGRAPHY.bodyLarge, color: COLORS.textSecondary, marginTop: 8, textAlign: 'center' }}>
           {String(finalScore)}
           /
           {String(questions.length)}
@@ -326,11 +330,11 @@ export default function TriviaScreen() {
             width: '100%',
           }}
         >
-          <Text style={{ color: COLORS.primary, fontSize: 32, fontWeight: '800' }}>
+          <Text style={{ ...TYPOGRAPHY.display, color: COLORS.primary }}>
             +
             {String(totalPoints)}
           </Text>
-          <Text style={{ color: COLORS.primary, fontSize: 14, fontWeight: '600' }}>
+          <Text style={{ ...TYPOGRAPHY.body, fontWeight: '600', color: COLORS.primary }}>
             points earned
           </Text>
         </View>
@@ -343,7 +347,7 @@ export default function TriviaScreen() {
               alignItems: 'center',
             }}
           >
-            <Text style={{ color: COLORS.background, fontSize: 16, fontWeight: '700' }}>
+            <Text style={{ ...TYPOGRAPHY.button, color: COLORS.background }}>
               Play Again
             </Text>
           </View>
@@ -361,12 +365,15 @@ export default function TriviaScreen() {
           paddingTop: insets.top + 16,
           paddingBottom: 80,
           paddingHorizontal: 20,
+          maxWidth: LAYOUT.feedMaxWidth,
+          alignSelf: 'center',
+          width: '100%',
         }}
         showsVerticalScrollIndicator={false}
       >
         {/* Progress */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '600' }}>
+          <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '600', color: COLORS.textSecondary }}>
             Question
             {' '}
             {String(currentIndex + 1)}
@@ -383,7 +390,7 @@ export default function TriviaScreen() {
               borderColor: COLORS.primary,
             }}
           >
-            <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '700' }}>
+            <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '700', color: COLORS.primary }}>
               {String(score)}
               {' correct · +'}
               {String(totalPoints)}
@@ -434,18 +441,18 @@ export default function TriviaScreen() {
                 borderColor: COLORS.primary,
               }}
             >
-              <Text style={{ color: COLORS.primary, fontSize: 10, fontWeight: '700' }}>
+              <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '700', color: COLORS.primary }}>
                 {currentQuestion.category.toUpperCase()}
               </Text>
             </View>
-            <Text style={{ color: COLORS.textTertiary, fontSize: 11 }}>
+            <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }}>
               {currentQuestion.difficulty}
               {' · '}
               {String(currentQuestion.points_reward)}
               {' pts'}
             </Text>
           </View>
-          <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '700', lineHeight: 26 }}>
+          <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.text, lineHeight: 26 }}>
             {currentQuestion.question}
           </Text>
         </View>
@@ -511,12 +518,12 @@ export default function TriviaScreen() {
                     ) : showResult && isSelected && !isCorrectAnswer ? (
                       <XCircle size={16} color="#fff" />
                     ) : (
-                      <Text style={{ color: isSelected ? COLORS.background : COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                      <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '700', color: isSelected ? COLORS.background : COLORS.textSecondary }}>
                         {String.fromCharCode(65 + idx)}
                       </Text>
                     )}
                   </View>
-                  <Text style={{ color: textColor, fontSize: 15, fontWeight: isSelected ? '600' : '400', flex: 1 }}>
+                  <Text style={{ ...TYPOGRAPHY.body, color: textColor, fontWeight: isSelected ? '600' : '500', flex: 1 }}>
                     {choice}
                   </Text>
                 </View>
@@ -536,7 +543,7 @@ export default function TriviaScreen() {
                 alignItems: 'center',
               }}
             >
-              <Text style={{ color: COLORS.background, fontSize: 16, fontWeight: '700' }}>
+              <Text style={{ ...TYPOGRAPHY.button, color: COLORS.background }}>
                 {currentIndex + 1 >= questions.length ? 'See Results' : 'Next Question'}
               </Text>
             </View>

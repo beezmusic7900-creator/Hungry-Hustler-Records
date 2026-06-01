@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gift, Clock, RefreshCw } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -209,10 +210,10 @@ export default function SpinScreen() {
         }}
       >
         <Gift size={48} color={COLORS.primary} />
-        <Text style={{ color: COLORS.text, fontSize: 22, fontWeight: '700', marginTop: 16, textAlign: 'center' }}>
+        <Text style={{ ...TYPOGRAPHY.h2, color: COLORS.text, marginTop: 16, textAlign: 'center' }}>
           Daily Spin to Win
         </Text>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+        <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, marginTop: 8, textAlign: 'center' }}>
           Sign in to spin the wheel and win prizes every day
         </Text>
       </View>
@@ -227,13 +228,16 @@ export default function SpinScreen() {
         paddingBottom: 80,
         paddingHorizontal: 20,
         alignItems: 'center',
+        maxWidth: LAYOUT.feedMaxWidth,
+        alignSelf: 'center',
+        width: '100%',
       }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={{ color: COLORS.text, fontSize: 28, fontWeight: '800', letterSpacing: -0.5, marginBottom: 4 }}>
+      <Text style={{ ...TYPOGRAPHY.display, color: COLORS.text, marginBottom: 4 }}>
         Spin to Win
       </Text>
-      <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginBottom: 32 }}>
+      <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, marginBottom: 32 }}>
         One free spin every day
       </Text>
 
@@ -364,7 +368,7 @@ export default function SpinScreen() {
           borderColor: COLORS.border,
         }}
       >
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '600', letterSpacing: 0.5, marginBottom: 12 }}>
+        <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '600', letterSpacing: 0.5, color: COLORS.textSecondary, marginBottom: 12 }}>
           POSSIBLE PRIZES
         </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -384,7 +388,7 @@ export default function SpinScreen() {
               }}
             >
               <Text style={{ fontSize: 14 }}>{w.emoji}</Text>
-              <Text style={{ color: COLORS.text, fontSize: 12, fontWeight: '600' }}>{w.label}</Text>
+              <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '600', color: COLORS.text }}>{w.label}</Text>
             </View>
           ))}
         </View>
@@ -405,10 +409,10 @@ export default function SpinScreen() {
           }}
         >
           <Clock size={28} color={COLORS.textSecondary} />
-          <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: '700', marginTop: 10 }}>
+          <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.text, marginTop: 10 }}>
             Come back tomorrow
           </Text>
-          <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 4 }}>
+          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 4 }}>
             Next spin in
             {' '}
             {countdown}
@@ -431,10 +435,8 @@ export default function SpinScreen() {
           >
             <Text
               style={{
+                ...TYPOGRAPHY.button,
                 color: spinning ? COLORS.textSecondary : COLORS.background,
-                fontSize: 18,
-                fontWeight: '800',
-                letterSpacing: 0.5,
               }}
             >
               {spinning ? 'Spinning...' : '🎰 SPIN NOW'}
@@ -454,7 +456,7 @@ export default function SpinScreen() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <RefreshCw size={14} color={COLORS.textSecondary} />
-          <Text style={{ color: COLORS.textSecondary, fontSize: 13, textDecorationLine: 'underline' }}>
+          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, textDecorationLine: 'underline' }}>
             View spin history
           </Text>
         </View>
@@ -487,10 +489,10 @@ export default function SpinScreen() {
                 <Text style={{ fontSize: 56, marginBottom: 12 }}>
                   {result.prize_type === 'no_prize' ? '😢' : '🎉'}
                 </Text>
-                <Text style={{ color: COLORS.text, fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 8 }}>
+                <Text style={{ ...TYPOGRAPHY.h2, color: COLORS.text, textAlign: 'center', marginBottom: 8 }}>
                   {result.prize_type === 'no_prize' ? 'Better luck tomorrow!' : 'You won!'}
                 </Text>
-                <Text style={{ color: COLORS.primary, fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>
+                <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.primary, textAlign: 'center', marginBottom: 8 }}>
                   {result.message}
                 </Text>
                 {result.coupon_code && (
@@ -505,13 +507,13 @@ export default function SpinScreen() {
                       marginBottom: 8,
                     }}
                   >
-                    <Text style={{ color: COLORS.primary, fontSize: 18, fontWeight: '800', letterSpacing: 2 }}>
+                    <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.primary, letterSpacing: 2 }}>
                       {result.coupon_code}
                     </Text>
                   </View>
                 )}
                 {result.points_awarded && result.points_awarded > 0 && (
-                  <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginBottom: 16 }}>
+                  <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, marginBottom: 16 }}>
                     +
                     {String(result.points_awarded)}
                     {' pts added to your account'}
@@ -532,7 +534,7 @@ export default function SpinScreen() {
                       paddingHorizontal: 40,
                     }}
                   >
-                    <Text style={{ color: COLORS.background, fontSize: 16, fontWeight: '700' }}>
+                    <Text style={{ ...TYPOGRAPHY.button, color: COLORS.background }}>
                       Awesome!
                     </Text>
                   </View>
@@ -558,7 +560,7 @@ export default function SpinScreen() {
               borderColor: COLORS.border,
             }}
           >
-            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '700', marginBottom: 16 }}>
+            <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.text, marginBottom: 16 }}>
               Spin History
             </Text>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -569,7 +571,7 @@ export default function SpinScreen() {
                   ))}
                 </View>
               ) : history.length === 0 ? (
-                <Text style={{ color: COLORS.textSecondary, fontSize: 14, textAlign: 'center', paddingVertical: 20 }}>
+                <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 20 }}>
                   No spins yet
                 </Text>
               ) : (
@@ -589,25 +591,25 @@ export default function SpinScreen() {
                       }}
                     >
                       <View>
-                        <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }}>
+                        <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '600', color: COLORS.text }}>
                           {entry.prize_type.replace(/_/g, ' ')}
                         </Text>
                         {entry.coupon_code && (
-                          <Text style={{ color: COLORS.primary, fontSize: 12, marginTop: 2 }}>
+                          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.primary, marginTop: 2 }}>
                             Code:
                             {' '}
                             {entry.coupon_code}
                           </Text>
                         )}
                         {entry.points_awarded && entry.points_awarded > 0 && (
-                          <Text style={{ color: COLORS.primary, fontSize: 12, marginTop: 2 }}>
+                          <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.primary, marginTop: 2 }}>
                             +
                             {String(entry.points_awarded)}
                             {' pts'}
                           </Text>
                         )}
                       </View>
-                      <Text style={{ color: COLORS.textTertiary, fontSize: 11 }}>
+                      <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary }}>
                         {timeAgo(entry.spun_at)}
                       </Text>
                     </View>

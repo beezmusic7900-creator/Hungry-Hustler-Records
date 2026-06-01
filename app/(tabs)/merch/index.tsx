@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShoppingBag, Heart, BarChart2, Package } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonMerchCard } from '@/components/SkeletonLoader';
 import { supabase, supabasePublic } from '@/integrations/supabase/client';
@@ -160,10 +161,9 @@ function MerchCard({ item, index, onPress }: { item: MerchItem; index: number; o
         <View style={{ padding: 12 }}>
           <Text
             style={{
-              color: COLORS.text,
-              fontSize: 13,
+              ...TYPOGRAPHY.caption,
               fontWeight: '600',
-              lineHeight: 18,
+              color: COLORS.text,
             }}
             numberOfLines={2}
           >
@@ -171,9 +171,9 @@ function MerchCard({ item, index, onPress }: { item: MerchItem; index: number; o
           </Text>
           <Text
             style={{
-              color: COLORS.primary,
-              fontSize: 16,
+              ...TYPOGRAPHY.body,
               fontWeight: '700',
+              color: COLORS.primary,
               marginTop: 4,
             }}
           >
@@ -207,8 +207,7 @@ function MerchCard({ item, index, onPress }: { item: MerchItem; index: number; o
                   >
                     <Text
                       style={{
-                        fontSize: 11,
-                        fontWeight: '600',
+                        ...TYPOGRAPHY.tabLabel,
                         color: isSelected ? COLORS.background : COLORS.textSecondary,
                       }}
                     >
@@ -243,10 +242,9 @@ function MerchCard({ item, index, onPress }: { item: MerchItem; index: number; o
                 >
                   <Text
                     style={{
-                      color: buttonTextColor,
-                      fontSize: 12,
+                      ...TYPOGRAPHY.caption,
                       fontWeight: '700',
-                      letterSpacing: 0.5,
+                      color: buttonTextColor,
                     }}
                   >
                     {buttonLabel}
@@ -351,18 +349,16 @@ export default function MerchScreen() {
       >
         <Text
           style={{
+            ...TYPOGRAPHY.display,
             color: COLORS.text,
-            fontSize: 28,
-            fontWeight: '700',
-            letterSpacing: -0.5,
           }}
         >
           Merch
         </Text>
         <Text
           style={{
+            ...TYPOGRAPHY.body,
             color: COLORS.textSecondary,
-            fontSize: 14,
             marginTop: 4,
           }}
         >
@@ -388,9 +384,8 @@ export default function MerchScreen() {
         >
           <Text
             style={{
+              ...TYPOGRAPHY.h3,
               color: COLORS.danger,
-              fontSize: 16,
-              fontWeight: '600',
               textAlign: 'center',
             }}
           >
@@ -398,8 +393,8 @@ export default function MerchScreen() {
           </Text>
           <Text
             style={{
+              ...TYPOGRAPHY.body,
               color: COLORS.textSecondary,
-              fontSize: 14,
               textAlign: 'center',
               marginTop: 8,
             }}
@@ -448,9 +443,8 @@ export default function MerchScreen() {
           </View>
           <Text
             style={{
+              ...TYPOGRAPHY.h3,
               color: COLORS.text,
-              fontSize: 18,
-              fontWeight: '600',
               textAlign: 'center',
             }}
           >
@@ -458,8 +452,8 @@ export default function MerchScreen() {
           </Text>
           <Text
             style={{
+              ...TYPOGRAPHY.body,
               color: COLORS.textSecondary,
-              fontSize: 14,
               textAlign: 'center',
               marginTop: 8,
               maxWidth: 280,
@@ -507,14 +501,14 @@ export default function MerchScreen() {
                   >
                     <BarChart2 size={20} color={COLORS.primary} />
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 }}>
+                      <Text style={{ ...TYPOGRAPHY.tabLabel, color: COLORS.primary, fontWeight: '700' }}>
                         ACTIVE POLL
                       </Text>
-                      <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600', marginTop: 2 }} numberOfLines={1}>
+                      <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '600', marginTop: 2 }} numberOfLines={1}>
                         {activePoll.title}
                       </Text>
                     </View>
-                    <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700' }}>
+                    <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.primary, fontWeight: '700' }}>
                       Vote now →
                     </Text>
                   </View>
@@ -527,13 +521,13 @@ export default function MerchScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Package size={16} color={COLORS.primary} />
-                      <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '700' }}>Collections</Text>
+                      <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.text, fontWeight: '700' }}>Collections</Text>
                     </View>
                     <AnimatedPressable onPress={() => {
                       console.log('[Merch] See all collections pressed');
                       router.push('/collections');
                     }}>
-                      <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600' }}>See all →</Text>
+                      <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.primary, fontWeight: '600' }}>See all →</Text>
                     </AnimatedPressable>
                   </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
@@ -567,7 +561,7 @@ export default function MerchScreen() {
                             </View>
                           )}
                           <View style={{ padding: 8 }}>
-                            <Text style={{ color: COLORS.text, fontSize: 11, fontWeight: '600' }} numberOfLines={2}>{col.name}</Text>
+                            <Text style={{ ...TYPOGRAPHY.tabLabel, color: COLORS.text, fontWeight: '600' }} numberOfLines={2}>{col.name}</Text>
                           </View>
                         </View>
                       </AnimatedPressable>

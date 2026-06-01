@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Video, Play, Heart } from 'lucide-react-native';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { supabasePublic } from '@/integrations/supabase/client';
@@ -188,10 +189,9 @@ function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) 
         <View style={{ padding: 10 }}>
           <Text
             style={{
-              color: COLORS.text,
-              fontSize: 14,
+              ...TYPOGRAPHY.caption,
               fontWeight: '700',
-              lineHeight: 18,
+              color: COLORS.text,
             }}
             numberOfLines={2}
           >
@@ -199,7 +199,7 @@ function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) 
           </Text>
           {item.description ? (
             <Text
-              style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 3 }}
+              style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 3 }}
               numberOfLines={1}
             >
               {item.description}
@@ -224,7 +224,7 @@ function VideoCard({ item, cardWidth }: { item: VideoItem; cardWidth: number }) 
                   alignSelf: 'flex-start',
                 }}
               >
-                <Text style={{ color: COLORS.textSecondary, fontSize: 10, fontWeight: '600' }}>LYRICS</Text>
+                <Text style={{ ...TYPOGRAPHY.tabLabel, color: COLORS.textSecondary }}>LYRICS</Text>
               </View>
             </AnimatedPressable>
           </View>
@@ -345,10 +345,8 @@ export default function VideosScreen() {
       >
         <Text
           style={{
+            ...TYPOGRAPHY.display,
             color: COLORS.text,
-            fontSize: 28,
-            fontWeight: '700',
-            letterSpacing: -0.5,
           }}
         >
           VIDEOS
@@ -391,7 +389,7 @@ export default function VideosScreen() {
         </View>
       ) : error ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-          <Text style={{ color: COLORS.danger, fontSize: 15, textAlign: 'center' }}>
+          <Text style={{ ...TYPOGRAPHY.body, color: COLORS.danger, textAlign: 'center' }}>
             {error}
           </Text>
           <AnimatedPressable
@@ -437,9 +435,8 @@ export default function VideosScreen() {
           </View>
           <Text
             style={{
+              ...TYPOGRAPHY.h3,
               color: COLORS.text,
-              fontSize: 18,
-              fontWeight: '600',
               textAlign: 'center',
             }}
           >
@@ -447,8 +444,8 @@ export default function VideosScreen() {
           </Text>
           <Text
             style={{
+              ...TYPOGRAPHY.body,
               color: COLORS.textSecondary,
-              fontSize: 14,
               textAlign: 'center',
               marginTop: 8,
               maxWidth: 260,
@@ -469,6 +466,7 @@ export default function VideosScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
+          <View style={{ width: '100%', maxWidth: LAYOUT.feedMaxWidth, alignSelf: 'center' }}>
           {grouped.map((section) => {
             const rows: VideoItem[][] = [];
             for (let i = 0; i < section.videos.length; i += 2) {
@@ -489,9 +487,8 @@ export default function VideosScreen() {
                     ) : null}
                     <Text
                       style={{
+                        ...TYPOGRAPHY.h2,
                         color: COLORS.text,
-                        fontSize: 20,
-                        fontWeight: '700',
                       }}
                     >
                       {section.artistName}
@@ -539,6 +536,7 @@ export default function VideosScreen() {
               </View>
             );
           })}
+          </View>
         </ScrollView>
       )}
     </View>

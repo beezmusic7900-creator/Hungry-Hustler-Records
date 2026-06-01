@@ -33,6 +33,7 @@ import {
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '@/constants/Colors';
+import { TYPOGRAPHY, LAYOUT } from '@/constants/Typography';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { SkeletonLine } from '@/components/SkeletonLoader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -554,9 +555,8 @@ export default function FanProfileScreen() {
         </View>
         <Text
           style={{
+            ...TYPOGRAPHY.h2,
             color: COLORS.text,
-            fontSize: 22,
-            fontWeight: '700',
             textAlign: 'center',
           }}
         >
@@ -564,8 +564,8 @@ export default function FanProfileScreen() {
         </Text>
         <Text
           style={{
+            ...TYPOGRAPHY.body,
             color: COLORS.textSecondary,
-            fontSize: 14,
             textAlign: 'center',
             marginTop: 8,
             maxWidth: 260,
@@ -586,16 +586,11 @@ export default function FanProfileScreen() {
               borderRadius: 14,
               paddingVertical: 16,
               alignItems: 'center',
+              minHeight: LAYOUT.minTapTarget,
+              justifyContent: 'center',
             }}
           >
-            <Text
-              style={{
-                color: COLORS.background,
-                fontSize: 16,
-                fontWeight: '700',
-                letterSpacing: 0.5,
-              }}
-            >
+            <Text style={{ ...TYPOGRAPHY.button, color: COLORS.background }}>
               Sign In to Save Favorites
             </Text>
           </View>
@@ -615,6 +610,9 @@ export default function FanProfileScreen() {
         paddingTop: insets.top + 16,
         paddingBottom: 80,
         paddingHorizontal: 20,
+        maxWidth: LAYOUT.feedMaxWidth,
+        alignSelf: 'center',
+        width: '100%',
       }}
       refreshControl={
         <RefreshControl
@@ -680,21 +678,21 @@ export default function FanProfileScreen() {
 
           <View>
             {userName ? (
-              <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '700' }}>
+              <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.text }}>
                 {userName}
               </Text>
             ) : null}
             {displayName ? (
-              <Text style={{ color: COLORS.primary, fontSize: 14, fontWeight: '600', marginTop: 1 }}>
+              <Text style={{ ...TYPOGRAPHY.body, fontWeight: '600', color: COLORS.primary, marginTop: 1 }}>
                 {displayName}
               </Text>
             ) : null}
             {username ? (
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 1 }}>
+              <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 1 }}>
                 @{username}
               </Text>
             ) : null}
-            <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 2 }}>
+            <Text style={{ ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 }}>
               {userEmail}
             </Text>
           </View>
@@ -747,7 +745,7 @@ export default function FanProfileScreen() {
       {/* Bio display */}
       {bio ? (
         <View style={{ marginBottom: 16 }}>
-          <Text style={{ color: COLORS.textSecondary, fontSize: 14, lineHeight: 20 }}>
+          <Text style={{ ...TYPOGRAPHY.body, color: COLORS.textSecondary, lineHeight: 22 }}>
             {bio}
           </Text>
         </View>
@@ -766,13 +764,13 @@ export default function FanProfileScreen() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <Heart size={16} color={COLORS.primary} fill={COLORS.primary} />
-          <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '700' }}>
+          <Text style={{ ...TYPOGRAPHY.bodyLarge, fontWeight: '700', color: COLORS.text }}>
             My Favorites
           </Text>
         </View>
 
         {/* Favorite Artist */}
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8, letterSpacing: 0.5 }}>
+        <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 8, letterSpacing: 0.5 }}>
           FAVORITE ARTIST
         </Text>
         {favoriteArtist ? (
@@ -862,7 +860,7 @@ export default function FanProfileScreen() {
         )}
 
         {/* Favorite Song */}
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8, letterSpacing: 0.5 }}>
+        <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 8, letterSpacing: 0.5 }}>
           FAVORITE SONG
         </Text>
         {favoriteSong ? (
@@ -1017,12 +1015,12 @@ export default function FanProfileScreen() {
             borderColor: COLORS.border,
           }}
         >
-          <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: '700', marginBottom: 14 }}>
+          <Text style={{ ...TYPOGRAPHY.h3, color: COLORS.text, marginBottom: 14 }}>
             Edit Profile
           </Text>
 
           {/* Display Name */}
-          <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '500', marginBottom: 6 }}>
+          <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
             Display Name
           </Text>
           <TextInput
@@ -1046,7 +1044,7 @@ export default function FanProfileScreen() {
           />
 
           {/* Username */}
-          <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '500', marginBottom: 6 }}>
+          <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 }}>
             Username
           </Text>
           <TextInput
@@ -1071,7 +1069,7 @@ export default function FanProfileScreen() {
 
           {/* Bio */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-            <Text style={{ color: COLORS.textSecondary, fontSize: 13, fontWeight: '500' }}>
+            <Text style={{ ...TYPOGRAPHY.caption, fontWeight: '600', color: COLORS.textSecondary }}>
               Bio
             </Text>
             <Text style={{ color: bioCharCount > 260 ? COLORS.danger : COLORS.textTertiary, fontSize: 12 }}>
